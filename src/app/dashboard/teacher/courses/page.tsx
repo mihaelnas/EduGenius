@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { subjects, courses as allCourses, Course, Resource } from '@/lib/placeholder-data';
 import { BookOpen, PlusCircle, Paperclip, Video, Link as LinkIcon, Edit, Trash2 } from 'lucide-react';
+import { AddCourseDialog } from '@/components/teacher/add-course-dialog';
+import { EditCourseDialog } from '@/components/teacher/edit-course-dialog';
+import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 
 // Mock: assumes the logged in teacher is Alice Johnson (id: usr_2)
 const TEACHER_ID = 'usr_2';
@@ -32,19 +35,44 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 export default function TeacherCoursesPage() {
   const teacherSubjects = subjects.filter(s => s.teacherId === TEACHER_ID);
   const [courses, setCourses] = React.useState<Course[]>(allCourses);
+  const [isAddCourseDialogOpen, setIsAddCourseDialogOpen] = React.useState(false);
+  const [isEditCourseDialogOpen, setIsEditCourseDialogOpen] = React.useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+  const [selectedCourse, setSelectedCourse] = React.useState<Course | null>(null);
+  const [selectedSubjectId, setSelectedSubjectId] = React.useState<string | null>(null);
+
+  const handleOpenAddDialog = (subjectId: string) => {
+    setSelectedSubjectId(subjectId);
+    setIsAddCourseDialogOpen(true);
+  };
+  
+  const handleEdit = (course: Course) => {
+    setSelectedCourse(course);
+    setIsEditCourseDialogOpen(true);
+  };
+
+  const handleDelete = (course: Course) => {
+    setSelectedCourse(course);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedCourse) {
+      setCourses(courses.filter(c => c.id !== selectedCourse.id));
+      setIsDeleteDialogOpen(false);
+      setSelectedCourse(null);
+    }
+  };
 
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight font-headline">Mes Cours</h1>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Créer une matière
-        </Button>
+        <h1 className="text-3xl font-bold tracking-tight font-headline">Gestion des Cours</h1>
+        <p className="text-muted-foreground">
+          Gérez le contenu pédagogique de vos matières.
+        </p>
       </div>
-      <p className="text-muted-foreground">
-        Gérez le contenu pédagogique de vos matières.
-      </p>
+      
 
       <div className="mt-6">
         <Accordion type="single" collapsible className="w-full space-y-4">
@@ -62,7 +90,7 @@ export default function TeacherCoursesPage() {
                       <p className="text-muted-foreground">
                          {courses.filter(c => c.subjectId === subject.id).length} cours publiés.
                       </p>
-                       <Button variant="outline" size="sm">
+                       <Button variant="outline" size="sm" onClick={() => handleOpenAddDialog(subject.id)}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Ajouter un cours
                       </Button>
@@ -76,11 +104,11 @@ export default function TeacherCoursesPage() {
                                 <p className="text-sm text-muted-foreground">{course.content}</p>
                             </div>
                              <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(course)}>
                                     <Edit className="h-4 w-4" />
                                     <span className="sr-only">Modifier</span>
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(course)}>
                                     <Trash2 className="h-4 w-4" />
                                     <span className="sr-only">Supprimer</span>
                                 </Button>
@@ -89,6 +117,7 @@ export default function TeacherCoursesPage() {
 
                           {course.resources.length > 0 && (
                             <div className="mt-3 space-y-2 border-t pt-3">
+                               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ressources</h4>
                               {course.resources.map(resource => (
                                 <a
                                   key={resource.id}
@@ -113,6 +142,32 @@ export default function TeacherCoursesPage() {
           ))}
         </Accordion>
       </div>
+
+       {selectedSubjectId && (
+        <AddCourseDialog
+          isOpen={isAddCourseDialogOpen}
+          setIsOpen={setIsAddCourseDialogOpen}
+          subjectId={selectedSubjectId}
+          onCourseAdded={(newCourse) => setCourses(prev => [...prev, newCourse])}
+        />
+      )}
+
+      {selectedCourse && (
+        <EditCourseDialog
+          isOpen={isEditCourseDialogOpen}
+          setIsOpen={setIsEditCourseDialogOpen}
+          course={selectedCourse}
+          onCourseUpdated={(updatedCourse) => setCourses(courses.map(c => c.id === updatedCourse.id ? updatedCourse : c))}
+        />
+      )}
+      
+      <DeleteConfirmationDialog
+        isOpen={isDeleteDialogOpen}
+        setIsOpen={setIsDeleteDialogOpen}
+        onConfirm={confirmDelete}
+        itemName={selectedCourse?.title}
+        itemType="le cours"
+      />
     </>
   );
 }

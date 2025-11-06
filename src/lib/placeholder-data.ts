@@ -74,6 +74,17 @@ export type Course = {
   createdAt: string;
 };
 
+export type ScheduleEvent = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  subject: string;
+  class: string;
+  type: 'en-salle' | 'en-ligne';
+  status: 'planifié' | 'reporté' | 'annulé' | 'effectué';
+};
+
 export const users: AppUser[] = [
   { 
     id: 'usr_1', 
@@ -230,6 +241,12 @@ export const courses: Course[] = [
         createdAt: '2023-10-20'
     },
 ];
+
+export const schedule: ScheduleEvent[] = [
+  { id: 'evt_1', date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '10:00', subject: 'Mathématiques Avancées', class: 'Licence 3 - IG', type: 'en-salle', status: 'planifié' },
+  { id: 'evt_2', date: new Date().toISOString().split('T')[0], startTime: '11:00', endTime: '12:00', subject: 'Physique Quantique', class: 'Licence 3 - GID', type: 'en-ligne', status: 'planifié' },
+];
+
 
 export const students = [
   { id: 'stu_1', name: 'Eva Green' },
