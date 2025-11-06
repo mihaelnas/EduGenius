@@ -19,7 +19,7 @@ const resourceSchema = z.object({
   id: z.string().optional(),
   type: z.enum(['pdf', 'video', 'link']),
   title: z.string().min(1, 'Le titre est requis.'),
-  url: z.string().url('URL invalide.'),
+  url: z.string().min(1, 'Un fichier ou une URL est requis(e).'), // Represents file path or URL
 });
 
 const formSchema = z.object({
@@ -50,6 +50,8 @@ export function AddCourseDialog({ isOpen, setIsOpen, subjectId, onCourseAdded }:
     control: form.control,
     name: "resources"
   });
+  
+  const watchedResources = form.watch('resources');
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const newCourse: Course = {
@@ -88,14 +90,30 @@ export function AddCourseDialog({ isOpen, setIsOpen, subjectId, onCourseAdded }:
             <div>
               <h4 className="text-sm font-medium mb-2">Ressources</h4>
               <div className="space-y-4">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="flex gap-2 items-end p-3 border rounded-md">
-                     <FormField control={form.control} name={`resources.${index}.type`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="pdf">PDF</SelectItem><SelectItem value="video">Vidéo</SelectItem><SelectItem value="link">Lien</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                     <FormField control={form.control} name={`resources.${index}.title`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>Titre</FormLabel><FormControl><Input placeholder="Titre de la ressource" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                     <FormField control={form.control} name={`resources.${index}.url`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>URL</FormLabel><FormControl><Input placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem> )} />
-                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                ))}
+                {fields.map((field, index) => {
+                  const resourceType = watchedResources[index]?.type;
+                  return (
+                    <div key={field.id} className="flex gap-2 items-end p-3 border rounded-md">
+                      <FormField control={form.control} name={`resources.${index}.type`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="pdf">PDF</SelectItem><SelectItem value="video">Vidéo</SelectItem><SelectItem value="link">Lien</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                      <FormField control={form.control} name={`resources.${index}.title`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>Titre</FormLabel><FormControl><Input placeholder="Titre de la ressource" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                      <FormField control={form.control} name={`resources.${index}.url`} render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>{resourceType === 'link' ? 'URL' : 'Fichier'}</FormLabel>
+                          <FormControl>
+                            <Input
+                              type={resourceType === 'link' ? 'text' : 'file'}
+                              placeholder={resourceType === 'link' ? 'https://...' : ''}
+                              {...field}
+                              value={resourceType !== 'link' ? undefined : field.value} // File input cannot be a controlled component
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  );
+                })}
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ type: 'link', title: '', url: '' })}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une ressource
                 </Button>
