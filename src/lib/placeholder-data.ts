@@ -58,6 +58,22 @@ export type Subject = {
   createdAt: string;
 };
 
+export type Resource = {
+  id: string;
+  type: 'pdf' | 'video' | 'link';
+  title: string;
+  url: string;
+};
+
+export type Course = {
+  id: string;
+  title: string;
+  content: string;
+  subjectId: string;
+  resources: Resource[];
+  createdAt: string;
+};
+
 export const users: AppUser[] = [
   { 
     id: 'usr_1', 
@@ -175,6 +191,46 @@ export const subjects: Subject[] = [
     { id: 'sub_4', name: 'Histoire Moderne', credit: 3, semestre: 'S2', teacherId: undefined, classCount: 1, createdAt: '2023-09-02' },
 ];
 
+export const courses: Course[] = [
+    { 
+        id: 'crs_1', 
+        subjectId: 'sub_1', 
+        title: 'Chapitre 1: Algèbre Linéaire', 
+        content: 'Ce chapitre couvre les bases des espaces vectoriels, des matrices et des déterminants.',
+        resources: [
+            { id: 'res_1', type: 'pdf', title: 'Notes de cours - Chapitre 1', url: '#' },
+            { id: 'res_2', type: 'video', title: 'Introduction à l\'algèbre linéaire', url: '#' }
+        ],
+        createdAt: '2023-10-10'
+    },
+    { 
+        id: 'crs_2', 
+        subjectId: 'sub_1', 
+        title: 'Chapitre 2: Analyse Complexe', 
+        content: 'Introduction aux nombres complexes et aux fonctions de variables complexes.',
+        resources: [],
+        createdAt: '2023-10-15'
+    },
+    { 
+        id: 'crs_3', 
+        subjectId: 'sub_2', 
+        title: 'Unité 1: Postulats de la mécanique quantique', 
+        content: 'Une exploration des six postulats fondamentaux de la mécanique quantique.',
+        resources: [
+            { id: 'res_3', type: 'link', title: 'Article de Wikipedia', url: '#' }
+        ],
+        createdAt: '2023-10-12'
+    },
+    { 
+        id: 'crs_4', 
+        subjectId: 'sub_3', 
+        title: 'Les Sonnets de Shakespeare', 
+        content: 'Analyse approfondie des thèmes et des structures dans les sonnets de Shakespeare.',
+        resources: [],
+        createdAt: '2023-10-20'
+    },
+];
+
 export const students = [
   { id: 'stu_1', name: 'Eva Green' },
   { id: 'stu_2', name: 'Frank Miller' },
@@ -182,12 +238,6 @@ export const students = [
   { id: 'stu_4', name: 'Henry Ford' },
 ];
 
-export const courses = [
-    { id: 'crs_1', subject: 'Mathématiques Avancées', title: 'Chapitre 1: Algèbre Linéaire', content: '...' },
-    { id: 'crs_2', subject: 'Mathématiques Avancées', title: 'Chapitre 2: Analyse Complexe', content: '...' },
-    { id: 'crs_3', subject: 'Physique Quantique', title: 'Unité 1: Postulats de la mécanique quantique', content: '...' },
-    { id: 'crs_4', subject: 'Littérature Comparée', title: 'Les Sonnets de Shakespeare', content: '...' },
-];
 
 // Combine nom and prenom for display name
 export function getDisplayName(user: { prenom: string, nom: string }): string {

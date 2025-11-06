@@ -1,13 +1,15 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { classes } from '@/lib/placeholder-data';
+import { classes, users } from '@/lib/placeholder-data';
 import { Users, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function TeacherClassesPage() {
-  // Mock: assumes the logged in teacher is Alice Johnson
-  const teacherClasses = classes.filter(c => c.teachers.includes('Alice Johnson'));
+  // Mock: assumes the logged in teacher is Alice Johnson (id: usr_2)
+  const teacherId = 'usr_2';
+  const teacherClasses = classes.filter(c => c.teacherIds.includes(teacherId));
+  
   return (
     <>
       <h1 className="text-3xl font-bold tracking-tight font-headline">Mes Classes</h1>
@@ -26,7 +28,7 @@ export default function TeacherClassesPage() {
             </CardContent>
             <div className="p-6 pt-0">
                 <Button asChild className="w-full">
-                    <Link href="#">Voir la classe <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                    <Link href={`/dashboard/teacher/classes/${c.id}`}>Voir la classe <ArrowRight className="ml-2 h-4 w-4" /></Link>
                 </Button>
             </div>
           </Card>

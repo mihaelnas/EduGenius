@@ -17,6 +17,7 @@ export const adminNavLinks: NavLink[] = [
 export const teacherNavLinks: NavLink[] = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/dashboard/teacher/classes', label: 'Mes Classes', icon: School },
+  { href: '/dashboard/teacher/courses', label: 'Mes Cours', icon: BookOpen },
   { href: '/dashboard/teacher/schedule', label: 'Emploi du temps', icon: Calendar },
 ];
 
