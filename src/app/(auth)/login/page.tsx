@@ -15,7 +15,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Form,
   FormControl,
@@ -50,6 +49,22 @@ export default function LoginPage() {
       title: 'Connexion réussie',
       description: 'Redirection vers votre tableau de bord...',
     });
+
+    let role = 'student'; // Default role
+    if (values.login.includes('@admin.com')) {
+      role = 'admin';
+    } else if (values.login.includes('@enseignant.com')) {
+      role = 'teacher';
+    } else if (values.login.includes('@etudiant.com')) {
+      role = 'student';
+    }
+    
+    // Store role in localStorage for demonstration purposes
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('userRole', role);
+      localStorage.setItem('userEmail', values.login);
+    }
+
     // Redirect to dashboard after a short delay
     setTimeout(() => {
       router.push('/dashboard');
