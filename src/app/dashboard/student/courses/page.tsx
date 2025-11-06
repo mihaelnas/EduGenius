@@ -1,9 +1,8 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { courses, subjects } from '@/lib/placeholder-data';
+import { studentCourses, studentSubjects, subjects } from '@/lib/placeholder-data';
 import { BookOpen } from 'lucide-react';
 
 export default function StudentCoursesPage() {
-  const studentSubjects = subjects.slice(0, 3); // Mock: l'étudiant est inscrit aux 3 premières matières
 
   return (
     <>
@@ -18,7 +17,7 @@ export default function StudentCoursesPage() {
                     </AccordionTrigger>
                     <AccordionContent>
                         <div className="space-y-3 pl-4 border-l-2 ml-2">
-                            {courses.filter(c => c.subject === subject.name).map(course => (
+                            {studentCourses.filter(c => c.subjectId === subject.id).map(course => (
                                 <a key={course.id} href="#" className="flex items-center gap-3 p-2 rounded-md hover:bg-accent">
                                     <BookOpen className="h-5 w-5 text-primary" />
                                     <span className="font-medium text-foreground/80">{course.title}</span>

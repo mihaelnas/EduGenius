@@ -69,7 +69,6 @@ export type Course = {
   id: string;
   title: string;
   content: string;
-  subject: string;
   subjectId: string;
   resources: Resource[];
   createdAt: string;
@@ -206,7 +205,6 @@ export const subjects: Subject[] = [
 export const courses: Course[] = [
     { 
         id: 'crs_1',
-        subject: 'Mathématiques Avancées',
         subjectId: 'sub_1', 
         title: 'Chapitre 1: Algèbre Linéaire', 
         content: 'Ce chapitre couvre les bases des espaces vectoriels, des matrices et des déterminants.',
@@ -218,7 +216,6 @@ export const courses: Course[] = [
     },
     { 
         id: 'crs_2',
-        subject: 'Mathématiques Avancées',
         subjectId: 'sub_1', 
         title: 'Chapitre 2: Analyse Complexe', 
         content: 'Introduction aux nombres complexes et aux fonctions de variables complexes.',
@@ -227,7 +224,6 @@ export const courses: Course[] = [
     },
     { 
         id: 'crs_3',
-        subject: 'Physique Quantique', 
         subjectId: 'sub_2', 
         title: 'Unité 1: Postulats de la mécanique quantique', 
         content: 'Une exploration des six postulats fondamentaux de la mécanique quantique.',
@@ -238,7 +234,6 @@ export const courses: Course[] = [
     },
     { 
         id: 'crs_4',
-        subject: 'Littérature Comparée',
         subjectId: 'sub_3', 
         title: 'Les Sonnets de Shakespeare', 
         content: 'Analyse approfondie des thèmes et des structures dans les sonnets de Shakespeare.',
@@ -251,6 +246,10 @@ export const schedule: ScheduleEvent[] = [
   { id: 'evt_1', date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '10:00', subject: 'Mathématiques Avancées', class: 'Licence 3 - IG', type: 'en-salle', status: 'planifié' },
   { id: 'evt_2', date: new Date().toISOString().split('T')[0], startTime: '11:00', endTime: '12:00', subject: 'Physique Quantique', class: 'Licence 3 - GID', type: 'en-ligne', status: 'planifié' },
 ];
+
+export const studentSubjects = subjects.slice(0, 3); // Mock: l'étudiant est inscrit aux 3 premières matières
+
+export const studentCourses = courses.filter(c => studentSubjects.some(s => s.id === c.subjectId));
 
 
 export const students = [

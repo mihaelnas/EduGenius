@@ -25,7 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { users, getDisplayName } from '@/lib/placeholder-data';
+import { users, getDisplayName, AppUser } from '@/lib/placeholder-data';
 
 const formSchema = z.object({
   login: z.string().min(1, { message: 'Ce champ est requis.' }),
@@ -66,6 +66,7 @@ export default function LoginPage() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('userRole', user.role);
       localStorage.setItem('userEmail', user.email);
+      // Use getDisplayName for any AppUser type, as it's designed for that.
       localStorage.setItem('userName', getDisplayName(user));
     }
 
@@ -129,5 +130,3 @@ export default function LoginPage() {
     </Card>
   );
 }
-
-    
