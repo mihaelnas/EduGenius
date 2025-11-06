@@ -28,12 +28,12 @@ import { useToast } from '@/hooks/use-toast';
 const formSchema = z.object({
   prenom: z.string()
     .min(1, { message: 'Le prénom est requis.' })
-    .refine(val => val.charAt(0) === val.charAt(0).toUpperCase(), {
+    .refine(val => val.length === 0 || val.charAt(0) === val.charAt(0).toUpperCase(), {
       message: 'Le prénom doit commencer par une majuscule.',
     }),
   nom: z.string()
     .min(1, { message: 'Le nom est requis.' })
-    .refine(val => val === val.toUpperCase(), {
+    .refine(val => val.length === 0 || val === val.toUpperCase(), {
       message: 'Le nom doit être en majuscules.',
     }),
   username: z.string()
@@ -56,6 +56,7 @@ export default function RegisterPage() {
       email: '',
       password: '',
     },
+    mode: 'onBlur',
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -63,7 +64,7 @@ export default function RegisterPage() {
     const userData = {
         ...values,
         nom: values.nom.toUpperCase(),
-        prenom: values.prenom.charAt(0).toUpperCase() + values.prenom.slice(1),
+        prenom: values.prenom.charAt(0).toUpperCase() + values.prenom.slice(1).toLowerCase(),
         role: 'etudiant'
     };
     console.log(userData);
@@ -76,6 +77,22 @@ export default function RegisterPage() {
       router.push('/login');
     }, 1500);
   }
+
+  const handlePrenomBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value) {
+      const formattedValue = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+      form.setValue('prenom', formattedValue, { shouldValidate: true });
+    }
+  };
+
+  const handleNomBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value) {
+      const formattedValue = value.toUpperCase();
+      form.setValue('nom', formattedValue, { shouldValidate: true });
+    }
+  };
 
   return (
     <Card className="w-full max-w-sm shadow-2xl">
@@ -96,7 +113,11 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Prénom</FormLabel>
                     <FormControl>
-                      <Input placeholder="Jean" {...field} />
+                      <Input 
+                        placeholder="Jean" 
+                        {...field}
+                        onBlur={handlePrenomBlur}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -109,7 +130,11 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Nom</FormLabel>
                     <FormControl>
-                      <Input placeholder="DUPONT" {...field} />
+                      <Input 
+                        placeholder="DUPONT" 
+                        {...field}
+                        onBlur={handleNomBlur}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -136,7 +161,7 @@ export default function RegisterPage() {
                 <FormItem className="grid gap-2">
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="nom@exemple.com" {...field} />
+                    <Input placeholder="nom@exemple.com" type="email" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
