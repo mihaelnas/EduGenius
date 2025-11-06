@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/logo';
 import { adminNavLinks, teacherNavLinks, studentNavLinks, type NavLink } from '@/lib/nav-links';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 // Mock hook to get user role. In a real app, this would come from auth context.
 const useUserRole = () => {
@@ -28,26 +27,12 @@ const useUserRole = () => {
     }
   }, []);
 
-
-  const handleRoleChange = (newRole: string) => {
-    if (typeof window !== 'undefined') {
-        let email = 'user@etudiant.com';
-        if (newRole === 'admin') email = 'user@admin.com';
-        if (newRole === 'teacher') email = 'user@enseignant.com';
-        localStorage.setItem('userRole', newRole);
-        localStorage.setItem('userEmail', email);
-    }
-    setRole(newRole);
-    // You might want to force a reload or navigate to the new role's dashboard home
-    window.location.href = '/dashboard';
-  };
-
-  return { role, handleRoleChange };
+  return role;
 };
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const { role, handleRoleChange } = useUserRole();
+  const role = useUserRole();
 
   let navLinks: NavLink[] = [];
   switch (role) {
@@ -57,8 +42,8 @@ export function DashboardSidebar() {
     case 'teacher':
       navLinks = teacherNavLinks;
       break;
-
     case 'student':
+    default:
       navLinks = studentNavLinks;
       break;
   }
@@ -66,22 +51,8 @@ export function DashboardSidebar() {
   return (
     <>
       <SidebarHeader>
-        <div className="p-2">
+        <div className="p-4">
           <Logo />
-        </div>
-         {/* This role switcher is for demonstration purposes only */}
-        <div className="p-2 group-data-[collapsible=icon]:hidden">
-           <label className="text-xs text-sidebar-foreground/70 mb-1 block">Démo : Changer de rôle</label>
-           <Select onValueChange={handleRoleChange} value={role}>
-            <SelectTrigger className="bg-sidebar-accent border-sidebar-border h-9">
-              <SelectValue placeholder="Changer de rôle" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="teacher">Enseignant</SelectItem>
-              <SelectItem value="student">Étudiant</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </SidebarHeader>
       <SidebarContent>
