@@ -1,3 +1,16 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "homepage-hero",
+      "description": "Abstract network of nodes representing connectivity and learning.",
+      "imageUrl": "https://images.unsplash.com/photo-1738082956257-06cde4444b1c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxhYnN0cmFjdCUyMG5ldHdvcmt8ZW58MHx8fHwxNzYyNDI3NTg0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract network"
+    },
+    {
+      "id": "auth-background",
+      "description": "A calm, minimalist background for authentication pages.",
+      "imageUrl": "https://images.unsplash.com/photo-1660480339341-b14ed4706c92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxtaW5pbWFsaXN0JTIwYWJzdHJhY3R8ZW58MHx8fHwxNzYyMzc0MzY0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "minimalist abstract"
+    }
+  ]
 }
