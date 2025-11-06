@@ -40,6 +40,11 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded }: AddEventDial
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      date: '',
+      startTime: '',
+      endTime: '',
+      subject: '',
+      class: '',
       type: 'en-salle',
       status: 'planifié',
       teacherId: TEACHER_ID,
@@ -57,31 +62,13 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded }: AddEventDial
       description: `Le cours de ${values.subject} a été ajouté à l'emploi du temps.`,
     });
     setIsOpen(false);
-    form.reset({
-      type: 'en-salle',
-      status: 'planifié',
-      teacherId: TEACHER_ID,
-      date: '',
-      startTime: '',
-      endTime: '',
-      subject: '',
-      class: '',
-    });
+    form.reset();
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
         setIsOpen(open);
-        if (!open) form.reset({
-          type: 'en-salle',
-          status: 'planifié',
-          teacherId: TEACHER_ID,
-          date: '',
-          startTime: '',
-          endTime: '',
-          subject: '',
-          class: '',
-        });
+        if (!open) form.reset();
     }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
