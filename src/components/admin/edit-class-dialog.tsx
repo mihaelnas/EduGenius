@@ -1,0 +1,161 @@
+
+'use client';
+
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { Class } from '@/lib/placeholder-data';
+import { zodResolver } from '@hookform/resolvers/zod';
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+
+const formSchema = z.object({
+  name: z.string().min(1, { message: 'Le nom de la classe est requis.' }),
+  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']),
+  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']),
+  anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
+});
+
+type EditClassDialogProps = {
+    isOpen: boolean;
+    setIsOpen: (isOpen: boolean) => void;
+    classData: Class;
+}
+
+export function EditClassDialog({ isOpen, setIsOpen, classData }: EditClassDialogProps) {
+  const { toast } = useToast();
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: classData,
+  });
+
+  React.useEffect(() => {
+    form.reset(classData);
+  }, [classData, form]);
+
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log(values);
+    toast({
+      title: 'Classe modifiée',
+      description: `La classe ${values.name} a été mise à jour.`,
+    });
+    setIsOpen(false);
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Modifier la classe</DialogTitle>
+          <DialogDescription>
+            Modifiez les informations de la classe ci-dessous.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nom de la classe</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Licence 3 - IG" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <div className="grid grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="niveau"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Niveau</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner un niveau" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {['L1', 'L2', 'L3', 'M1', 'M2'].map(level => (
+                            <SelectItem key={level} value={level}>{level}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="filiere"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Filière</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner une filière" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {['IG', 'GB', 'ASR', 'GID', 'OCC'].map(filiere => (
+                            <SelectItem key={filiere} value={filiere}>{filiere}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
+             <FormField
+              control={form.control}
+              name="anneeScolaire"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Année Scolaire</FormLabel>
+                  <FormControl>
+                    <Input placeholder="2023-2024" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
+              <Button type="submit">Sauvegarder</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
