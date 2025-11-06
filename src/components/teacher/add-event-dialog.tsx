@@ -25,6 +25,7 @@ const formSchema = z.object({
   teacherId: z.string(),
   type: z.enum(['en-salle', 'en-ligne']),
   status: z.enum(['planifié', 'reporté', 'annulé', 'effectué']),
+  conferenceLink: z.string().url({ message: "Veuillez entrer une URL valide." }).optional().or(z.literal('')),
 });
 
 type AddEventDialogProps = {
@@ -48,8 +49,11 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded }: AddEventDial
       type: 'en-salle',
       status: 'planifié',
       teacherId: TEACHER_ID,
+      conferenceLink: '',
     },
   });
+
+  const eventType = form.watch('type');
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const newEvent: ScheduleEvent = {
@@ -68,7 +72,19 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded }: AddEventDial
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
         setIsOpen(open);
-        if (!open) form.reset();
+        if (!open) {
+          form.reset({
+            date: '',
+            startTime: '',
+            endTime: '',
+            subject: '',
+            class: '',
+            type: 'en-salle',
+            status: 'planifié',
+            teacherId: TEACHER_ID,
+            conferenceLink: ''
+          });
+        }
     }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -107,6 +123,21 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded }: AddEventDial
                 <FormField control={form.control} name="type" render={({ field }) => ( <FormItem><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="en-salle">En salle</SelectItem><SelectItem value="en-ligne">En ligne</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Statut</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="planifié">Planifié</SelectItem><SelectItem value="effectué">Effectué</SelectItem><SelectItem value="reporté">Reporté</SelectItem><SelectItem value="annulé">Annulé</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
             </div>
+             {eventType === 'en-ligne' && (
+              <FormField
+                control={form.control}
+                name="conferenceLink"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Lien de la visioconférence</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://meet.google.com/..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
               <Button type="submit">Ajouter l'événement</Button>

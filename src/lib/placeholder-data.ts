@@ -1,5 +1,4 @@
 
-
 export type User = {
   id: string;
   nom: string;
@@ -84,6 +83,7 @@ export type ScheduleEvent = {
   teacherId: string;
   type: 'en-salle' | 'en-ligne';
   status: 'planifié' | 'reporté' | 'annulé' | 'effectué';
+  conferenceLink?: string;
 };
 
 export const users: AppUser[] = [
@@ -245,7 +245,7 @@ export const courses: Course[] = [
 
 export const schedule: ScheduleEvent[] = [
   { id: 'evt_1', date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '10:00', subject: 'Mathématiques Avancées', class: 'Licence 3 - IG', teacherId: 'usr_2', type: 'en-salle', status: 'planifié' },
-  { id: 'evt_2', date: new Date().toISOString().split('T')[0], startTime: '11:00', endTime: '12:00', subject: 'Physique Quantique', class: 'Licence 3 - GID', teacherId: 'usr_2', type: 'en-ligne', status: 'planifié' },
+  { id: 'evt_2', date: new Date().toISOString().split('T')[0], startTime: '11:00', endTime: '12:00', subject: 'Physique Quantique', class: 'Licence 3 - GID', teacherId: 'usr_2', type: 'en-ligne', status: 'planifié', conferenceLink: 'https://meet.google.com/xyz-abc-def' },
   { id: 'evt_3', date: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0], startTime: '14:00', endTime: '16:00', subject: 'Littérature Comparée', class: 'Master 1 - ASR', teacherId: 'usr_5', type: 'en-salle', status: 'planifié' },
 ];
 

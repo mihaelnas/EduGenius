@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 import { LayoutDashboard, Users, School, Book, Calendar, User, BookOpen } from 'lucide-react';
 
@@ -24,5 +25,6 @@ export const teacherNavLinks: NavLink[] = [
 export const studentNavLinks: NavLink[] = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/dashboard/student/courses', label: 'Mes Cours', icon: BookOpen },
+  { href: '/dashboard/student/schedule', label: 'Emploi du temps', icon: Calendar },
   { href: '/dashboard/student/classmates', label: 'Camarades', icon: Users },
 ];

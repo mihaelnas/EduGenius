@@ -5,13 +5,14 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, User } from 'lucide-react';
+import { PlusCircle, User, Video } from 'lucide-react';
 import { fr } from 'date-fns/locale';
 import { format } from 'date-fns';
 import { schedule as initialSchedule, ScheduleEvent, users, getDisplayName, AppUser } from '@/lib/placeholder-data';
 import { AddEventDialog } from '@/components/teacher/add-event-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 
 const statusVariant: { [key in ScheduleEvent['status']]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   'planifié': 'default',
@@ -68,6 +69,14 @@ export default function TeacherSchedulePage() {
                               <span>{getDisplayName(teacher)}</span>
                             </div>
                           )}
+                          {item.type === 'en-ligne' && item.conferenceLink && (
+                            <Button asChild size="sm" className="mt-2">
+                              <Link href={item.conferenceLink} target="_blank">
+                                <Video className="mr-2 h-4 w-4" />
+                                Rejoindre
+                              </Link>
+                            </Button>
+                          )}
                         </div>
                         <div className="text-right flex flex-col items-end gap-2">
                           <p className="font-medium whitespace-nowrap">{item.startTime} - {item.endTime}</p>
@@ -87,13 +96,14 @@ export default function TeacherSchedulePage() {
         <div>
           <Card>
             <CardContent className="p-0">
-              {date ? (
+               {date ? (
                 <Calendar
                   mode="single"
                   selected={date}
                   onSelect={setDate}
                   className="rounded-md"
                   locale={fr}
+                  pagedNavigation
                   disabled={(d) => d < new Date('1900-01-01')}
                 />
               ) : (
