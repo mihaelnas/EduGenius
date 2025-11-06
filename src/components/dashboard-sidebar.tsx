@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -14,16 +15,16 @@ import { adminNavLinks, teacherNavLinks, studentNavLinks, type NavLink } from '@
 
 // Mock hook to get user role. In a real app, this would come from auth context.
 const useUserRole = () => {
-  const [role, setRole] = React.useState('student'); // Default to student
+  const [role, setRole] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     // In a real app, you would get the role from an auth provider.
-    // For this demo, we'll get it from localStorage.
-    if (typeof window !== 'undefined') {
-      const storedRole = localStorage.getItem('userRole');
-      if (storedRole && ['admin', 'teacher', 'student'].includes(storedRole)) {
-        setRole(storedRole);
-      }
+    // For this demo, we'll get it from localStorage. This ensures it only runs on the client.
+    const storedRole = localStorage.getItem('userRole');
+    if (storedRole && ['admin', 'teacher', 'student'].includes(storedRole)) {
+      setRole(storedRole);
+    } else {
+      setRole('student'); // Default to student if nothing is found or role is invalid
     }
   }, []);
 
@@ -46,6 +47,22 @@ export function DashboardSidebar() {
     default:
       navLinks = studentNavLinks;
       break;
+  }
+
+  // Render a loading state or nothing while the role is being determined
+  if (!role) {
+    return (
+      <>
+        <SidebarHeader>
+          <div className="p-4">
+            <Logo />
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          {/* You can add a skeleton loader here if you want */}
+        </SidebarContent>
+      </>
+    )
   }
 
   return (
