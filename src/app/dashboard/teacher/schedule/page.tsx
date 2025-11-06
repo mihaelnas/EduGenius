@@ -1,7 +1,11 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle } from 'lucide-react';
+import React from 'react';
+import { fr } from 'date-fns/locale';
 
 const scheduleItems = [
     { time: '09:00 - 10:00', class: 'Terminale - Section A', subject: 'Mathématiques' },
@@ -10,6 +14,8 @@ const scheduleItems = [
 ];
 
 export default function TeacherSchedulePage() {
+  const [date, setDate] = React.useState<Date | undefined>(new Date());
+
   return (
     <>
       <div className="flex items-center justify-between">
@@ -48,9 +54,10 @@ export default function TeacherSchedulePage() {
             <CardContent className="p-0">
                 <Calendar
                     mode="single"
-                    selected={new Date()}
+                    selected={date}
+                    onSelect={setDate}
                     className="rounded-md"
-                    locale={(await import('date-fns/locale/fr')).default}
+                    locale={fr}
                 />
             </CardContent>
           </Card>
