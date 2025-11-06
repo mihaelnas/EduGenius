@@ -10,7 +10,7 @@ export default function AuthLayout({
   const bgImage = placeholderImages.find(p => p.id === 'auth-background');
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background">
        {bgImage && (
         <Image
           src={bgImage.imageUrl}
@@ -20,7 +20,7 @@ export default function AuthLayout({
           data-ai-hint={bgImage.imageHint}
         />
       )}
-      <div className="absolute inset-0 -z-10 bg-background/80 backdrop-blur-sm" />
+      <div className="absolute inset-0 -z-10 bg-background/90 backdrop-blur-sm" />
       <div className="mb-8">
         <Logo />
       </div>
