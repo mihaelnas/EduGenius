@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { classes as initialClasses, Class } from '@/lib/placeholder-data';
+import { classes as initialClasses, Class, users, getDisplayName } from '@/lib/placeholder-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Search } from 'lucide-react';
 import { AddClassDialog } from '@/components/admin/add-class-dialog';
 import { EditClassDialog } from '@/components/admin/edit-class-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
+import { Badge } from '@/components/ui/badge';
 
 export default function AdminClassesPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -37,6 +38,8 @@ export default function AdminClassesPage() {
       setSelectedClass(null);
     }
   };
+  
+  const getTeacherById = (id: string) => users.find(u => u.id === id);
 
   const filteredClasses = classes.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -73,7 +76,7 @@ export default function AdminClassesPage() {
                 <TableHead>Nom de la classe</TableHead>
                 <TableHead>Niveau</TableHead>
                 <TableHead>Filière</TableHead>
-                <TableHead>Enseignant</TableHead>
+                <TableHead>Enseignant(s)</TableHead>
                 <TableHead>Effectif</TableHead>
                 <TableHead>Année Scolaire</TableHead>
                 <TableHead>
@@ -87,8 +90,18 @@ export default function AdminClassesPage() {
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.niveau}</TableCell>
                   <TableCell>{c.filiere}</TableCell>
-                  <TableCell>{c.teacher || 'Non assigné'}</TableCell>
-                  <TableCell>{c.studentCount}</TableCell>
+                  <TableCell>
+                     <div className="flex flex-wrap gap-1">
+                      {c.teachers.length > 0 ? (
+                        c.teachers.map(teacherName => (
+                           <Badge key={teacherName} variant="secondary">{teacherName}</Badge>
+                        ))
+                      ) : (
+                        'Non assigné'
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>{c.studentIds.length}</TableCell>
                   <TableCell>{c.anneeScolaire}</TableCell>
                   <TableCell>
                     <DropdownMenu>

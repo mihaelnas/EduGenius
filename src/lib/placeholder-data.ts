@@ -1,4 +1,5 @@
 
+
 export type User = {
   id: string;
   nom: string;
@@ -41,8 +42,8 @@ export type Class = {
   niveau: 'L1' | 'L2' | 'L3' | 'M1' | 'M2';
   filiere: 'IG' | 'GB' | 'ASR' | 'GID' | 'OCC';
   anneeScolaire: string; // e.g., "2023-2024"
-  teacher?: string;
-  studentCount: number;
+  teachers: string[];
+  studentIds: string[];
   createdAt: string;
 };
 
@@ -138,14 +139,33 @@ export const users: AppUser[] = [
     specialite: 'Littérature',
     photo: `https://i.pravatar.cc/150?u=usr_5`
   },
+   { 
+    id: 'usr_6',
+    nom: 'DOE',
+    prenom: 'John',
+    username: '@johnd',
+    email: 'john.d@etudiant.com',
+    role: 'student',
+    status: 'active',
+    createdAt: '2023-10-06',
+    matricule: 'E12347',
+    dateDeNaissance: '2002-08-21',
+    lieuDeNaissance: 'Bordeaux',
+    genre: 'Homme',
+    telephone: '0612345678',
+    adresse: '11 Rue de la Liberté, 33000 Bordeaux',
+    niveau: 'L3',
+    filiere: 'IG',
+    photo: `https://i.pravatar.cc/150?u=usr_6`
+  },
 ];
 
 
 export const classes: Class[] = [
-  { id: 'cls_1', name: 'Licence 3 - IG', niveau: 'L3', filiere: 'IG', anneeScolaire: '2023-2024', teacher: 'Alice Johnson', studentCount: 32, createdAt: '2023-09-01' },
-  { id: 'cls_2', name: 'Master 1 - ASR', niveau: 'M1', filiere: 'ASR', anneeScolaire: '2023-2024', teacher: 'Diana Prince', studentCount: 28, createdAt: '2023-09-01' },
-  { id: 'cls_3', name: 'Licence 3 - GID', niveau: 'L3', filiere: 'GID', anneeScolaire: '2023-2024', teacher: 'Alice Johnson', studentCount: 25, createdAt: '2023-09-02' },
-  { id: 'cls_4', name: 'Licence 2 - GB', niveau: 'L2', filiere: 'GB', anneeScolaire: '2023-2024', teacher: undefined, studentCount: 35, createdAt: '2023-09-03' },
+  { id: 'cls_1', name: 'Licence 3 - IG', niveau: 'L3', filiere: 'IG', anneeScolaire: '2023-2024', teachers: ['Alice Johnson'], studentIds: ['usr_3', 'usr_6'], createdAt: '2023-09-01' },
+  { id: 'cls_2', name: 'Master 1 - ASR', niveau: 'M1', filiere: 'ASR', anneeScolaire: '2023-2024', teachers: ['Diana Prince'], studentIds: ['usr_4'], createdAt: '2023-09-01' },
+  { id: 'cls_3', name: 'Licence 3 - GID', niveau: 'L3', filiere: 'GID', anneeScolaire: '2023-2024', teachers: ['Alice Johnson'], studentIds: [], createdAt: '2023-09-02' },
+  { id: 'cls_4', name: 'Licence 2 - GB', niveau: 'L2', filiere: 'GB', anneeScolaire: '2023-2024', teachers: [], studentIds: [], createdAt: '2023-09-03' },
 ];
 
 export const subjects: Subject[] = [
@@ -173,5 +193,3 @@ export const courses = [
 export function getDisplayName(user: { prenom: string, nom: string }): string {
     return `${user.prenom} ${user.nom}`;
 }
-
-    

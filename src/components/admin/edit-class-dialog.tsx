@@ -43,7 +43,7 @@ const formSchema = z.object({
 type EditClassDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    classData: Class;
+    classData: Omit<Class, 'studentCount' | 'studentIds'>;
 }
 
 export function EditClassDialog({ isOpen, setIsOpen, classData }: EditClassDialogProps) {
