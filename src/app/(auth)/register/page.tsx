@@ -26,9 +26,19 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
-  prenom: z.string().min(1, { message: 'Le prénom est requis.' }),
-  nom: z.string().min(1, { message: 'Le nom est requis.' }),
-  username: z.string().min(1, { message: 'Le nom d\'utilisateur est requis.' }),
+  prenom: z.string()
+    .min(1, { message: 'Le prénom est requis.' })
+    .refine(val => val.charAt(0) === val.charAt(0).toUpperCase(), {
+      message: 'Le prénom doit commencer par une majuscule.',
+    }),
+  nom: z.string()
+    .min(1, { message: 'Le nom est requis.' })
+    .refine(val => val === val.toUpperCase(), {
+      message: 'Le nom doit être en majuscules.',
+    }),
+  username: z.string()
+    .min(2, { message: "Le nom d'utilisateur est requis et doit commencer par @" })
+    .startsWith('@', { message: 'Le nom d\'utilisateur doit commencer par @.' }),
   email: z.string().email({ message: 'Veuillez entrer un email valide.' }),
   password: z.string().min(8, { message: 'Le mot de passe doit contenir au moins 8 caractères.' }),
 });
@@ -42,7 +52,7 @@ export default function RegisterPage() {
     defaultValues: {
       prenom: '',
       nom: '',
-      username: '',
+      username: '@',
       email: '',
       password: '',
     },
@@ -50,7 +60,12 @@ export default function RegisterPage() {
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     // Mock registration logic
-    const userData = { ...values, role: 'etudiant' };
+    const userData = {
+        ...values,
+        nom: values.nom.toUpperCase(),
+        prenom: values.prenom.charAt(0).toUpperCase() + values.prenom.slice(1),
+        role: 'etudiant'
+    };
     console.log(userData);
     toast({
       title: 'Inscription réussie',
@@ -94,7 +109,7 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Nom</FormLabel>
                     <FormControl>
-                      <Input placeholder="Dupont" {...field} />
+                      <Input placeholder="DUPONT" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -108,7 +123,7 @@ export default function RegisterPage() {
                 <FormItem className="grid gap-2">
                   <FormLabel>Nom d'utilisateur</FormLabel>
                   <FormControl>
-                    <Input placeholder="jeandupont" {...field} />
+                    <Input placeholder="@jeandupont" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
