@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -24,6 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
+import { users, getDisplayName } from '@/lib/placeholder-data';
 
 const formSchema = z.object({
   login: z.string().min(1, { message: 'Ce champ est requis.' }),
@@ -44,25 +46,27 @@ export default function LoginPage() {
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     // Mock login logic
-    console.log(values);
+    const user = users.find(u => u.email === values.login || u.username === values.login);
+
+    if (!user) {
+        toast({
+            variant: 'destructive',
+            title: 'Échec de la connexion',
+            description: 'Identifiants incorrects. Veuillez réessayer.',
+        });
+        return;
+    }
+
     toast({
       title: 'Connexion réussie',
       description: 'Redirection vers votre tableau de bord...',
     });
-
-    let role = 'student'; // Default role
-    if (values.login.includes('@admin.com')) {
-      role = 'admin';
-    } else if (values.login.includes('@enseignant.com')) {
-      role = 'teacher';
-    } else if (values.login.includes('@etudiant.com')) {
-      role = 'student';
-    }
     
-    // Store role in localStorage for demonstration purposes
+    // Store role and other info in localStorage for demonstration purposes
     if (typeof window !== 'undefined') {
-      localStorage.setItem('userRole', role);
-      localStorage.setItem('userEmail', values.login);
+      localStorage.setItem('userRole', user.role);
+      localStorage.setItem('userEmail', user.email);
+      localStorage.setItem('userName', getDisplayName(user));
     }
 
     // Redirect to dashboard after a short delay
@@ -89,7 +93,7 @@ export default function LoginPage() {
                 <FormItem className="grid gap-2">
                   <FormLabel>Email ou Nom d'utilisateur</FormLabel>
                   <FormControl>
-                    <Input placeholder="nom@exemple.com ou votre pseudo" {...field} />
+                    <Input placeholder="nom@exemple.com ou @votrepseudo" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -125,3 +129,5 @@ export default function LoginPage() {
     </Card>
   );
 }
+
+    

@@ -1,13 +1,25 @@
+
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { users } from '@/lib/placeholder-data';
+import { users, getDisplayName } from '@/lib/placeholder-data';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle, Search } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import React from 'react';
 
 export default function AdminUsersPage() {
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  const filteredUsers = users.filter(user =>
+    getDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -19,7 +31,12 @@ export default function AdminUsersPage() {
             <div className="flex items-center gap-2">
                 <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Rechercher des utilisateurs..." className="pl-8 sm:w-[300px]" />
+                    <Input 
+                      placeholder="Rechercher par nom ou email..." 
+                      className="pl-8 sm:w-[300px]" 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
                 <Button>
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -43,9 +60,20 @@ export default function AdminUsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={user.photo} alt={getDisplayName(user)} />
+                      <AvatarFallback>{user.prenom.charAt(0)}{user.nom.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="grid gap-0.5">
+                        <span className="font-semibold">{getDisplayName(user)}</span>
+                        <span className="text-xs text-muted-foreground">{user.username}</span>
+                    </div>
+                  </div>
+                </TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell className="capitalize">{user.role}</TableCell>
                 <TableCell>
@@ -65,6 +93,7 @@ export default function AdminUsersPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuItem>Modifier</DropdownMenuItem>
+                      <DropdownMenuItem>Voir les détails</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive">Supprimer</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -77,3 +106,5 @@ export default function AdminUsersPage() {
     </Card>
   );
 }
+
+    

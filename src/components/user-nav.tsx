@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -17,29 +18,35 @@ import { useRouter } from 'next/navigation';
 
 
 const roleNames = {
-  admin: 'Utilisateur Admin',
+  admin: 'Administrateur',
   teacher: 'Enseignant',
   student: 'Étudiant'
 } as const;
 
 export function UserNav() {
   const router = useRouter();
+  const [userName, setUserName] = React.useState('');
   const [userEmail, setUserEmail] = React.useState('');
   const [userRole, setUserRole] = React.useState<keyof typeof roleNames>('student');
+  const [userPhoto, setUserPhoto] = React.useState('');
+
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const email = localStorage.getItem('userEmail') || '';
       const role = (localStorage.getItem('userRole') as keyof typeof roleNames) || 'student';
+      const name = localStorage.getItem('userName') || 'Utilisateur';
+      
       setUserEmail(email);
       setUserRole(role);
+      setUserName(name);
+      setUserPhoto(`https://i.pravatar.cc/150?u=${email}`);
     }
   }, []);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('userRole');
-      localStorage.removeItem('userEmail');
+      localStorage.clear();
     }
     router.push('/login');
   };
@@ -49,15 +56,15 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={`https://i.pravatar.cc/150?u=${userEmail}`} alt={userEmail} />
-            <AvatarFallback>{userEmail.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={userPhoto} alt={userName} />
+            <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{roleNames[userRole]}</p>
+            <p className="text-sm font-medium leading-none">{userName}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {userEmail}
             </p>
@@ -87,3 +94,5 @@ export function UserNav() {
     </DropdownMenu>
   );
 }
+
+    

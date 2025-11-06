@@ -1,3 +1,6 @@
+
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -5,8 +8,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { subjects } from '@/lib/placeholder-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle, Search } from 'lucide-react';
+import Image from 'next/image';
+import React from 'react';
 
 export default function AdminSubjectsPage() {
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  const filteredSubjects = subjects.filter(subject =>
+    subject.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -18,7 +29,12 @@ export default function AdminSubjectsPage() {
             <div className="flex items-center gap-2">
                  <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Rechercher des matières..." className="pl-8 sm:w-[300px]" />
+                    <Input 
+                      placeholder="Rechercher des matières..." 
+                      className="pl-8 sm:w-[300px]"
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                    />
                 </div>
                 <Button>
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -32,21 +48,32 @@ export default function AdminSubjectsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nom de la matière</TableHead>
+              <TableHead>Crédits</TableHead>
+              <TableHead>Semestre</TableHead>
               <TableHead>Enseignant assigné</TableHead>
               <TableHead>Classes</TableHead>
-              <TableHead>Créée le</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {subjects.map((subject) => (
+            {filteredSubjects.map((subject) => (
               <TableRow key={subject.id}>
-                <TableCell className="font-medium">{subject.name}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-3">
+                    {subject.photo ? (
+                        <Image src={subject.photo} alt={subject.name} width={40} height={40} className="rounded-sm object-cover" />
+                    ) : (
+                        <div className="w-10 h-10 rounded-sm bg-muted flex items-center justify-center text-muted-foreground text-xs">IMG</div>
+                    )}
+                    <span>{subject.name}</span>
+                  </div>
+                </TableCell>
+                <TableCell>{subject.credit}</TableCell>
+                <TableCell>{subject.semestre}</TableCell>
                 <TableCell>{subject.teacher || 'Non assigné'}</TableCell>
                 <TableCell>{subject.classCount}</TableCell>
-                <TableCell>{subject.createdAt}</TableCell>
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -71,3 +98,5 @@ export default function AdminSubjectsPage() {
     </Card>
   );
 }
+
+    

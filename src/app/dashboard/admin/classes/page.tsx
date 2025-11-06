@@ -1,3 +1,6 @@
+
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -5,8 +8,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { classes } from '@/lib/placeholder-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle, Search } from 'lucide-react';
+import React from 'react';
 
 export default function AdminClassesPage() {
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  const filteredClasses = classes.filter(c =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.filiere.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -18,7 +29,12 @@ export default function AdminClassesPage() {
             <div className="flex items-center gap-2">
                  <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Rechercher des classes..." className="pl-8 sm:w-[300px]" />
+                    <Input 
+                      placeholder="Rechercher par nom, filière..." 
+                      className="pl-8 sm:w-[300px]"
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                    />
                 </div>
                 <Button>
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -32,21 +48,25 @@ export default function AdminClassesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nom de la classe</TableHead>
+              <TableHead>Niveau</TableHead>
+              <TableHead>Filière</TableHead>
               <TableHead>Enseignant</TableHead>
-              <TableHead>Étudiants</TableHead>
-              <TableHead>Créée le</TableHead>
+              <TableHead>Effectif</TableHead>
+              <TableHead>Année Scolaire</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {classes.map((c) => (
+            {filteredClasses.map((c) => (
               <TableRow key={c.id}>
                 <TableCell className="font-medium">{c.name}</TableCell>
+                <TableCell>{c.niveau}</TableCell>
+                <TableCell>{c.filiere}</TableCell>
                 <TableCell>{c.teacher || 'Non assigné'}</TableCell>
                 <TableCell>{c.studentCount}</TableCell>
-                <TableCell>{c.createdAt}</TableCell>
+                <TableCell>{c.anneeScolaire}</TableCell>
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -72,3 +92,5 @@ export default function AdminClassesPage() {
     </Card>
   );
 }
+
+    
