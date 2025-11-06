@@ -13,8 +13,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { CreditCard, LogOut, Settings, User } from 'lucide-react';
+import { LogOut, Settings, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 
 const roleNames = {
@@ -72,13 +73,11 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <User className="mr-2 h-4 w-4" />
-            <span>Profil</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <CreditCard className="mr-2 h-4 w-4" />
-            <span>Facturation</span>
+          <DropdownMenuItem asChild>
+            <Link href="/dashboard/profile">
+              <User className="mr-2 h-4 w-4" />
+              <span>Profil</span>
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Settings className="mr-2 h-4 w-4" />
@@ -94,5 +93,3 @@ export function UserNav() {
     </DropdownMenu>
   );
 }
-
-    
