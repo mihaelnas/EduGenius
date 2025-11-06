@@ -10,8 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ScheduleEvent } from '@/lib/placeholder-data';
+import { ScheduleEvent, users, getDisplayName } from '@/lib/placeholder-data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+
+// Mock: assumes the logged in teacher is Alice Johnson (id: usr_2)
+const TEACHER_ID = 'usr_2';
 
 const formSchema = z.object({
   date: z.string().min(1, 'La date est requise.'),
@@ -19,6 +22,7 @@ const formSchema = z.object({
   endTime: z.string().min(1, 'L\'heure de fin est requise.'),
   subject: z.string().min(1, 'La matière est requise.'),
   class: z.string().min(1, 'La classe est requise.'),
+  teacherId: z.string(),
   type: z.enum(['en-salle', 'en-ligne']),
   status: z.enum(['planifié', 'reporté', 'annulé', 'effectué']),
 });
@@ -31,11 +35,14 @@ type AddEventDialogProps = {
 
 export function AddEventDialog({ isOpen, setIsOpen, onEventAdded }: AddEventDialogProps) {
   const { toast } = useToast();
+  const teacher = users.find(u => u.id === TEACHER_ID);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       type: 'en-salle',
       status: 'planifié',
+      teacherId: TEACHER_ID,
     },
   });
 
@@ -50,13 +57,31 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded }: AddEventDial
       description: `Le cours de ${values.subject} a été ajouté à l'emploi du temps.`,
     });
     setIsOpen(false);
-    form.reset();
+    form.reset({
+      type: 'en-salle',
+      status: 'planifié',
+      teacherId: TEACHER_ID,
+      date: '',
+      startTime: '',
+      endTime: '',
+      subject: '',
+      class: '',
+    });
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
         setIsOpen(open);
-        if (!open) form.reset();
+        if (!open) form.reset({
+          type: 'en-salle',
+          status: 'planifié',
+          teacherId: TEACHER_ID,
+          date: '',
+          startTime: '',
+          endTime: '',
+          subject: '',
+          class: '',
+        });
     }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -74,6 +99,23 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded }: AddEventDial
             </div>
             <FormField control={form.control} name="subject" render={({ field }) => ( <FormItem><FormLabel>Matière</FormLabel><FormControl><Input placeholder="Ex: Mathématiques" {...field} /></FormControl><FormMessage /></FormItem> )} />
             <FormField control={form.control} name="class" render={({ field }) => ( <FormItem><FormLabel>Classe</FormLabel><FormControl><Input placeholder="Ex: Licence 3 - IG" {...field} /></FormControl><FormMessage /></FormItem> )} />
+            
+            {teacher && (
+                <FormField
+                    control={form.control}
+                    name="teacherId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Enseignant</FormLabel>
+                        <FormControl>
+                            <Input {...field} value={getDisplayName(teacher)} disabled />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            )}
+            
              <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="type" render={({ field }) => ( <FormItem><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="en-salle">En salle</SelectItem><SelectItem value="en-ligne">En ligne</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Statut</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="planifié">Planifié</SelectItem><SelectItem value="effectué">Effectué</SelectItem><SelectItem value="reporté">Reporté</SelectItem><SelectItem value="annulé">Annulé</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />

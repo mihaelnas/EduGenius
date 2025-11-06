@@ -5,10 +5,10 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, User } from 'lucide-react';
 import { fr } from 'date-fns/locale';
 import { format } from 'date-fns';
-import { schedule as initialSchedule, ScheduleEvent } from '@/lib/placeholder-data';
+import { schedule as initialSchedule, ScheduleEvent, users, getDisplayName, AppUser } from '@/lib/placeholder-data';
 import { AddEventDialog } from '@/components/teacher/add-event-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,13 +29,15 @@ export default function TeacherSchedulePage() {
     setDate(new Date());
   }, []);
 
+  const getTeacherById = (id: string): AppUser | undefined => users.find(u => u.id === id);
+
   const selectedDateStr = date ? format(date, 'yyyy-MM-dd') : '';
   const todaysEvents = schedule.filter(event => event.date === selectedDateStr);
 
   return (
     <>
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight font-headline">Mon Emploi du temps</h1>
+        <h1 className="text-3xl font-bold tracking-tight font-headline">Emploi du temps Global</h1>
         <Button onClick={() => setIsAddEventDialogOpen(true)}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Ajouter un événement
@@ -45,27 +47,36 @@ export default function TeacherSchedulePage() {
         <div className="md:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Emploi du temps du jour</CardTitle>
+              <CardTitle>Événements du jour</CardTitle>
               <CardDescription>
-                Voici vos cours pour le {date ? format(date, 'd MMMM yyyy', { locale: fr }) : 'jour sélectionné'}.
+                Voici les cours pour le {date ? format(date, 'd MMMM yyyy', { locale: fr }) : 'jour sélectionné'}.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {todaysEvents.length > 0 ? (
-                  todaysEvents.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between rounded-lg border p-4">
-                      <div>
-                        <p className="font-semibold">{item.subject}</p>
-                        <p className="text-sm text-muted-foreground">{item.class}</p>
-                        <p className="text-xs text-muted-foreground">{item.type === 'en-ligne' ? 'En ligne' : 'En salle'}</p>
+                  todaysEvents.map((item) => {
+                    const teacher = getTeacherById(item.teacherId);
+                    return (
+                      <div key={item.id} className="flex items-start justify-between rounded-lg border p-4 gap-4">
+                        <div className="space-y-2 flex-1">
+                          <p className="font-semibold">{item.subject}</p>
+                          <p className="text-sm text-muted-foreground">{item.class}</p>
+                          {teacher && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <User className="h-3 w-3" />
+                              <span>{getDisplayName(teacher)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right flex flex-col items-end gap-2">
+                          <p className="font-medium whitespace-nowrap">{item.startTime} - {item.endTime}</p>
+                          <Badge variant={statusVariant[item.status]} className="capitalize">{item.status}</Badge>
+                          <Badge variant={item.type === 'en-ligne' ? 'secondary' : 'outline'} className="capitalize">{item.type === 'en-ligne' ? 'En ligne' : 'En salle'}</Badge>
+                        </div>
                       </div>
-                      <div className="text-right flex flex-col items-end gap-2">
-                        <p className="font-medium">{item.startTime} - {item.endTime}</p>
-                        <Badge variant={statusVariant[item.status]} className="capitalize">{item.status}</Badge>
-                      </div>
-                    </div>
-                  ))
+                    )
+                  })
                 ) : (
                   <p className="text-center text-muted-foreground py-8">Aucun événement prévu pour cette date.</p>
                 )}
