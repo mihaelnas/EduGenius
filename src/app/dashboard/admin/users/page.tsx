@@ -36,8 +36,11 @@ export default function AdminUsersPage() {
         ...newUser,
         status: 'active',
         createdAt: new Date().toISOString().split('T')[0],
-        photo: newUser.photo || undefined
     };
+    if (!newUser.photo) {
+        delete newUserData.photo;
+    }
+    
     addDocumentNonBlocking(usersCollectionRef, newUserData);
     toast({
       title: 'Utilisateur ajouté',
