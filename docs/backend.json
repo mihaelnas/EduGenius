@@ -229,23 +229,21 @@
               "name": "subjectId",
               "description": "The unique identifier of the subject."
             }
-          ],
-          "subcollections": [
+          ]
+        }
+      },
+      {
+        "path": "/courses/{courseId}",
+        "definition": {
+          "entityName": "Course",
+          "schema": {
+            "$ref": "#/backend/entities/Course"
+          },
+          "description": "Stores course information. Accessible to authenticated users, with write access controlled by `teacherId`.",
+          "params": [
             {
-              "path": "/courses/{courseId}",
-              "definition": {
-                "entityName": "Course",
-                "schema": {
-                  "$ref": "#/backend/entities/Course"
-                },
-                "description": "Stores courses as a subcollection of subjects. Authorization based on the `teacherId` in the course document itself.",
-                "params": [
-                  {
-                    "name": "courseId",
-                    "description": "The unique identifier of the course."
-                  }
-                ]
-              }
+              "name": "courseId",
+              "description": "The unique identifier of the course."
             }
           ]
         }

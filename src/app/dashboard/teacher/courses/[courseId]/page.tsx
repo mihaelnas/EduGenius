@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useParams, notFound, useSearchParams } from 'next/navigation';
+import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
 import {
   Course,
@@ -29,15 +29,13 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 
 export default function TeacherCourseDetailPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const courseId = params.courseId as string;
-  const subjectId = searchParams.get('subjectId');
   const firestore = useFirestore();
 
   const courseDocRef = useMemoFirebase(() => {
-    if (!firestore || !subjectId || !courseId) return null;
-    return doc(firestore, `subjects/${subjectId}/courses`, courseId);
-  }, [firestore, subjectId, courseId]);
+    if (!firestore || !courseId) return null;
+    return doc(firestore, 'courses', courseId);
+  }, [firestore, courseId]);
 
   const { data: course, isLoading: isLoadingCourse } = useDoc<Course>(courseDocRef);
 
@@ -131,3 +129,5 @@ export default function TeacherCourseDetailPage() {
     </div>
   );
 }
+
+    

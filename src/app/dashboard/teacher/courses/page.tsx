@@ -15,7 +15,7 @@ import { AddCourseDialog } from '@/components/teacher/add-course-dialog';
 import { EditCourseDialog } from '@/components/teacher/edit-course-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, Query, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, doc, Query, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -38,11 +38,11 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   const { user } = useUser();
   const { toast } = useToast();
   
-  const coursesCollectionRef = useMemoFirebase(
-    () => collection(firestore, `subjects/${subject.id}/courses`),
+  const coursesQuery = useMemoFirebase(
+    () => query(collection(firestore, `courses`), where('subjectId', '==', subject.id)),
     [firestore, subject.id]
   );
-  const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesCollectionRef);
+  const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
 
 
   const [isAddCourseDialogOpen, setIsAddCourseDialogOpen] = React.useState(false);
@@ -66,7 +66,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
 
   const confirmDelete = async () => {
     if (selectedCourse) {
-      const courseDocRef = doc(firestore, `subjects/${subject.id}/courses`, selectedCourse.id);
+      const courseDocRef = doc(firestore, `courses`, selectedCourse.id);
       await deleteDoc(courseDocRef);
       toast({
         variant: 'destructive',
@@ -84,7 +84,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
       return;
     }
     
-    const courseCollectionRef = collection(firestore, `subjects/${subject.id}/courses`);
+    const courseCollectionRef = collection(firestore, `courses`);
     const courseDocRef = doc(courseCollectionRef);
 
     const finalPayload: Course = {
@@ -116,7 +116,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
         toast({ variant: "destructive", title: "Erreur", description: "ID de cours manquant." });
         return;
     }
-    const courseDocRef = doc(firestore, `subjects/${subject.id}/courses`, updatedCourse.id);
+    const courseDocRef = doc(firestore, `courses`, updatedCourse.id);
     const { id, ...courseData } = updatedCourse;
     await updateDoc(courseDocRef, courseData);
     toast({
@@ -144,12 +144,12 @@ function SubjectCourses({ subject }: { subject: Subject }) {
             <div key={course.id} className="rounded-lg border bg-card p-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                    <Link href={`/dashboard/teacher/courses/${course.id}?subjectId=${subject.id}`} className="font-semibold text-base hover:underline">{course.title}</Link>
+                    <Link href={`/dashboard/teacher/courses/${course.id}`} className="font-semibold text-base hover:underline">{course.title}</Link>
                     <p className="text-sm text-muted-foreground line-clamp-2">{course.content}</p>
                 </div>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                        <Link href={`/dashboard/teacher/courses/${course.id}?subjectId=${subject.id}`}>
+                        <Link href={`/dashboard/teacher/courses/${course.id}`}>
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">Voir</span>
                         </Link>
@@ -206,7 +206,6 @@ function SubjectCourses({ subject }: { subject: Subject }) {
           setIsOpen={setIsEditCourseDialogOpen}
           course={selectedCourse}
           onCourseUpdated={handleUpdateCourse}
-          subjectId={subject.id}
         />
       )}
       
@@ -276,3 +275,5 @@ export default function TeacherCoursesPage() {
     </>
   );
 }
+
+    

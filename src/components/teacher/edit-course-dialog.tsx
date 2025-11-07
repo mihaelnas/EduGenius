@@ -33,10 +33,9 @@ type EditCourseDialogProps = {
     setIsOpen: (isOpen: boolean) => void;
     course: Course;
     onCourseUpdated: (updatedCourse: Course) => void;
-    subjectId: string;
 }
 
-export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated, subjectId }: EditCourseDialogProps) {
+export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }: EditCourseDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
@@ -121,3 +120,5 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated, s
     </Dialog>
   );
 }
+
+    
