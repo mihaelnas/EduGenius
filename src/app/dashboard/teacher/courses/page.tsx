@@ -39,8 +39,8 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   const { toast } = useToast();
   
   const coursesQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, `courses`), where('subjectId', '==', subject.id)) : null,
-    [firestore, subject.id]
+    () => firestore ? query(collection(firestore, `courses`), where('subjectId', '==', subject.id), where('teacherId', '==', user?.uid)) : null,
+    [firestore, subject.id, user?.uid]
   );
   const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery as Query<Course> | null);
 
@@ -87,8 +87,9 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     const courseCollectionRef = collection(firestore, 'courses');
 
     try {
-        const newCoursePayload: Omit<Course, 'id'> = {
-            ...values,
+        const newCourseData: Omit<Course, 'id'> = {
+            title: values.title,
+            content: values.content,
             subjectId: subject.id,
             subjectName: subject.name,
             teacherId: user.uid,
@@ -98,11 +99,12 @@ function SubjectCourses({ subject }: { subject: Subject }) {
                 id: `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             }))
         };
-
-        const courseDocRef = await addDoc(courseCollectionRef, newCoursePayload);
         
-        // Update the document with its own ID
-        await updateDoc(courseDocRef, { id: courseDocRef.id });
+        const courseDocRef = await addDoc(courseCollectionRef, newCourseData);
+        // Now, update the document to include its own ID
+        await updateDoc(courseDocRef, {
+          id: courseDocRef.id
+        });
 
         toast({
             title: 'Cours ajouté',
@@ -119,16 +121,17 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   };
 
 
-  const handleUpdateCourse = async (updatedData: Course) => {
-     if (!updatedData.id) {
+  const handleUpdateCourse = async (updatedCourse: Course) => {
+     if (!updatedCourse.id) {
         toast({ variant: "destructive", title: "Erreur", description: "ID de cours manquant." });
         return;
     }
-    const courseDocRef = doc(firestore, `courses`, updatedData.id);
-    await updateDoc(courseDocRef, { ...updatedData });
+    const courseDocRef = doc(firestore, `courses`, updatedCourse.id);
+    const { id, ...courseData } = updatedCourse;
+    await updateDoc(courseDocRef, courseData);
     toast({
       title: 'Cours modifié',
-      description: `Le cours "${updatedData.title}" a été mis à jour.`,
+      description: `Le cours "${updatedCourse.title}" a été mis à jour.`,
     });
   };
 
