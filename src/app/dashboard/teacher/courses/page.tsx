@@ -87,9 +87,12 @@ function SubjectCourses({ subject }: { subject: Subject }) {
         description: `Le cours "${newCourseData.title}" a été créé avec succès.`,
         });
     } catch (error) {
-        // The error will be emitted by the non-blocking-update function
-        // but you could add an additional toast here if needed.
         console.error("Failed to add course:", error);
+         toast({
+            variant: 'destructive',
+            title: 'Échec de l\'ajout',
+            description: "Le cours n'a pas pu être créé. Vérifiez vos permissions ou contactez un administrateur.",
+        });
     }
   };
 
