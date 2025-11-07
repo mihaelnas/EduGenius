@@ -187,14 +187,14 @@ service cloud.firestore {
      * @path /roles_admin/{userId}
      * @allow get: if isAdmin();
      * @allow list: if false;
-     * @allow create: if isSignedIn() && (request.auth.token.email == 'nasmihael@gmail.com' || isAdmin());
+     * @allow create: if isAdmin();
      * @allow update: if false;
      * @allow delete: if isAdmin();
      */
     match /roles_admin/{userId} {
        allow get: if isAdmin();
        allow list: if false;
-       allow create: if isSignedIn() && (request.auth.token.email == 'nasmihael@gmail.com' || isAdmin());
+       allow create: if isAdmin();
        allow update: if false;
        allow delete: if isAdmin();
     }

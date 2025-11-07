@@ -25,9 +25,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { useAuth } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
 
 
 const formSchema = z.object({
@@ -39,7 +38,6 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
-  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -51,27 +49,7 @@ export default function LoginPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
-
-      // Special logic to promote a specific user to admin on login
-      if (user && user.email === 'nasmihael@gmail.com') {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
-        
-        // Update user's role to admin
-        setDocumentNonBlocking(userDocRef, { role: 'admin' }, { merge: true });
-        
-        // Create the admin role document to satisfy security rules
-        setDocumentNonBlocking(adminRoleRef, { createdAt: new Date().toISOString() }, { merge: true });
-
-         toast({
-            title: 'Promotion au rang d\'administrateur',
-            description: 'Votre compte a été élevé au rang d\'administrateur.',
-        });
-      }
-
-
+      await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: 'Connexion réussie',
         description: 'Redirection vers votre tableau de bord...',

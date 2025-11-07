@@ -80,25 +80,16 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // Assign role based on email
-      const userRole = values.email === 'nasmihael@gmail.com' ? 'admin' : 'student';
-
       const userProfile = {
         id: user.uid,
         firstName: values.prenom,
         lastName: values.nom,
         email: values.email,
-        role: userRole, 
+        role: 'student', 
       };
       
       const userDocRef = doc(firestore, 'users', user.uid);
       setDocumentNonBlocking(userDocRef, userProfile, { merge: true });
-
-      if (userRole === 'admin') {
-         const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
-         // This document's existence grants admin rights. The content can be minimal.
-         setDocumentNonBlocking(adminRoleRef, { createdAt: new Date().toISOString() }, { merge: true });
-      }
 
       toast({
         title: 'Inscription réussie',
