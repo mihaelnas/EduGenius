@@ -28,6 +28,17 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+const defaultFormValues: FormValues = {
+  date: '',
+  startTime: '',
+  endTime: '',
+  subject: '',
+  class: '',
+  type: 'en-salle',
+  status: 'planifié',
+  conferenceLink: '',
+};
+
 type AddEventDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
@@ -43,23 +54,21 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      date: '',
-      startTime: '',
-      endTime: '',
-      subject: '',
-      class: '',
-      type: 'en-salle',
-      status: 'planifié',
-      conferenceLink: '',
-    },
+    defaultValues: defaultFormValues,
   });
 
   const eventType = form.watch('type');
 
   React.useEffect(() => {
-    if (selectedDate && isOpen) {
-      form.setValue('date', format(selectedDate, 'yyyy-MM-dd'));
+    if (isOpen) {
+        if (selectedDate) {
+            form.reset({
+                ...defaultFormValues,
+                date: format(selectedDate, 'yyyy-MM-dd')
+            });
+        } else {
+            form.reset(defaultFormValues);
+        }
     }
   }, [selectedDate, isOpen, form]);
 
@@ -70,23 +79,10 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
       description: `Le cours de ${values.subject} a été ajouté à l'emploi du temps.`,
     });
     setIsOpen(false);
-    form.reset();
   }
   
   const handleOpenChange = (open: boolean) => {
       setIsOpen(open);
-      if (!open) {
-          form.reset({
-            date: '',
-            startTime: '',
-            endTime: '',
-            subject: '',
-            class: '',
-            type: 'en-salle',
-            status: 'planifié',
-            conferenceLink: ''
-          });
-      }
   }
 
   return (
@@ -112,7 +108,7 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Matière</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionner une matière..." />
@@ -135,7 +131,7 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Classe</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionner une classe..." />
@@ -162,8 +158,8 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
             )}
             
              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="type" render={({ field }) => ( <FormItem><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="en-salle">En salle</SelectItem><SelectItem value="en-ligne">En ligne</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Statut</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="planifié">Planifié</SelectItem><SelectItem value="effectué">Effectué</SelectItem><SelectItem value="reporté">Reporté</SelectItem><SelectItem value="annulé">Annulé</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="type" render={({ field }) => ( <FormItem><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="en-salle">En salle</SelectItem><SelectItem value="en-ligne">En ligne</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Statut</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="planifié">Planifié</SelectItem><SelectItem value="effectué">Effectué</SelectItem><SelectItem value="reporté">Reporté</SelectItem><SelectItem value="annulé">Annulé</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
             </div>
              {eventType === 'en-ligne' && (
               <FormField

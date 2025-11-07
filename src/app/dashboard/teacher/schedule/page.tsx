@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -82,12 +83,18 @@ export default function TeacherSchedulePage() {
       setIsAddEventDialogOpen(true);
     }
   };
+  
+  const openDialogWithDate = (date?: Date) => {
+    setDate(date);
+    setIsAddEventDialogOpen(true);
+  }
+
 
   return (
     <>
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight font-headline">Emploi du temps Global</h1>
-        <Button onClick={() => setIsAddEventDialogOpen(true)}>
+        <Button onClick={() => openDialogWithDate(date)}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Ajouter un événement
         </Button>
@@ -152,6 +159,7 @@ export default function TeacherSchedulePage() {
                {date ? (
                 <Calendar
                   mode="single"
+                  selected={date}
                   onSelect={handleDateSelect}
                   className="rounded-md"
                   locale={fr}
