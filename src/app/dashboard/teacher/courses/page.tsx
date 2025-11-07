@@ -74,12 +74,12 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   };
 
   const handleAddCourse = async (newCourseData: Omit<Course, 'id' | 'subjectId' | 'createdAt' | 'teacherId'>) => {
-    const coursesCollectionRef = collection(firestore, 'courses');
     if (!user) {
-        toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur non authentifié.' });
-        return;
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur non authentifié.' });
+      return;
     }
 
+    const coursesCollectionRef = collection(firestore, 'courses');
     const coursePayload = {
       ...newCourseData,
       subjectId: subject.id,
@@ -88,18 +88,18 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     };
 
     try {
-        await addDocumentNonBlocking(coursesCollectionRef, coursePayload);
-        toast({
-            title: 'Cours ajouté',
-            description: `Le cours "${newCourseData.title}" a été créé avec succès.`,
-        });
+      await addDocumentNonBlocking(coursesCollectionRef, coursePayload);
+      toast({
+        title: 'Cours ajouté',
+        description: `Le cours "${newCourseData.title}" a été créé avec succès.`,
+      });
     } catch (error) {
-        console.error("Failed to add course:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Échec de l\'ajout du cours',
-            description: "La création du cours a échoué. Veuillez vérifier vos permissions ou contacter un administrateur.",
-        });
+      console.error("Failed to add course:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Échec de l\'ajout du cours',
+        description: "La création du cours a échoué. Veuillez vérifier vos permissions ou contacter un administrateur.",
+      });
     }
   };
 

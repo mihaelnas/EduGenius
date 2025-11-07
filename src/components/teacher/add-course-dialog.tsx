@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -57,6 +56,7 @@ export function AddCourseDialog({ isOpen, setIsOpen, onCourseAdded }: AddCourseD
   }
   
    const handleOpenChange = (open: boolean) => {
+    if (form.formState.isSubmitting) return;
     setIsOpen(open);
     if (!open) {
       form.reset();
@@ -96,7 +96,7 @@ export function AddCourseDialog({ isOpen, setIsOpen, onCourseAdded }: AddCourseD
             </div>
 
             <DialogFooter className='pt-4'>
-               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
+               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={form.formState.isSubmitting}>Annuler</Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Création...' : 'Créer le cours'}
               </Button>
@@ -107,4 +107,3 @@ export function AddCourseDialog({ isOpen, setIsOpen, onCourseAdded }: AddCourseD
     </Dialog>
   );
 }
-

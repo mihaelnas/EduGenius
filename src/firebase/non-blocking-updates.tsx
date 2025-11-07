@@ -35,7 +35,7 @@ export function setDocumentNonBlocking(docRef: DocumentReference, data: any, opt
 /**
  * Initiates an addDoc operation for a collection reference.
  * Returns a promise that resolves with the DocumentReference on success
- * or rejects with an error on failure.
+ * or rejects with a contextual error on failure.
  */
 export function addDocumentNonBlocking(colRef: CollectionReference, data: any): Promise<DocumentReference> {
   // Return the promise from addDoc
@@ -88,4 +88,5 @@ export function deleteDocumentNonBlocking(docRef: DocumentReference) {
       )
     });
 }
+
 
