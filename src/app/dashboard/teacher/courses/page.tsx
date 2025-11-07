@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -15,7 +14,7 @@ import { BookOpen, PlusCircle, Paperclip, Video, Link as LinkIcon, Edit, Trash2 
 import { AddCourseDialog } from '@/components/teacher/add-course-dialog';
 import { EditCourseDialog } from '@/components/teacher/edit-course-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useUser, useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc, Query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -74,26 +73,27 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     }
   };
 
-  const handleAddCourse = async (newCourseData: Omit<Course, 'id' | 'subjectId' | 'subjectName' | 'createdAt' | 'teacherId'>) => {
+  const handleAddCourse = async (newCoursePayload: Course) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur non authentifié.' });
       return;
     }
 
-    const coursesCollectionRef = collection(firestore, 'courses');
-    const coursePayload: Omit<Course, 'id'> = {
-      ...newCourseData,
+    const finalPayload: Course = {
+      ...newCoursePayload,
       subjectId: subject.id,
       subjectName: subject.name,
       teacherId: user.uid,
-      createdAt: new Date().toISOString(),
     };
+    
+    const courseDocRef = doc(firestore, 'courses', finalPayload.id);
 
     try {
-      await addDocumentNonBlocking(coursesCollectionRef, coursePayload);
+      // Use setDoc with the client-generated ID
+      await setDocumentNonBlocking(courseDocRef, finalPayload, {});
       toast({
         title: 'Cours ajouté',
-        description: `Le cours "${newCourseData.title}" a été créé avec succès.`,
+        description: `Le cours "${finalPayload.title}" a été créé avec succès.`,
       });
     } catch (error) {
       console.error("Failed to add course:", error);

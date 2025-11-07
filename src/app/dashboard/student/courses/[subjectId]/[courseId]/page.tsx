@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -33,14 +32,9 @@ export default function CourseDetailPage() {
   const courseId = params.courseId as string;
   const firestore = useFirestore();
 
-  console.log('[CourseDetailPage] Params reçus:', params);
-
   const courseDocRef = useMemoFirebase(() => {
     if (courseId) {
-      console.log(`[CourseDetailPage] Construction de la référence pour le cours ID: ${courseId}`);
-      const ref = doc(firestore, 'courses', courseId);
-      console.log(`[CourseDetailPage] Chemin de la référence: ${ref.path}`);
-      return ref;
+      return doc(firestore, 'courses', courseId);
     }
     return null;
   }, [firestore, courseId]);
@@ -72,14 +66,13 @@ export default function CourseDetailPage() {
     );
   }
 
-  // Si le chargement est terminé et qu'il n'y a pas de cours, alors 404
+  // If loading is finished and there's still no course, then it's a 404
   if (!isLoadingCourse && !course) {
-    console.error(`[CourseDetailPage] Erreur 404 déclenchée. isLoadingCourse: ${isLoadingCourse}, course:`, course);
     notFound();
-    return null; // notFound() interrompt le rendu, mais c'est une bonne pratique.
+    return null; 
   }
 
-  // Si le cours est en cours de chargement ou n'existe pas, on ne peut rien afficher.
+  // If the course is still loading or doesn't exist, don't render anything yet
   if (!course) {
     return null;
   }

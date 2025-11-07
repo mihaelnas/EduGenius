@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -104,7 +103,6 @@ function SubjectAccordionItem({ subject }: { subject: Subject }) {
                     </div>
                 ) : courses && courses.length > 0 ? (
                     courses.map(course => {
-                      console.log(`[StudentCoursesPage] Génération du lien pour le cours ID: ${course.id} et matière ID: ${subject.id}`);
                       const href = `/dashboard/student/courses/${subject.id}/${course.id}`;
                       return (
                         <Link

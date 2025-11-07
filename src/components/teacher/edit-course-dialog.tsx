@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -49,7 +48,8 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }:
   React.useEffect(() => {
     if (course) {
       form.reset({
-        ...course,
+        title: course.title,
+        content: course.content,
         resources: course.resources?.map(r => ({ ...r, url: r.url || '' })) || []
       });
     }
