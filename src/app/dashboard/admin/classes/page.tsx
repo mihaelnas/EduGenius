@@ -15,18 +15,44 @@ import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation
 import { Badge } from '@/components/ui/badge';
 import { AssignTeacherDialog } from '@/components/admin/assign-teacher-dialog';
 import { ManageStudentsDialog } from '@/components/admin/manage-students-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminClassesPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [classes, setClasses] = React.useState<Class[]>(initialClasses);
+  const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [isAssignTeacherDialogOpen, setIsAssignTeacherDialogOpen] = React.useState(false);
   const [isManageStudentsDialogOpen, setIsManageStudentsDialogOpen] = React.useState(false);
   const [selectedClass, setSelectedClass] = React.useState<Class | null>(null);
+  const { toast } = useToast();
 
   const allTeachers = users.filter(u => u.role === 'teacher');
   const allStudents = users.filter(u => u.role === 'student');
+
+  const handleAdd = (newClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt'>) => {
+    const newClassData: Class = {
+        ...newClass,
+        id: `cls_${Date.now()}`,
+        teacherIds: [],
+        studentIds: [],
+        createdAt: new Date().toISOString().split('T')[0],
+    };
+    setClasses(prev => [newClassData, ...prev]);
+    toast({
+      title: 'Classe ajoutée',
+      description: `La classe ${newClass.name} a été créée avec succès.`,
+    });
+  };
+
+  const handleUpdate = (updatedClass: Class) => {
+    setClasses(prev => prev.map(c => c.id === updatedClass.id ? updatedClass : c));
+     toast({
+      title: 'Classe modifiée',
+      description: `La classe ${updatedClass.name} a été mise à jour.`,
+    });
+  };
 
   const handleEdit = (c: Class) => {
     setSelectedClass(c);
@@ -51,6 +77,11 @@ export default function AdminClassesPage() {
   const confirmDelete = () => {
     if (selectedClass) {
       setClasses(classes.filter(c => c.id !== selectedClass.id));
+       toast({
+        variant: 'destructive',
+        title: 'Classe supprimée',
+        description: `La classe ${selectedClass.name} a été supprimée.`,
+      });
       setIsDeleteDialogOpen(false);
       setSelectedClass(null);
     }
@@ -82,7 +113,11 @@ export default function AdminClassesPage() {
                         onChange={e => setSearchTerm(e.target.value)}
                       />
                   </div>
-                  <AddClassDialog />
+                  <AddClassDialog 
+                    isOpen={isAddDialogOpen}
+                    setIsOpen={setIsAddDialogOpen}
+                    onClassAdded={handleAdd}
+                   />
               </div>
           </div>
         </CardHeader>
@@ -149,6 +184,7 @@ export default function AdminClassesPage() {
           isOpen={isEditDialogOpen}
           setIsOpen={setIsEditDialogOpen}
           classData={selectedClass}
+          onClassUpdated={(updatedData) => handleUpdate({...selectedClass, ...updatedData})}
         />
       )}
        {selectedClass && (

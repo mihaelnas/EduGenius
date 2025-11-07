@@ -26,7 +26,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
 import { Subject } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
 import React from 'react';
@@ -40,15 +39,17 @@ const formSchema = z.object({
   photo: z.string().url({ message: 'Veuillez entrer une URL valide pour la photo.' }).optional().or(z.literal('')),
 });
 
+type FormValues = z.infer<typeof formSchema>;
+
 type EditSubjectDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     subject: Subject;
+    onSubjectUpdated: (updatedSubject: FormValues) => void;
 }
 
-export function EditSubjectDialog({ isOpen, setIsOpen, subject }: EditSubjectDialogProps) {
-  const { toast } = useToast();
-  const form = useForm<z.infer<typeof formSchema>>({
+export function EditSubjectDialog({ isOpen, setIsOpen, subject, onSubjectUpdated }: EditSubjectDialogProps) {
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: subject,
   });
@@ -57,17 +58,20 @@ export function EditSubjectDialog({ isOpen, setIsOpen, subject }: EditSubjectDia
     form.reset(subject);
   }, [subject, form]);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: 'Matière modifiée',
-      description: `La matière ${values.name} a été mise à jour.`,
-    });
+  function onSubmit(values: FormValues) {
+    onSubjectUpdated(values);
     setIsOpen(false);
   }
 
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      form.reset();
+    }
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Modifier la matière</DialogTitle>

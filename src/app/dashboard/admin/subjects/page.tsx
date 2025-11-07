@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { subjects as initialSubjects, Subject, users, getDisplayName, AppUser } from '@/lib/placeholder-data';
+import { subjects as initialSubjects, Subject, users, getDisplayName, AppUser, classes } from '@/lib/placeholder-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Search } from 'lucide-react';
 import Image from 'next/image';
@@ -14,16 +14,41 @@ import { AddSubjectDialog } from '@/components/admin/add-subject-dialog';
 import { EditSubjectDialog } from '@/components/admin/edit-subject-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { AssignSubjectTeacherDialog } from '@/components/admin/assign-subject-teacher-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminSubjectsPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [subjects, setSubjects] = React.useState<Subject[]>(initialSubjects);
+  const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [isAssignTeacherDialogOpen, setIsAssignTeacherDialogOpen] = React.useState(false);
   const [selectedSubject, setSelectedSubject] = React.useState<Subject | null>(null);
+  const { toast } = useToast();
 
   const allTeachers = users.filter(u => u.role === 'teacher');
+
+  const handleAdd = (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt'>) => {
+      const newSubjectData: Subject = {
+          ...newSubject,
+          id: `sub_${Date.now()}`,
+          classCount: 0,
+          createdAt: new Date().toISOString().split('T')[0],
+      };
+      setSubjects(prev => [newSubjectData, ...prev]);
+      toast({
+        title: 'Matière ajoutée',
+        description: `La matière ${newSubject.name} a été créée avec succès.`,
+      });
+  };
+
+  const handleUpdate = (updatedSubject: Subject) => {
+    setSubjects(prev => prev.map(s => s.id === updatedSubject.id ? updatedSubject : s));
+    toast({
+      title: 'Matière modifiée',
+      description: `La matière ${updatedSubject.name} a été mise à jour.`,
+    });
+  };
 
   const handleEdit = (subject: Subject) => {
     setSelectedSubject(subject);
@@ -43,6 +68,11 @@ export default function AdminSubjectsPage() {
   const confirmDelete = () => {
     if (selectedSubject) {
       setSubjects(subjects.filter(s => s.id !== selectedSubject.id));
+      toast({
+        variant: 'destructive',
+        title: 'Matière supprimée',
+        description: `La matière ${selectedSubject.name} a été supprimée.`,
+      });
       setIsDeleteDialogOpen(false);
       setSelectedSubject(null);
     }
@@ -50,7 +80,12 @@ export default function AdminSubjectsPage() {
 
   const getTeacherById = (id: string): AppUser | undefined => users.find(u => u.id === id);
 
-  const filteredSubjects = subjects.filter(subject =>
+  const filteredSubjects = subjects.map(subject => {
+      const assignedClassesCount = classes.filter(c => 
+          c.teacherIds.some(tId => tId === subject.teacherId)
+      ).length;
+      return { ...subject, classCount: assignedClassesCount };
+  }).filter(subject =>
     subject.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -73,7 +108,11 @@ export default function AdminSubjectsPage() {
                         onChange={e => setSearchTerm(e.target.value)}
                       />
                   </div>
-                  <AddSubjectDialog />
+                  <AddSubjectDialog 
+                    isOpen={isAddDialogOpen}
+                    setIsOpen={setIsAddDialogOpen}
+                    onSubjectAdded={handleAdd}
+                  />
               </div>
           </div>
         </CardHeader>
@@ -137,6 +176,7 @@ export default function AdminSubjectsPage() {
           isOpen={isEditDialogOpen}
           setIsOpen={setIsEditDialogOpen}
           subject={selectedSubject}
+          onSubjectUpdated={(updatedData) => handleUpdate({...selectedSubject, ...updatedData})}
         />
       )}
        {selectedSubject && (

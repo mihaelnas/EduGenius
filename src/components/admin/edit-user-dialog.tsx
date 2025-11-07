@@ -27,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -42,6 +41,7 @@ const baseSchema = z.object({
   email: z.string().email({ message: 'Email invalide.' }),
   password: z.string().min(8, { message: 'Au moins 8 caractères.' }).optional().or(z.literal('')),
   photo: z.string().url({ message: 'URL invalide.' }).optional().or(z.literal('')),
+  status: z.enum(['active', 'inactive']),
 });
 
 const studentSchema = baseSchema.extend({
@@ -70,17 +70,18 @@ const adminSchema = baseSchema.extend({
 });
 
 const formSchema = z.discriminatedUnion('role', [studentSchema, teacherSchema, adminSchema]);
+type FormValues = z.infer<typeof formSchema>;
+
 
 type EditUserDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     user: AppUser;
+    onUserUpdated: (updatedUser: AppUser) => void;
 }
 
-export function EditUserDialog({ isOpen, setIsOpen, user }: EditUserDialogProps) {
-  const { toast } = useToast();
-  
-  const form = useForm<z.infer<typeof formSchema>>({
+export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditUserDialogProps) {
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: user,
   });
@@ -94,13 +95,27 @@ export function EditUserDialog({ isOpen, setIsOpen, user }: EditUserDialogProps)
     name: 'role',
   });
   
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: 'Utilisateur modifié',
-      description: `L'utilisateur ${values.prenom} ${values.nom} a été mis à jour.`,
-    });
+  function onSubmit(values: FormValues) {
+    // We remove password if it's empty to avoid overwriting it
+    const { password, ...rest } = values;
+    const finalValues: AppUser = {
+        ...user,
+        ...rest,
+        // This is a bit of a hack to make sure we have all fields for each user type
+        // in a real app, this would be handled by a proper API call.
+        ...(user.role === 'student' && values.role === 'student' ? { ...user, ...values } : {}),
+        ...(user.role === 'teacher' && values.role === 'teacher' ? { ...user, ...values } : {}),
+        ...(user.role === 'admin' && values.role === 'admin' ? { ...user, ...values } : {}),
+    };
+    onUserUpdated(finalValues);
     setIsOpen(false);
+  }
+  
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      form.reset();
+    }
   }
 
   const handlePrenomBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -118,7 +133,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user }: EditUserDialogProps)
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Modifier un utilisateur</DialogTitle>
@@ -161,6 +176,27 @@ export function EditUserDialog({ isOpen, setIsOpen, user }: EditUserDialogProps)
                         <FormField control={form.control} name="username" render={({ field }) => ( <FormItem><FormLabel>Nom d'utilisateur</FormLabel><FormControl><Input placeholder="@jeandupont" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Nouveau mot de passe (optionnel)</FormLabel><FormControl><Input type="password" {...field} placeholder="Laisser vide pour ne pas changer" /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField
+                            control={form.control}
+                            name="status"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Statut</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Sélectionner un statut" />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="active">Actif</SelectItem>
+                                        <SelectItem value="inactive">Inactif</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         {role === 'student' && 'matricule' in form.getValues() && (
                             <>

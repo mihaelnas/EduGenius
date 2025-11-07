@@ -35,12 +35,12 @@ export function DeleteConfirmationDialog({
           <AlertDialogTitle>Êtes-vous absolument sûr(e) ?</AlertDialogTitle>
           <AlertDialogDescription>
             Cette action est irréversible. Cela supprimera définitivement {itemType}
-            {itemName && <span className="font-semibold"> {itemName}</span>}.
+            {itemName && <span className="font-semibold"> "{itemName}"</span>}.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel asChild>
-            <Button variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
+            <Button variant="outline">Annuler</Button>
           </AlertDialogCancel>
           <AlertDialogAction asChild>
             <Button variant="destructive" onClick={onConfirm}>

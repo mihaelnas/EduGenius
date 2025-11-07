@@ -26,7 +26,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
 import { Class } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
 import React from 'react';
@@ -40,15 +39,17 @@ const formSchema = z.object({
   anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
 });
 
+type FormValues = z.infer<typeof formSchema>;
+
 type EditClassDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    classData: Omit<Class, 'studentCount' | 'studentIds'>;
+    classData: Class;
+    onClassUpdated: (updatedClass: FormValues) => void;
 }
 
-export function EditClassDialog({ isOpen, setIsOpen, classData }: EditClassDialogProps) {
-  const { toast } = useToast();
-  const form = useForm<z.infer<typeof formSchema>>({
+export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }: EditClassDialogProps) {
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: classData,
   });
@@ -57,17 +58,20 @@ export function EditClassDialog({ isOpen, setIsOpen, classData }: EditClassDialo
     form.reset(classData);
   }, [classData, form]);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: 'Classe modifiée',
-      description: `La classe ${values.name} a été mise à jour.`,
-    });
+  function onSubmit(values: FormValues) {
+    onClassUpdated(values);
     setIsOpen(false);
+  }
+  
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      form.reset();
+    }
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Modifier la classe</DialogTitle>

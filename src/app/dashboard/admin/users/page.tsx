@@ -1,6 +1,7 @@
 
 'use client';
 
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,17 +11,42 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import React from 'react';
 import { AddUserDialog } from '@/components/admin/add-user-dialog';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [users, setUsers] = React.useState<AppUser[]>(initialUsers);
+  const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedUser, setSelectedUser] = React.useState<AppUser | null>(null);
+  const { toast } = useToast();
+
+  const handleAdd = (newUser: Omit<AppUser, 'id' | 'status' | 'createdAt'>) => {
+    const newUserData: AppUser = {
+        ...newUser,
+        id: `usr_${Date.now()}`,
+        status: 'active',
+        createdAt: new Date().toISOString().split('T')[0],
+        photo: newUser.photo || `https://i.pravatar.cc/150?u=${newUser.email}`
+    };
+    setUsers(prev => [newUserData, ...prev]);
+    toast({
+      title: 'Utilisateur ajouté',
+      description: `L'utilisateur ${getDisplayName(newUserData)} a été créé.`,
+    });
+  };
+
+  const handleUpdate = (updatedUser: AppUser) => {
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    toast({
+      title: 'Utilisateur modifié',
+      description: `L'utilisateur ${getDisplayName(updatedUser)} a été mis à jour.`,
+    });
+  };
 
   const handleEdit = (user: AppUser) => {
     setSelectedUser(user);
@@ -35,6 +61,11 @@ export default function AdminUsersPage() {
   const confirmDelete = () => {
     if (selectedUser) {
       setUsers(users.filter(u => u.id !== selectedUser.id));
+      toast({
+        variant: 'destructive',
+        title: 'Utilisateur supprimé',
+        description: `L'utilisateur ${getDisplayName(selectedUser)} a été supprimé.`,
+      });
       setIsDeleteDialogOpen(false);
       setSelectedUser(null);
     }
@@ -64,7 +95,11 @@ export default function AdminUsersPage() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
                   </div>
-                  <AddUserDialog />
+                  <AddUserDialog 
+                    isOpen={isAddDialogOpen}
+                    setIsOpen={setIsAddDialogOpen}
+                    onUserAdded={handleAdd}
+                  />
               </div>
           </div>
         </CardHeader>
@@ -133,6 +168,7 @@ export default function AdminUsersPage() {
           isOpen={isEditDialogOpen}
           setIsOpen={setIsEditDialogOpen}
           user={selectedUser}
+          onUserUpdated={handleUpdate}
         />
       )}
 

@@ -1,5 +1,7 @@
+
 'use client';
 
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,7 +28,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
+import { Class } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PlusCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -39,9 +41,16 @@ const formSchema = z.object({
   anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
 });
 
-export function AddClassDialog() {
-  const { toast } = useToast();
-  const form = useForm<z.infer<typeof formSchema>>({
+type FormValues = z.infer<typeof formSchema>;
+
+type AddClassDialogProps = {
+    isOpen: boolean;
+    setIsOpen: (isOpen: boolean) => void;
+    onClassAdded: (newClass: FormValues) => void;
+};
+
+export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDialogProps) {
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
@@ -49,19 +58,23 @@ export function AddClassDialog() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: 'Classe ajoutée',
-      description: `La classe ${values.name} a été créée avec succès.`,
-    });
-    // Here you would typically close the dialog and refresh the data
+  function onSubmit(values: FormValues) {
+    onClassAdded(values);
+    setIsOpen(false);
+    form.reset();
+  }
+  
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      form.reset();
+    }
   }
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>
+        <Button onClick={() => setIsOpen(true)}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Ajouter une classe
         </Button>
@@ -148,6 +161,7 @@ export function AddClassDialog() {
               )}
             />
             <DialogFooter>
+               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
               <Button type="submit">Créer la classe</Button>
             </DialogFooter>
           </form>

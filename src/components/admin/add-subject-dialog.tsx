@@ -1,5 +1,7 @@
+
 'use client';
 
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,7 +28,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PlusCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -36,31 +37,44 @@ const formSchema = z.object({
   name: z.string().min(1, { message: 'Le nom de la matière est requis.' }),
   credit: z.coerce.number().min(1, { message: 'Les crédits sont requis.' }),
   semestre: z.enum(['S1', 'S2']),
-  photo: z.string().url({ message: 'Veuillez entrer une URL valide pour la photo.' }).optional(),
+  photo: z.string().url({ message: 'Veuillez entrer une URL valide pour la photo.' }).optional().or(z.literal('')),
 });
 
-export function AddSubjectDialog() {
-  const { toast } = useToast();
-  const form = useForm<z.infer<typeof formSchema>>({
+type FormValues = z.infer<typeof formSchema>;
+
+type AddSubjectDialogProps = {
+    isOpen: boolean;
+    setIsOpen: (isOpen: boolean) => void;
+    onSubjectAdded: (newSubject: FormValues) => void;
+}
+
+export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubjectDialogProps) {
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       credit: 1,
+      photo: '',
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: 'Matière ajoutée',
-      description: `La matière ${values.name} a été créée avec succès.`,
-    });
+  function onSubmit(values: FormValues) {
+    onSubjectAdded(values);
+    setIsOpen(false);
+    form.reset();
+  }
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      form.reset();
+    }
   }
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>
+        <Button onClick={() => setIsOpen(true)}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Ajouter une matière
         </Button>
@@ -137,6 +151,7 @@ export function AddSubjectDialog() {
               )}
             />
             <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
               <Button type="submit">Créer la matière</Button>
             </DialogFooter>
           </form>

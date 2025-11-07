@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -27,12 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PlusCircle } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
+import { AppUser } from '@/lib/placeholder-data';
 
 const baseSchema = z.object({
   role: z.enum(['student', 'teacher', 'admin']),
@@ -70,14 +71,21 @@ const adminSchema = baseSchema.extend({
 });
 
 const formSchema = z.discriminatedUnion('role', [studentSchema, teacherSchema, adminSchema]);
+type FormValues = z.infer<typeof formSchema>;
 
-export function AddUserDialog() {
-  const { toast } = useToast();
-  const form = useForm<z.infer<typeof formSchema>>({
+type AddUserDialogProps = {
+    isOpen: boolean;
+    setIsOpen: (isOpen: boolean) => void;
+    onUserAdded: (newUser: FormValues) => void;
+}
+
+export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogProps) {
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       role: 'student',
       username: '@',
+      photo: '',
     },
   });
 
@@ -86,12 +94,17 @@ export function AddUserDialog() {
     name: 'role',
   });
   
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: 'Utilisateur ajouté',
-      description: `L'utilisateur ${values.prenom} ${values.nom} a été créé.`,
-    });
+  function onSubmit(values: FormValues) {
+    onUserAdded(values);
+    setIsOpen(false);
+    form.reset();
+  }
+  
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      form.reset({role: 'student', username: '@', photo: ''});
+    }
   }
 
   const handlePrenomBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -109,9 +122,9 @@ export function AddUserDialog() {
   };
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>
+        <Button onClick={() => setIsOpen(true)}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Ajouter un utilisateur
         </Button>
@@ -189,6 +202,7 @@ export function AddUserDialog() {
                     </div>
                 </ScrollArea>
                 <DialogFooter className='pt-4'>
+                    <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
                     <Button type="submit">Créer l'utilisateur</Button>
                 </DialogFooter>
             </form>
