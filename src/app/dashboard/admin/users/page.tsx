@@ -15,7 +15,7 @@ import { AddUserDialog, AddUserFormValues } from '@/components/admin/add-user-di
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase, useAuth } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch, updateDoc, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
@@ -41,7 +41,7 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = React.useState<AppUser | null>(null);
   const { toast } = useToast();
   const firestore = useFirestore();
-  const auth = useAuth();
+  const { user: currentUser } = useUser();
 
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: users, isLoading } = useCollection<AppUser>(usersCollectionRef);
@@ -289,7 +289,13 @@ export default function AdminUsersPage() {
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => handleEdit(user)}>Modifier</DropdownMenuItem>
                           <ViewDetailsButton userId={user.id} />
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(user)}>Supprimer</DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-destructive" 
+                            onClick={() => handleDelete(user)}
+                            disabled={currentUser?.uid === user.id}
+                          >
+                            Supprimer
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -320,5 +326,3 @@ export default function AdminUsersPage() {
     </>
   );
 }
-
-    
