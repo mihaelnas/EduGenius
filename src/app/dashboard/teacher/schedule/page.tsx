@@ -24,13 +24,15 @@ const statusVariant: { [key in ScheduleEvent['status']]: 'default' | 'secondary'
 };
 
 export default function TeacherSchedulePage() {
-  const [date, setDate] = React.useState<Date | undefined>(undefined);
+  const [date, setDate] = React.useState<Date | undefined>(new Date());
   const [isAddEventDialogOpen, setIsAddEventDialogOpen] = React.useState(false);
   const { user } = useUser();
   const firestore = useFirestore();
 
   React.useEffect(() => {
-    setDate(new Date());
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    setDate(today);
   }, []);
   
   const scheduleQuery = useMemoFirebase(() => 
