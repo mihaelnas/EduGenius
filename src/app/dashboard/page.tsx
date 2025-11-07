@@ -5,6 +5,8 @@ import { AdminDashboard } from '@/components/dashboards/admin-dashboard';
 import { TeacherDashboard } from '@/components/dashboards/teacher-dashboard';
 import { StudentDashboard } from '@/components/dashboards/student-dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { users as initialUsers, classes as initialClasses, subjects as initialSubjects, AppUser, Class, Subject } from '@/lib/placeholder-data';
+
 
 const useUser = () => {
   const [user, setUser] = React.useState<{ name: string | null, role: string | null }>({ name: null, role: null });
@@ -20,11 +22,16 @@ const useUser = () => {
 
 export default function DashboardPage() {
   const { name, role } = useUser();
+  
+  // These states are now managed here to make dashboards dynamic
+  const [users, setUsers] = React.useState<AppUser[]>(initialUsers);
+  const [classes, setClasses] = React.useState<Class[]>(initialClasses);
+  const [subjects, setSubjects] = React.useState<Subject[]>(initialSubjects);
 
   const renderDashboard = () => {
     switch (role) {
       case 'admin':
-        return <AdminDashboard userName={name} />;
+        return <AdminDashboard userName={name} users={users} classes={classes} subjects={subjects} />;
       case 'teacher':
         return <TeacherDashboard userName={name} />;
       case 'student':

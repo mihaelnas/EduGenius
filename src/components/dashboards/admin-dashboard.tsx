@@ -2,25 +2,17 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { users, classes, subjects, AppUser } from '@/lib/placeholder-data';
+import { AppUser, Class, Subject } from '@/lib/placeholder-data';
 import { Users, School, Book, BarChart3, Activity } from 'lucide-react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '../ui/chart';
 
 type AdminDashboardProps = {
     userName: string | null;
+    users: AppUser[];
+    classes: Class[];
+    subjects: Subject[];
 }
-
-const roleCounts = users.reduce((acc, user) => {
-    acc[user.role] = (acc[user.role] || 0) + 1;
-    return acc;
-}, {} as Record<AppUser['role'], number>);
-
-const chartData = [
-  { name: 'Admins', value: roleCounts.admin || 0 },
-  { name: 'Enseignants', value: roleCounts.teacher || 0 },
-  { name: 'Étudiants', value: roleCounts.student || 0 },
-];
 
 const chartConfig = {
   value: {
@@ -29,14 +21,26 @@ const chartConfig = {
   },
 } 
 
-export function AdminDashboard({ userName }: AdminDashboardProps) {
+export function AdminDashboard({ userName, users, classes, subjects }: AdminDashboardProps) {
 
-    const stats = [
+    const roleCounts = React.useMemo(() => users.reduce((acc, user) => {
+        acc[user.role] = (acc[user.role] || 0) + 1;
+        return acc;
+    }, {} as Record<AppUser['role'], number>), [users]);
+
+    const chartData = React.useMemo(() => [
+      { name: 'Admins', value: roleCounts.admin || 0 },
+      { name: 'Enseignants', value: roleCounts.teacher || 0 },
+      { name: 'Étudiants', value: roleCounts.student || 0 },
+    ], [roleCounts]);
+
+
+    const stats = React.useMemo(() => [
         { title: "Total Utilisateurs", value: users.length, icon: <Users className="h-4 w-4 text-muted-foreground" />, description: "+2% depuis hier" },
         { title: "Total Classes", value: classes.length, icon: <School className="h-4 w-4 text-muted-foreground" />, description: "+5 depuis la semaine dernière" },
         { title: "Total Matières", value: subjects.length, icon: <Book className="h-4 w-4 text-muted-foreground" />, description: "Stable" },
         { title: "Enseignants Actifs", value: users.filter(u => u.role === 'teacher' && u.status === 'active').length, icon: <Users className="h-4 w-4 text-muted-foreground" />, description: "" },
-    ];
+    ], [users, classes, subjects]);
 
     return (
         <>
