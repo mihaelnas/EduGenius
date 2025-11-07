@@ -25,12 +25,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore } from '@/firebase';
-import {
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
 
 const formSchema = z.object({
   prenom: z
@@ -63,8 +57,6 @@ const formSchema = z.object({
 export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const auth = useAuth();
-  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -79,45 +71,15 @@ export default function RegisterPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        values.email,
-        values.password
-      );
-      const user = userCredential.user;
+    // This is mock logic. In a real app, you'd send this to your backend.
+    console.log('New user created (mock):', values);
 
-      const displayName = `${values.prenom} ${values.nom}`;
-      await updateProfile(user, {
-        displayName: displayName,
-      });
-
-      const userDocRef = doc(firestore, 'users', user.uid);
-      await setDoc(userDocRef, {
-        id: user.uid,
-        firstName: values.prenom,
-        lastName: values.nom,
-        email: values.email,
-        role: 'student', // Default role
-      });
-
-      toast({
-        title: 'Inscription réussie',
-        description:
-          'Vous pouvez maintenant vous connecter avec votre nouveau compte.',
-      });
-      router.push('/login');
-    } catch (error: any) {
-      console.error('Registration Error:', error);
-      toast({
-        variant: 'destructive',
-        title: "Échec de l'inscription",
-        description:
-          error.code === 'auth/email-already-in-use'
-            ? 'Cet email est déjà utilisé.'
-            : "Une erreur s'est produite.",
-      });
-    }
+    toast({
+      title: 'Inscription réussie',
+      description:
+        'Vous pouvez maintenant vous connecter avec votre nouveau compte.',
+    });
+    router.push('/login');
   }
 
   const handlePrenomBlur = (e: React.FocusEvent<HTMLInputElement>) => {

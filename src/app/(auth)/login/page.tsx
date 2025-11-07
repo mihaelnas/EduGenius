@@ -25,8 +25,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { users } from '@/lib/placeholder-data';
+
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Veuillez entrer un email valide.' }),
@@ -36,7 +36,6 @@ const formSchema = z.object({
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const auth = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -47,24 +46,23 @@ export default function LoginPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
+    const user = users.find(u => u.email === values.email);
+
+    if (user) {
+      // In a real app, you'd verify the password
       toast({
         title: 'Connexion réussie',
         description: 'Redirection vers votre tableau de bord...',
       });
+       if (typeof window !== 'undefined') {
+        localStorage.setItem('userEmail', user.email);
+      }
       router.push('/dashboard');
-    } catch (error: any) {
-      console.error('Login Error:', error);
+    } else {
       toast({
         variant: 'destructive',
         title: 'Échec de la connexion',
-        description:
-          error.code === 'auth/user-not-found' ||
-          error.code === 'auth/wrong-password' ||
-          error.code === 'auth/invalid-credential'
-            ? 'Identifiants incorrects. Veuillez réessayer.'
-            : "Une erreur s'est produite. Veuillez réessayer.",
+        description: 'Identifiants incorrects. Veuillez réessayer.',
       });
     }
   }
