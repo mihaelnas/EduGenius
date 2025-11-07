@@ -1,0 +1,16 @@
+# Dépendances locales
+node_modules
+
+# Fichiers de build locaux
+.next
+
+# Fichiers Docker
+Dockerfile
+.dockerignore
+
+# Fichiers de configuration locaux et variables d'environnement
+.env.local
+*.log
+
+# Dossier Git
+.git
