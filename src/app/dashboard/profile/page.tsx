@@ -4,10 +4,13 @@
 import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { users, getDisplayName, AppUser, Student, Teacher } from '@/lib/placeholder-data';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getDisplayName, Student, Teacher } from '@/lib/placeholder-data';
 import { AtSign, Cake, GraduationCap, Home, Mail, MapPin, Phone, School, User as UserIcon, Briefcase, Building } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import type { AppUser } from '@/lib/placeholder-data';
 
 const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string, value?: string | null }) => {
   if (!value) return null;
@@ -23,19 +26,17 @@ const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string,
 };
 
 export default function ProfilePage() {
-  const [user, setUser] = React.useState<AppUser | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const { user: authUser, isUserLoading } = useUser();
+  const firestore = useFirestore();
 
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const email = localStorage.getItem('userEmail');
-      if (email) {
-        const currentUser = users.find(u => u.email === email);
-        setUser(currentUser || null);
-      }
-      setLoading(false);
-    }
-  }, []);
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !authUser?.uid) return null;
+    return doc(firestore, 'users', authUser.uid);
+  }, [firestore, authUser?.uid]);
+
+  const { data: user, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
+
+  const loading = isUserLoading || isProfileLoading;
 
   if (loading) {
     return (
