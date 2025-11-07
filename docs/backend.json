@@ -1,0 +1,342 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the EduGenius platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user (e.g., student, teacher, admin)."
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "role"
+      ]
+    },
+    "Class": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Class",
+      "type": "object",
+      "description": "Represents a class in the EduGenius platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Class entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the class (e.g., Math 101)."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the class."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description"
+      ]
+    },
+    "Subject": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Subject",
+      "type": "object",
+      "description": "Represents a subject (or course) in the EduGenius platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Subject entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the subject (e.g., Algebra)."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the subject."
+        },
+        "teacherId": {
+          "type": "string",
+          "description": "Reference to Teacher. (Relationship: Teacher 1:N Subject)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "teacherId"
+      ]
+    },
+    "Course": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Course",
+      "type": "object",
+      "description": "Represents a specific course within a subject.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Course entity."
+        },
+        "subjectId": {
+          "type": "string",
+          "description": "Reference to Subject. (Relationship: Subject 1:N Course)"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the course (e.g., Introduction to Algebra)."
+        },
+        "content": {
+          "type": "string",
+          "description": "The content of the course (e.g., lecture notes, videos)."
+        }
+      },
+      "required": [
+        "id",
+        "subjectId",
+        "title",
+        "content"
+      ]
+    },
+    "ClassStudent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ClassStudent",
+      "type": "object",
+      "description": "Represents the relationship between a Class and a Student (Many-to-Many relationship).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ClassStudent entity."
+        },
+        "classId": {
+          "type": "string",
+          "description": "Reference to Class. (Relationship: Class N:N Student)"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to Student. (Relationship: Class N:N Student)"
+        }
+      },
+      "required": [
+        "id",
+        "classId",
+        "studentId"
+      ]
+    },
+    "ClassTeacher": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ClassTeacher",
+      "type": "object",
+      "description": "Represents the relationship between a Class and a Teacher.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ClassTeacher entity."
+        },
+        "classId": {
+          "type": "string",
+          "description": "Reference to Class. (Relationship: Class 1:N Teacher)"
+        },
+        "teacherId": {
+          "type": "string",
+          "description": "Reference to Teacher. (Relationship: Class 1:N Teacher)"
+        }
+      },
+      "required": [
+        "id",
+        "classId",
+        "teacherId"
+      ]
+    },
+    "Schedule": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Schedule",
+      "type": "object",
+      "description": "Represents a schedule entry for a teacher.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Schedule entity."
+        },
+        "teacherId": {
+          "type": "string",
+          "description": "Reference to Teacher. (Relationship: Teacher 1:N Schedule)"
+        },
+        "classId": {
+          "type": "string",
+          "description": "Reference to Class. (Relationship: Class 1:N Schedule)"
+        },
+        "dayOfWeek": {
+          "type": "string",
+          "description": "The day of the week for the schedule entry."
+        },
+        "startTime": {
+          "type": "string",
+          "description": "The start time for the schedule entry."
+        },
+        "endTime": {
+          "type": "string",
+          "description": "The end time for the schedule entry."
+        }
+      },
+      "required": [
+        "id",
+        "teacherId",
+        "classId",
+        "dayOfWeek",
+        "startTime",
+        "endTime"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information. Path-based ownership ensures only the user can access their own profile. Includes denormalized roles from ClassStudent and ClassTeacher.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/classes/{classId}",
+        "definition": {
+          "entityName": "Class",
+          "schema": {
+            "$ref": "#/backend/entities/Class"
+          },
+          "description": "Stores class information. Includes a 'members' map for authorization independence, listing teacher and student roles within the class (e.g., members: {userId: 'teacher', userId2: 'student'}).",
+          "params": [
+            {
+              "name": "classId",
+              "description": "The unique identifier of the class."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/subjects/{subjectId}",
+        "definition": {
+          "entityName": "Subject",
+          "schema": {
+            "$ref": "#/backend/entities/Subject"
+          },
+          "description": "Stores subject information. Accessible by admins and teachers assigned to the subject via teacherId.",
+          "params": [
+            {
+              "name": "subjectId",
+              "description": "The unique identifier of the subject."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/courses/{courseId}",
+        "definition": {
+          "entityName": "Course",
+          "schema": {
+            "$ref": "#/backend/entities/Course"
+          },
+          "description": "Stores course content. Located at the root to simplify querying and listing. Access is controlled by the subjectId and only accessible to teachers assigned to the subject.",
+          "params": [
+            {
+              "name": "courseId",
+              "description": "The unique identifier of the course."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/classStudents/{classStudentId}",
+        "definition": {
+          "entityName": "ClassStudent",
+          "schema": {
+            "$ref": "#/backend/entities/ClassStudent"
+          },
+          "description": "Represents the many-to-many relationship between classes and students. Allows efficient querying for students in a class and classes a student is enrolled in.",
+          "params": [
+            {
+              "name": "classStudentId",
+              "description": "The unique identifier of the ClassStudent entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/classTeachers/{classTeacherId}",
+        "definition": {
+          "entityName": "ClassTeacher",
+          "schema": {
+            "$ref": "#/backend/entities/ClassTeacher"
+          },
+          "description": "Represents the one-to-many relationship between classes and teachers. Allows efficient querying for teachers in a class and classes a teacher is assigned to.",
+          "params": [
+            {
+              "name": "classTeacherId",
+              "description": "The unique identifier of the ClassTeacher entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/schedules/{scheduleId}",
+        "definition": {
+          "entityName": "Schedule",
+          "schema": {
+            "$ref": "#/backend/entities/Schedule"
+          },
+          "description": "Stores schedules for teachers. Path-based ownership ensures only the teacher can access their schedule.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the teacher (user)."
+            },
+            {
+              "name": "scheduleId",
+              "description": "The unique identifier of the schedule entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support EduGenius's educational platform, focusing on role-based access control and efficient data retrieval. The structure is optimized for the key features: user authentication, admin/teacher/student dashboards, class/subject/course management, and schedule management.\n\nAuthorization Independence is achieved through path-based ownership for user-specific data (e.g., schedules) and membership maps where collaborative access is required (e.g., classes with multiple teachers and students). This avoids the need for `get()` calls in security rules, enabling atomic operations.\n\nThe structure supports the required QAPs (Queries and Permissions) by:\n\n*   **Structural Segregation:** Separating user profiles, classes, subjects, and courses into distinct collections. This ensures homogeneous security postures within each collection.\n*   **Path-Based Ownership:** Using `/users/{userId}` to control access to user-specific data.\n*   **Membership Maps:** Implementing `members` maps within class documents to manage student and teacher roles, facilitating secure list operations.\n\nDenormalization of key authorization data (e.g., roles within class documents) further eliminates the need for complex security rules and ensures that data access can be validated directly based on document content."
+  }
+}
