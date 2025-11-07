@@ -53,19 +53,19 @@ const studentSchema = baseSchema.extend({
   dateDeNaissance: z.string().min(1, { message: 'Date de naissance requise.' }),
   lieuDeNaissance: z.string().min(1, { message: 'Lieu de naissance requis.' }),
   genre: z.enum(['Homme', 'Femme']),
-  telephone: z.string().min(1, { message: 'Téléphone requis.' }),
-  adresse: z.string().min(1, { message: 'Adresse requise.' }),
+  telephone: z.string().optional().or(z.literal('')),
+  adresse: z.string().optional().or(z.literal('')),
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']),
   filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']),
 });
 
 const teacherSchema = baseSchema.extend({
   role: z.literal('teacher'),
-  emailPro: z.string().email({ message: 'Email pro invalide.' }),
-  genre: z.enum(['Homme', 'Femme']),
-  telephone: z.string().min(1, { message: 'Téléphone requis.' }),
-  adresse: z.string().min(1, { message: 'Adresse requise.' }),
-  specialite: z.string().min(1, { message: 'Spécialité requise.' }),
+  emailPro: z.string().email({ message: 'Email pro invalide.' }).optional().or(z.literal('')),
+  genre: z.enum(['Homme', 'Femme']).optional(),
+  telephone: z.string().optional().or(z.literal('')),
+  adresse: z.string().optional().or(z.literal('')),
+  specialite: z.string().optional().or(z.literal('')),
 });
 
 const adminSchema = baseSchema.extend({
@@ -166,10 +166,10 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
   );
 
   useEffect(() => {
-    if (role === 'student') {
+    if (usernameValue && usernameValue.length > 1) {
         checkUsername(usernameValue);
     }
-  }, [usernameValue, role, checkUsername]);
+  }, [usernameValue, checkUsername]);
   
   useEffect(() => {
     if (role === 'student' && matriculeValue) {
@@ -179,7 +179,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
 
 
   async function onSubmit(values: FormValues) {
-    if (values.role === 'student') {
+    if (values.username) {
         const usersRef = collection(firestore, 'users');
         const usernameQuery = query(usersRef, where('username', '==', values.username));
         const usernameSnapshot = await getDocs(usernameQuery);
@@ -187,7 +187,10 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
             form.setError('username', { type: 'manual', message: "Ce nom d'utilisateur est déjà pris." });
             return;
         }
+    }
         
+    if (values.role === 'student' && values.matricule) {
+        const usersRef = collection(firestore, 'users');
         const matriculeQuery = query(usersRef, where('matricule', '==', values.matricule));
         const matriculeSnapshot = await getDocs(matriculeQuery);
         if (!matriculeSnapshot.empty) {
@@ -247,7 +250,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Rôle</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Sélectionner un rôle" />
@@ -311,3 +314,5 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
     </Dialog>
   );
 }
+
+    

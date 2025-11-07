@@ -49,19 +49,19 @@ const studentSchema = baseSchema.extend({
   dateDeNaissance: z.string().min(1, { message: 'Date de naissance requise.' }),
   lieuDeNaissance: z.string().min(1, { message: 'Lieu de naissance requis.' }),
   genre: z.enum(['Homme', 'Femme']),
-  telephone: z.string().min(1, { message: 'Téléphone requis.' }),
-  adresse: z.string().min(1, { message: 'Adresse requise.' }),
+  telephone: z.string().optional().or(z.literal('')),
+  adresse: z.string().optional().or(z.literal('')),
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']),
   filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']),
 });
 
 const teacherSchema = baseSchema.extend({
   role: z.literal('teacher'),
-  emailPro: z.string().email({ message: 'Email pro invalide.' }),
-  genre: z.enum(['Homme', 'Femme']),
-  telephone: z.string().min(1, { message: 'Téléphone requis.' }),
-  adresse: z.string().min(1, { message: 'Adresse requise.' }),
-  specialite: z.string().min(1, { message: 'Spécialité requise.' }),
+  emailPro: z.string().email({ message: 'Email pro invalide.' }).optional().or(z.literal('')),
+  genre: z.enum(['Homme', 'Femme']).optional(),
+  telephone: z.string().optional().or(z.literal('')),
+  adresse: z.string().optional().or(z.literal('')),
+  specialite: z.string().optional().or(z.literal('')),
 });
 
 const adminSchema = baseSchema.extend({
@@ -82,11 +82,21 @@ type EditUserDialogProps = {
 export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditUserDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: user,
   });
 
   React.useEffect(() => {
-    form.reset(user);
+    if (user) {
+      const defaultValues: any = {
+        ...user,
+        photo: user.photo ?? '',
+        telephone: (user as any).telephone ?? '',
+        adresse: (user as any).adresse ?? '',
+        emailPro: (user as any).emailPro ?? '',
+        specialite: (user as any).specialite ?? '',
+        genre: (user as any).genre ?? undefined,
+      };
+      form.reset(defaultValues);
+    }
   }, [user, form]);
 
   const role = useWatch({
@@ -99,14 +109,11 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
       ...values,
     };
     
-    if (dataToSend.photo === '') {
-      delete dataToSend.photo;
-    }
-  
     const finalValues: AppUser = {
         ...user,
         ...dataToSend,
     };
+
     onUserUpdated(finalValues);
     setIsOpen(false);
   }
@@ -151,7 +158,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Rôle</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Sélectionner un rôle" />
@@ -182,7 +189,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Statut</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Sélectionner un statut" />
@@ -205,12 +212,12 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                                 <FormField control={form.control} name="dateDeNaissance" render={({ field }) => ( <FormItem><FormLabel>Date de Naissance</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="lieuDeNaissance" render={({ field }) => ( <FormItem><FormLabel>Lieu de Naissance</FormLabel><FormControl><Input placeholder="Paris" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 </div>
-                                <FormField control={form.control} name="genre" render={({ field }) => ( <FormItem><FormLabel>Genre</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="Homme">Homme</SelectItem><SelectItem value="Femme">Femme</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="genre" render={({ field }) => ( <FormItem><FormLabel>Genre</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="Homme">Homme</SelectItem><SelectItem value="Femme">Femme</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="telephone" render={({ field }) => ( <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="0123456789" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="adresse" render={({ field }) => ( <FormItem><FormLabel>Adresse</FormLabel><FormControl><Input placeholder="123 Rue de Paris" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="niveau" render={({ field }) => ( <FormItem><FormLabel>Niveau</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['L1', 'L2', 'L3', 'M1', 'M2'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="filiere" render={({ field }) => ( <FormItem><FormLabel>Filière</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['IG', 'GB', 'ASR', 'GID', 'OCC'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="niveau" render={({ field }) => ( <FormItem><FormLabel>Niveau</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['L1', 'L2', 'L3', 'M1', 'M2'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="filiere" render={({ field }) => ( <FormItem><FormLabel>Filière</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['IG', 'GB', 'ASR', 'GID', 'OCC'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                                 </div>
                             </>
                         )}
@@ -218,7 +225,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                         {role === 'teacher' && 'specialite' in form.getValues() && (
                             <>
                                 <FormField control={form.control} name="emailPro" render={({ field }) => ( <FormItem><FormLabel>Email Professionnel</FormLabel><FormControl><Input placeholder="nom@univ.edu" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="genre" render={({ field }) => ( <FormItem><FormLabel>Genre</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="Homme">Homme</SelectItem><SelectItem value="Femme">Femme</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="genre" render={({ field }) => ( <FormItem><FormLabel>Genre</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="Homme">Homme</SelectItem><SelectItem value="Femme">Femme</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="telephone" render={({ field }) => ( <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="0123456789" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="adresse" render={({ field }) => ( <FormItem><FormLabel>Adresse</FormLabel><FormControl><Input placeholder="123 Rue de Paris" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="specialite" render={({ field }) => ( <FormItem><FormLabel>Spécialité</FormLabel><FormControl><Input placeholder="Mathématiques" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -237,3 +244,5 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
     </Dialog>
   );
 }
+
+    
