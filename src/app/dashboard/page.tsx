@@ -117,24 +117,24 @@ export default function DashboardPage() {
             const subjects: Subject[] = subjectsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Subject));
             setStudentSubjects(subjects);
 
-            // 3. Find recent courses in those subjects
+            // 3. Find recent courses and then filter them by subject
             if (subjects.length > 0) {
-                const subjectIds = subjects.map(s => s.id);
-                // Query courses across all relevant subjects
+                const subjectIds = new Set(subjects.map(s => s.id));
+                
+                // Fetch the most recent courses globally (simplified query)
                 const coursesQuery = query(
                     collection(firestore, 'courses'),
-                    where('subjectId', 'in', subjectIds),
                     orderBy('createdAt', 'desc'),
-                    limit(3) // Get the 3 most recent courses overall
+                    limit(10) // Fetch a bit more to have a chance to find relevant ones
                 );
                 
                 const coursesSnapshot = await getDocs(coursesQuery);
-                const allRecentCourses = coursesSnapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return { ...data, id: doc.id } as Course;
-                });
+                const allRecentCourses = coursesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Course));
+
+                // Filter these recent courses to only include those in the student's subjects
+                const studentRecentCourses = allRecentCourses.filter(course => subjectIds.has(course.subjectId));
                 
-                setRecentCourses(allRecentCourses);
+                setRecentCourses(studentRecentCourses.slice(0, 3)); // Keep the top 3 relevant ones
             } else {
                 setRecentCourses([]);
             }
@@ -235,5 +235,3 @@ export default function DashboardPage() {
 
   return <>{renderDashboard()}</>;
 }
-
-    
