@@ -80,18 +80,17 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     }
     
     // Generate a new document reference with a unique ID
-    const newCourseRef = doc(collection(firestore, 'courses'));
+    const courseDocRef = doc(collection(firestore, 'courses'));
 
     const finalPayload: Course = {
-        id: newCourseRef.id, // Use the generated ID
+        id: courseDocRef.id,
         ...newCoursePayload,
         teacherId: user.uid,
         createdAt: new Date().toISOString(),
     };
 
     try {
-      // Use setDoc with the new ref to create the document
-      await setDoc(newCourseRef, finalPayload);
+      await setDoc(courseDocRef, finalPayload);
       toast({
         title: 'Cours ajouté',
         description: `Le cours "${finalPayload.title}" a été créé avec succès.`,
@@ -108,14 +107,11 @@ function SubjectCourses({ subject }: { subject: Subject }) {
 
 
   const handleUpdateCourse = async (updatedCourse: Course) => {
-    // Ensure the ID is present, which it should be from the selectedCourse
     if (!updatedCourse.id) {
         toast({ variant: "destructive", title: "Erreur", description: "ID de cours manquant." });
         return;
     }
     const courseDocRef = doc(firestore, 'courses', updatedCourse.id);
-    // The updatedCourse object from the form already contains all fields.
-    // We can pass it directly to updateDoc.
     await updateDoc(courseDocRef, { ...updatedCourse });
     toast({
       title: 'Cours modifié',
