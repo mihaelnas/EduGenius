@@ -69,7 +69,7 @@ service cloud.firestore {
      * @returns {boolean} True if the user is an admin, false otherwise.
      */
     function isAdmin() {
-      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || request.auth.token.email == 'nasmihael@gmail.com';
+      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
     /**
@@ -146,7 +146,9 @@ service cloud.firestore {
     match /roles_admin/{userId} {
        allow get: if isAdmin();
        allow list: if false;
-       allow create: if isAdmin();
+       // Temporarily allow a user to create their own admin document to bootstrap the first admin.
+       // This should be changed back to isAdmin() after the first admin is created.
+       allow create: if isOwner(userId);
        allow update: if false;
        allow delete: if isAdmin();
     }
