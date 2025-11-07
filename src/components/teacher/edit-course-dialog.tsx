@@ -18,7 +18,7 @@ const resourceSchema = z.object({
   id: z.string().optional(),
   type: z.enum(['pdf', 'video', 'link']),
   title: z.string().min(1, 'Le titre est requis.'),
-  url: z.string().url({ message: "URL invalide" }).optional().or(z.literal('')),
+  url: z.string().optional(),
 });
 
 const formSchema = z.object({
