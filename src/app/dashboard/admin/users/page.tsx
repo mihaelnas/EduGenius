@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getDisplayName, AppUser } from '@/lib/placeholder-data';
+import { getDisplayName, AppUser, Class } from '@/lib/placeholder-data';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Search } from 'lucide-react';
@@ -16,7 +16,7 @@ import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useAuth, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
@@ -129,21 +129,57 @@ export default function AdminUsersPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedUser) {
-      const userDocRef = doc(firestore, 'users', selectedUser.id);
-      deleteDocumentNonBlocking(userDocRef);
-      // NOTE: In a real app, you would also need to delete the user from Firebase Auth
-      // which is a privileged operation typically done on a server.
-      toast({
-        variant: 'destructive',
-        title: 'Utilisateur supprimé',
-        description: `Le profil Firestore de ${getDisplayName(selectedUser)} a été supprimé.`,
-      });
-      setIsDeleteDialogOpen(false);
-      setSelectedUser(null);
+        const userId = selectedUser.id;
+        const userDocRef = doc(firestore, 'users', userId);
+
+        // If the user is a student, remove them from all classes
+        if (selectedUser.role === 'student') {
+            const classesRef = collection(firestore, 'classes');
+            const classesSnapshot = await getDocs(classesRef);
+            const batch = writeBatch(firestore);
+
+            classesSnapshot.forEach(classDoc => {
+                const classData = classDoc.data() as Class;
+                if (classData.studentIds?.includes(userId)) {
+                    const updatedStudentIds = classData.studentIds.filter(id => id !== userId);
+                    batch.update(classDoc.ref, { studentIds: updatedStudentIds });
+                }
+            });
+
+            try {
+                await batch.commit();
+                toast({
+                    title: 'Étudiant désinscrit',
+                    description: `${getDisplayName(selectedUser)} a été retiré de toutes ses classes.`,
+                });
+            } catch (error) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Erreur de mise à jour',
+                    description: `La mise à jour des classes a échoué.`,
+                });
+                // Stop if we can't update classes
+                return;
+            }
+        }
+
+        // Delete the user document itself
+        deleteDocumentNonBlocking(userDocRef);
+
+        // NOTE: In a real app, you would also need to delete the user from Firebase Auth
+        // which is a privileged operation typically done on a server.
+        toast({
+            variant: 'destructive',
+            title: 'Utilisateur supprimé',
+            description: `Le profil Firestore de ${getDisplayName(selectedUser)} a été supprimé.`,
+        });
+
+        setIsDeleteDialogOpen(false);
+        setSelectedUser(null);
     }
-  };
+};
 
   const filteredUsers = React.useMemo(() => (users || []).filter(user =>
     getDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
