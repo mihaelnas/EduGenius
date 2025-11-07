@@ -87,10 +87,8 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     const courseCollectionRef = collection(firestore, 'courses');
   
     try {
-      // 1. Create the document with addDoc to get an auto-generated ID
       const courseDocRef = await addDoc(courseCollectionRef, {
-        title: values.title,
-        content: values.content,
+        ...values,
         subjectId: subject.id,
         subjectName: subject.name,
         teacherId: user.uid,
@@ -99,10 +97,8 @@ function SubjectCourses({ subject }: { subject: Subject }) {
           ...r,
           id: `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         })),
-        // We leave out the 'id' field for now
       });
   
-      // 2. Update the newly created document to include its own ID
       await updateDoc(courseDocRef, {
         id: courseDocRef.id
       });
