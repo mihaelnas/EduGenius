@@ -108,4 +108,3 @@ export function AddCourseDialog({ isOpen, setIsOpen, onCourseAdded }: AddCourseD
   );
 }
 
-    

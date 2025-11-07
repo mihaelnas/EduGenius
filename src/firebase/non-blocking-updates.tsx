@@ -39,23 +39,16 @@ export function setDocumentNonBlocking(docRef: DocumentReference, data: any, opt
  */
 export function addDocumentNonBlocking(colRef: CollectionReference, data: any): Promise<DocumentReference> {
   // Return the promise from addDoc
-  return new Promise((resolve, reject) => {
-    addDoc(colRef, data)
-      .then(docRef => {
-        // On success, resolve the promise with the new document reference
-        resolve(docRef);
-      })
-      .catch(error => {
-        // On failure, create and emit a contextual error
-        const permissionError = new FirestorePermissionError({
-          path: colRef.path,
-          operation: 'create',
-          requestResourceData: data,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        // Also reject the promise so the caller can handle the failure
-        reject(permissionError);
+  return addDoc(colRef, data).catch(error => {
+      // On failure, create and emit a contextual error
+      const permissionError = new FirestorePermissionError({
+        path: colRef.path,
+        operation: 'create',
+        requestResourceData: data,
       });
+      errorEmitter.emit('permission-error', permissionError);
+      // Also reject the promise so the caller can handle the failure
+      throw permissionError;
   });
 }
 
@@ -95,3 +88,4 @@ export function deleteDocumentNonBlocking(docRef: DocumentReference) {
       )
     });
 }
+
