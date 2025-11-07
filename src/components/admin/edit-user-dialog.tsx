@@ -32,6 +32,9 @@ import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
 import { AppUser } from '@/lib/placeholder-data';
+import { useAuth } from '@/firebase';
+import { sendPasswordReset } from '@/lib/auth-actions';
+import { useToast } from '@/hooks/use-toast';
 
 const baseSchema = z.object({
   role: z.enum(['student', 'teacher', 'admin']),
@@ -41,6 +44,7 @@ const baseSchema = z.object({
   email: z.string().email({ message: 'Email invalide.' }),
   photo: z.string().url({ message: 'URL invalide.' }).optional().or(z.literal('')),
   status: z.enum(['active', 'inactive']),
+  newPassword: z.string().min(8, "Le mot de passe doit faire au moins 8 caractères.").optional().or(z.literal('')),
 });
 
 const studentSchema = baseSchema.extend({
@@ -80,6 +84,8 @@ type EditUserDialogProps = {
 }
 
 export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditUserDialogProps) {
+  const auth = useAuth();
+  const { toast } = useToast();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
@@ -94,6 +100,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
         emailPro: (user as any).emailPro ?? '',
         specialite: (user as any).specialite ?? '',
         genre: (user as any).genre ?? undefined,
+        newPassword: '',
       };
       form.reset(defaultValues);
     }
@@ -104,15 +111,33 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
     name: 'role',
   });
   
-  function onSubmit(values: FormValues) {
-    const dataToSend: any = {
-      ...values,
-    };
-    
+  async function onSubmit(values: FormValues) {
+    const { newPassword, ...userData } = values;
+
+    if (newPassword && newPassword.length > 0) {
+        try {
+            await sendPasswordReset(auth, user.email);
+            toast({
+                title: 'Email de réinitialisation envoyé',
+                description: `Un e-mail a été envoyé à ${user.email} pour réinitialiser le mot de passe.`,
+            });
+        } catch (error: any) {
+             toast({
+                variant: 'destructive',
+                title: 'Erreur',
+                description: `Impossible d'envoyer l'e-mail de réinitialisation : ${error.message}`,
+            });
+        }
+    }
+
     const finalValues: AppUser = {
         ...user,
-        ...dataToSend,
+        ...userData,
     };
+    
+    if (finalValues.photo === '') {
+        delete (finalValues as Partial<AppUser>).photo;
+    }
 
     onUserUpdated(finalValues);
     setIsOpen(false);
@@ -183,6 +208,20 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                         <FormField control={form.control} name="username" render={({ field }) => ( <FormItem><FormLabel>Nom d'utilisateur</FormLabel><FormControl><Input placeholder="@jeandupont" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         
+                         <FormField
+                            control={form.control}
+                            name="newPassword"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Nouveau mot de passe</FormLabel>
+                                <FormControl>
+                                    <Input type="password" placeholder="Laisser vide pour ne pas changer" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
                         <FormField
                             control={form.control}
                             name="status"
@@ -244,5 +283,3 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
     </Dialog>
   );
 }
-
-    
