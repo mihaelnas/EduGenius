@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -6,12 +5,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getDisplayName, Student, Teacher } from '@/lib/placeholder-data';
-import { AtSign, Cake, GraduationCap, Home, Mail, MapPin, Phone, School, User as UserIcon, Briefcase, Building } from 'lucide-react';
+import { AtSign, Cake, GraduationCap, Home, Mail, MapPin, Phone, School, User as UserIcon, Briefcase, Building, Camera } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { AppUser } from '@/lib/placeholder-data';
 import { useParams } from 'next/navigation';
+import { UpdatePhotoDialog } from '@/components/update-photo-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string, value?: string | null }) => {
   if (!value) return null;
@@ -30,6 +31,12 @@ export default function ProfileDetailPage() {
   const params = useParams();
   const userId = params.id as string;
   const firestore = useFirestore();
+  const { user: currentUser } = useUser();
+  const { toast } = useToast();
+
+  const [isPhotoDialogOpen, setIsPhotoDialogOpen] = React.useState(false);
+
+  const isOwnProfile = currentUser?.uid === userId;
 
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !userId) return null;
@@ -37,6 +44,16 @@ export default function ProfileDetailPage() {
   }, [firestore, userId]);
 
   const { data: user, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
+  
+  const handlePhotoUpdate = (newPhotoUrl: string) => {
+    if (userDocRef) {
+        updateDocumentNonBlocking(userDocRef, { photo: newPhotoUrl });
+        toast({
+            title: 'Photo de profil mise à jour',
+            description: 'Votre nouvelle photo a été enregistrée.'
+        });
+    }
+  }
 
   if (isProfileLoading) {
     return (
@@ -76,14 +93,25 @@ export default function ProfileDetailPage() {
   }[user.role];
 
   return (
+    <>
     <div className="max-w-4xl mx-auto">
       <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
-        <Avatar className="h-24 w-24 border-4 border-primary">
-          <AvatarImage src={user.photo} alt={getDisplayName(user)} />
-          <AvatarFallback className="text-3xl">
-            {(user.firstName || '').charAt(0)}{(user.lastName || '').charAt(0)}
-          </AvatarFallback>
-        </Avatar>
+        <div className="relative group">
+            <Avatar className="h-24 w-24 border-4 border-primary">
+            <AvatarImage src={user.photo} alt={getDisplayName(user)} />
+            <AvatarFallback className="text-3xl">
+                {(user.firstName || '').charAt(0)}{(user.lastName || '').charAt(0)}
+            </AvatarFallback>
+            </Avatar>
+            {isOwnProfile && (
+                <button 
+                    onClick={() => setIsPhotoDialogOpen(true)}
+                    className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                    <Camera className="h-8 w-8 text-white" />
+                </button>
+            )}
+        </div>
         <div>
           <h1 className="text-4xl font-bold font-headline">{getDisplayName(user)}</h1>
           <div className="flex items-center gap-2 mt-1">
@@ -136,5 +164,14 @@ export default function ProfileDetailPage() {
       )}
 
     </div>
+    {user && (
+        <UpdatePhotoDialog 
+            isOpen={isPhotoDialogOpen}
+            setIsOpen={setIsPhotoDialogOpen}
+            currentPhotoUrl={user.photo}
+            onUpdate={handlePhotoUpdate}
+        />
+    )}
+    </>
   );
 }
