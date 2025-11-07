@@ -48,12 +48,12 @@ service cloud.firestore {
       allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
       allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
     }
-
-    match /subjects/{subjectId}/courses/{courseId} {
+    
+    match /courses/{courseId} {
       allow get, list: if true;
-      allow create: if (isSignedIn() && request.resource.data.teacherId == request.auth.uid) || isAdmin();
-      allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
-      allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
+      allow create: if isTeacherForEvent() || isAdmin();
+      allow update: if isExistingTeacherForEvent() || isAdmin();
+      allow delete: if isExistingTeacherForEvent() || isAdmin();
     }
 
      match /class_students/{classStudentId} {
