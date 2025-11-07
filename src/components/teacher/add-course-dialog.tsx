@@ -101,6 +101,7 @@ export function AddCourseDialog({ isOpen, setIsOpen, subjectId, onCourseAdded }:
               <div className="space-y-4">
                 {fields.map((field, index) => {
                   const resourceType = watchedResources[index]?.type;
+                  const urlProps = form.register(`resources.${index}.url`);
                   return (
                     <div key={field.id} className="flex gap-2 items-end p-3 border rounded-md">
                       <FormField control={form.control} name={`resources.${index}.type`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="pdf">PDF</SelectItem><SelectItem value="video">Vidéo</SelectItem><SelectItem value="link">Lien</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
@@ -112,7 +113,10 @@ export function AddCourseDialog({ isOpen, setIsOpen, subjectId, onCourseAdded }:
                             {resourceType === 'link' || resourceType === 'video' ? (
                                 <Input placeholder="https://..." {...field} />
                             ) : (
-                                <Input type="file" {...form.register(`resources.${index}.url`)} />
+                                <Input
+                                  type="file"
+                                  {...urlProps}
+                                />
                             )}
                           </FormControl>
                           <FormMessage />
