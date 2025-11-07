@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const [userRole, setUserRole] = React.useState<string | null>(null);
+  const [isRoleLoading, setIsRoleLoading] = React.useState(true);
 
   React.useEffect(() => {
     if (user) {
@@ -22,16 +23,27 @@ export default function DashboardPage() {
         if (docSnap.exists()) {
           setUserRole(docSnap.data().role);
         } else {
-          // Handle case where user doc doesn't exist
+          // Handle case where user doc might not be created yet
           setUserRole('student'); // Default or error handling
         }
+        setIsRoleLoading(false);
       });
+    } else if (!isUserLoading) {
+        setIsRoleLoading(false); // No user, so role loading is done
     }
-  }, [user, firestore]);
+  }, [user, firestore, isUserLoading]);
   
-  const usersQuery = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const classesQuery = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
-  const subjectsQuery = useMemoFirebase(() => collection(firestore, 'subjects'), [firestore]);
+  const usersQuery = useMemoFirebase(() => 
+    !isRoleLoading && userRole === 'admin' ? collection(firestore, 'users') : null
+  , [firestore, userRole, isRoleLoading]);
+
+  const classesQuery = useMemoFirebase(() => 
+    !isRoleLoading && userRole === 'admin' ? collection(firestore, 'classes') : null
+  , [firestore, userRole, isRoleLoading]);
+
+  const subjectsQuery = useMemoFirebase(() => 
+    !isRoleLoading && userRole === 'admin' ? collection(firestore, 'subjects') : null
+  , [firestore, userRole, isRoleLoading]);
 
   const { data: users, isLoading: usersLoading } = useCollection<AppUser>(usersQuery);
   const { data: classes, isLoading: classesLoading } = useCollection<Class>(classesQuery);
@@ -39,7 +51,7 @@ export default function DashboardPage() {
 
 
   const renderDashboard = () => {
-    if (isUserLoading || !userRole || usersLoading || classesLoading || subjectsLoading) {
+    if (isUserLoading || isRoleLoading) {
        return (
           <>
             <Skeleton className="h-8 w-1/2" />
@@ -59,13 +71,32 @@ export default function DashboardPage() {
 
     switch (userRole) {
       case 'admin':
-        return <AdminDashboard userName={user?.displayName} users={users || []} classes={classes || []} subjects={subjects || []} />;
+        // Admin dashboard also needs loading state for its specific data
+        if (usersLoading || classesLoading || subjectsLoading) {
+            return (
+                <>
+                    <Skeleton className="h-8 w-1/2" />
+                    <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+                    <Skeleton className="h-28" />
+                    <Skeleton className="h-28" />
+                    <Skeleton className="h-28" />
+                    <Skeleton className="h-28" />
+                    </div>
+                    <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
+                        <Skeleton className="h-80 xl:col-span-2" />
+                        <Skeleton className="h-80" />
+                    </div>
+                </>
+            );
+        }
+        return <AdminDashboard userName={user?.displayName || user?.email} users={users || []} classes={classes || []} subjects={subjects || []} />;
       case 'teacher':
-        return <TeacherDashboard userName={user?.displayName} />;
+        return <TeacherDashboard userName={user?.displayName || user?.email} />;
       case 'student':
-        return <StudentDashboard userName={user?.displayName} />;
+        return <StudentDashboard userName={user?.displayName || user?.email} />;
       default:
-        return <p>Rôle non reconnu.</p>;
+        // This can be shown if the user is logged in but has no role or doc for some reason
+        return <StudentDashboard userName={user?.displayName || user?.email} />;
     }
   };
 
