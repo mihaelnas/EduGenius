@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -16,8 +15,8 @@ import { Badge } from '@/components/ui/badge';
 import { AssignTeacherDialog } from '@/components/admin/assign-teacher-dialog';
 import { ManageStudentsDialog } from '@/components/admin/manage-students-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminClassesPage() {
@@ -40,33 +39,33 @@ export default function AdminClassesPage() {
   const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
   const allStudents = React.useMemo(() => (users || []).filter(u => u.role === 'student'), [users]);
 
-  const handleAdd = (newClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt'>) => {
+  const handleAdd = async (newClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt'>) => {
     const newClassData = {
         ...newClass,
         teacherIds: [],
         studentIds: [],
         createdAt: new Date().toISOString(),
     };
-    addDocumentNonBlocking(classesCollectionRef, newClassData);
+    await addDoc(classesCollectionRef, newClassData);
     toast({
       title: 'Classe ajoutée',
       description: `La classe ${newClass.name} a été créée avec succès.`,
     });
   };
 
-  const handleUpdate = (updatedClass: Class) => {
+  const handleUpdate = async (updatedClass: Class) => {
     const classDocRef = doc(firestore, 'classes', updatedClass.id);
     const { id, ...classData } = updatedClass;
-    updateDocumentNonBlocking(classDocRef, classData);
+    await updateDoc(classDocRef, classData);
     toast({
       title: 'Classe modifiée',
       description: `La classe ${updatedClass.name} a été mise à jour.`,
     });
   };
   
-  const handleUpdatePartial = (classId: string, data: Partial<Omit<Class, 'id'>>) => {
+  const handleUpdatePartial = async (classId: string, data: Partial<Omit<Class, 'id'>>) => {
      const classDocRef = doc(firestore, 'classes', classId);
-     updateDocumentNonBlocking(classDocRef, data);
+     await updateDoc(classDocRef, data);
   };
 
   const handleEdit = (c: Class) => {
@@ -89,10 +88,10 @@ export default function AdminClassesPage() {
     setIsManageStudentsDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedClass) {
       const classDocRef = doc(firestore, 'classes', selectedClass.id);
-      deleteDocumentNonBlocking(classDocRef);
+      await deleteDoc(classDocRef);
       toast({
         variant: 'destructive',
         title: 'Classe supprimée',

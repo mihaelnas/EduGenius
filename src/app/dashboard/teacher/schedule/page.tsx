@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -13,8 +12,8 @@ import { AddEventDialog } from '@/components/teacher/add-event-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc, addDoc } from 'firebase/firestore';
 
 const statusVariant: { [key in ScheduleEvent['status']]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   'planifié': 'default',
@@ -65,14 +64,14 @@ export default function TeacherSchedulePage() {
     [schedule, selectedDateStr]
   );
   
-  const handleEventAdded = (newEventData: Omit<ScheduleEvent, 'id' | 'teacherId'>) => {
+  const handleEventAdded = async (newEventData: Omit<ScheduleEvent, 'id' | 'teacherId'>) => {
     if (!user) return;
     const scheduleCollectionRef = collection(firestore, 'schedule');
     const newEvent = {
       ...newEventData,
       teacherId: user.uid,
     };
-    addDocumentNonBlocking(scheduleCollectionRef, newEvent);
+    await addDoc(scheduleCollectionRef, newEvent);
   };
 
   const isLoading = isLoadingSchedule || isLoadingUsers || isLoadingClasses || isLoadingSubjects;

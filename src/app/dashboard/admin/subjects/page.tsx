@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -15,8 +14,8 @@ import { EditSubjectDialog } from '@/components/admin/edit-subject-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { AssignSubjectTeacherDialog } from '@/components/admin/assign-subject-teacher-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminSubjectsPage() {
@@ -40,24 +39,24 @@ export default function AdminSubjectsPage() {
   
   const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
 
-  const handleAdd = (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt'>) => {
+  const handleAdd = async (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt'>) => {
       const newSubjectData = {
           ...newSubject,
           teacherId: '', // Initialize with no teacher
           classCount: 0, // This will be calculated dynamically
           createdAt: new Date().toISOString(),
       };
-      addDocumentNonBlocking(subjectsCollectionRef, newSubjectData);
+      await addDoc(subjectsCollectionRef, newSubjectData);
       toast({
         title: 'Matière ajoutée',
         description: `La matière ${newSubject.name} a été créée avec succès.`,
       });
   };
 
-  const handleUpdate = (updatedSubject: Subject) => {
+  const handleUpdate = async (updatedSubject: Subject) => {
     const subjectDocRef = doc(firestore, 'subjects', updatedSubject.id);
     const { id, ...subjectData } = updatedSubject;
-    updateDocumentNonBlocking(subjectDocRef, subjectData);
+    await updateDoc(subjectDocRef, subjectData);
     toast({
       title: 'Matière modifiée',
       description: `La matière ${updatedSubject.name} a été mise à jour.`,
@@ -79,15 +78,15 @@ export default function AdminSubjectsPage() {
     setIsAssignTeacherDialogOpen(true);
   };
   
-  const handleAssignTeacherSave = (subjectId: string, teacherId: string | undefined) => {
+  const handleAssignTeacherSave = async (subjectId: string, teacherId: string | undefined) => {
     const subjectDocRef = doc(firestore, 'subjects', subjectId);
-    updateDocumentNonBlocking(subjectDocRef, { teacherId });
+    await updateDoc(subjectDocRef, { teacherId });
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedSubject) {
       const subjectDocRef = doc(firestore, 'subjects', selectedSubject.id);
-      deleteDocumentNonBlocking(subjectDocRef);
+      await deleteDoc(subjectDocRef);
       toast({
         variant: 'destructive',
         title: 'Matière supprimée',
@@ -233,5 +232,3 @@ export default function AdminSubjectsPage() {
     </>
   );
 }
-
-    

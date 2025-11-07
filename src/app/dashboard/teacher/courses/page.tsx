@@ -14,8 +14,8 @@ import { BookOpen, PlusCircle, Paperclip, Video, Link as LinkIcon, Edit, Trash2 
 import { AddCourseDialog } from '@/components/teacher/add-course-dialog';
 import { EditCourseDialog } from '@/components/teacher/edit-course-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
-import { useUser, useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, Query } from 'firebase/firestore';
+import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc, Query, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 
@@ -59,10 +59,10 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     setIsDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedCourse) {
       const courseDocRef = doc(firestore, 'courses', selectedCourse.id);
-      deleteDocumentNonBlocking(courseDocRef);
+      await deleteDoc(courseDocRef);
       toast({
         variant: 'destructive',
         title: 'Cours supprimé',
@@ -89,8 +89,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     const courseDocRef = doc(firestore, 'courses', finalPayload.id);
 
     try {
-      // Use setDoc with the client-generated ID
-      await setDocumentNonBlocking(courseDocRef, finalPayload, {});
+      await setDoc(courseDocRef, finalPayload);
       toast({
         title: 'Cours ajouté',
         description: `Le cours "${finalPayload.title}" a été créé avec succès.`,
@@ -106,10 +105,10 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   };
 
 
-  const handleUpdateCourse = (updatedCourse: Course) => {
+  const handleUpdateCourse = async (updatedCourse: Course) => {
     const { id, ...courseData } = updatedCourse;
     const courseDocRef = doc(firestore, 'courses', id);
-    updateDocumentNonBlocking(courseDocRef, courseData);
+    await updateDoc(courseDocRef, courseData);
     toast({
       title: 'Cours modifié',
       description: `Le cours "${updatedCourse.title}" a été mis à jour.`,

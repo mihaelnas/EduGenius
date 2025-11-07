@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -15,8 +14,8 @@ import { AddUserDialog, AddUserFormValues } from '@/components/admin/add-user-di
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useAuth, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useAuth, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch, updateDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
@@ -71,7 +70,7 @@ export default function AdminUsersPage() {
       
       const userDocRef = doc(firestore, 'users', newUser.uid);
       
-      setDoc(userDocRef, userProfile).catch(error => {
+      await setDoc(userDocRef, userProfile).catch(error => {
         // This will now properly catch and display permission errors
         const permissionError = new FirestorePermissionError({
           path: userDocRef.path,
@@ -104,7 +103,7 @@ export default function AdminUsersPage() {
   };
 
 
-  const handleUpdate = (updatedUser: AppUser) => {
+  const handleUpdate = async (updatedUser: AppUser) => {
     const userDocRef = doc(firestore, 'users', updatedUser.id);
     const { id, ...userData } = updatedUser;
     
@@ -112,7 +111,7 @@ export default function AdminUsersPage() {
       delete (userData as Partial<AppUser>).photo;
     }
 
-    updateDocumentNonBlocking(userDocRef, userData);
+    await updateDoc(userDocRef, userData);
     toast({
       title: 'Utilisateur modifié',
       description: `L'utilisateur ${getDisplayName(updatedUser)} a été mis à jour.`,
@@ -166,7 +165,7 @@ export default function AdminUsersPage() {
         }
 
         // Delete the user document itself
-        deleteDocumentNonBlocking(userDocRef);
+        await deleteDoc(userDocRef);
 
         // NOTE: In a real app, you would also need to delete the user from Firebase Auth
         // which is a privileged operation typically done on a server.
