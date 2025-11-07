@@ -9,18 +9,69 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { classes, users, getDisplayName, Student, AppUser } from '@/lib/placeholder-data';
+import { getDisplayName, Student, AppUser, Class } from '@/lib/placeholder-data';
 import React from 'react';
+import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function TeacherClassDetailPage() {
   const params = useParams();
   const classId = params.id as string;
+  const firestore = useFirestore();
 
-  const currentClass = React.useMemo(() => classes.find(c => c.id === classId), [classId]);
+  const classDocRef = useMemoFirebase(() => classId ? doc(firestore, 'classes', classId) : null, [firestore, classId]);
+  const { data: currentClass, isLoading: isLoadingClass } = useDoc<Class>(classDocRef);
+  
+  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const { data: users, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
+
   const studentsInClass = React.useMemo(() => {
-    if (!currentClass) return [];
-    return users.filter(user => currentClass.studentIds.includes(user.id)) as Student[];
-  }, [currentClass]);
+    if (!currentClass || !users) return [];
+    const studentMap = new Map(users.map(u => [u.id, u]));
+    return currentClass.studentIds
+        .map(id => studentMap.get(id))
+        .filter(user => user && user.role === 'student') as Student[];
+  }, [currentClass, users]);
+
+  const isLoading = isLoadingClass || isLoadingUsers;
+
+  if (isLoading) {
+    return (
+        <div>
+            <Skeleton className="h-9 w-40 mb-4" />
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/2" />
+                    <Skeleton className="h-4 w-1/3" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-6 w-1/4 mb-4" />
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Nom</TableHead>
+                                <TableHead>Matricule</TableHead>
+                                <TableHead>Contact</TableHead>
+                                <TableHead>Genre</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell><Skeleton className="h-10 w-40" /></TableCell>
+                                    <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                                    <TableCell><Skeleton className="h-8 w-48" /></TableCell>
+                                    <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
+    )
+  }
 
   if (!currentClass) {
     return (
@@ -91,10 +142,12 @@ export default function TeacherClassDetailPage() {
                                      <Mail className="h-3 w-3 text-muted-foreground" />
                                      <a href={`mailto:${student.email}`} className="hover:underline">{student.email}</a>
                                    </div>
-                                   <div className="flex items-center gap-2">
-                                     <Phone className="h-3 w-3 text-muted-foreground" />
-                                     <span>{student.telephone}</span>
-                                   </div>
+                                   {student.telephone && (
+                                    <div className="flex items-center gap-2">
+                                        <Phone className="h-3 w-3 text-muted-foreground" />
+                                        <span>{student.telephone}</span>
+                                    </div>
+                                   )}
                                 </div>
                             </TableCell>
                             <TableCell>{student.genre}</TableCell>
