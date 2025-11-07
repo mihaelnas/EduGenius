@@ -66,7 +66,7 @@ export function StudentDashboard({ userName, studentClass, subjects, recentCours
                         {recentCourses.length > 0 ? (
                             <div className="space-y-4">
                                 {recentCourses.map(course => (
-                                    <Link key={course.id} href={`/dashboard/student/courses/${course.id}`} className="block p-4 rounded-lg border hover:bg-muted transition-colors">
+                                    <Link key={course.id} href={`/dashboard/student/courses/${course.subjectId}/${course.id}`} className="block p-4 rounded-lg border hover:bg-muted transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="font-semibold">{course.title}</p>

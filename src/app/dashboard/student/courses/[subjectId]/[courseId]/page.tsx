@@ -1,17 +1,20 @@
+
 'use client';
 
 import React from 'react';
-import { useParams, notFound } from 'next/navigation';
+import { useParams, notFound, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  courses,
-  subjects,
+  Course,
+  Subject,
   Resource,
 } from '@/lib/placeholder-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { ArrowLeft, Paperclip, Video, Link as LinkIcon, ChevronRight } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
   switch (type) {
@@ -26,16 +29,44 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
   }
 };
 
-
 export default function CourseDetailPage() {
   const params = useParams();
-  const courseId = params.id as string;
+  const subjectId = params.subjectId as string;
+  const courseId = params.courseId as string;
+  const firestore = useFirestore();
 
-  const course = React.useMemo(() => courses.find(c => c.id === courseId), [courseId]);
-  const subject = React.useMemo(() => {
-    if (!course) return null;
-    return subjects.find(s => s.id === course.subjectId);
-  }, [course]);
+  const subjectDocRef = useMemoFirebase(() => subjectId ? doc(firestore, 'subjects', subjectId) : null, [firestore, subjectId]);
+  const courseDocRef = useMemoFirebase(() => (subjectId && courseId) ? doc(firestore, 'subjects', subjectId, 'courses', courseId) : null, [firestore, subjectId, courseId]);
+
+  const { data: subject, isLoading: isLoadingSubject } = useDoc<Subject>(subjectDocRef);
+  const { data: course, isLoading: isLoadingCourse } = useDoc<Course>(courseDocRef);
+  
+  const isLoading = isLoadingSubject || isLoadingCourse;
+
+  if (isLoading) {
+    return (
+        <div>
+            <Skeleton className="h-6 w-1/2 mb-6" />
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-4 w-1/4 mb-2" />
+                    <Skeleton className="h-8 w-3/4" />
+                    <Skeleton className="h-4 w-1/3" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-20 w-full" />
+                    <div className="mt-8">
+                         <Skeleton className="h-6 w-1/3 mb-4" />
+                         <div className="space-y-3">
+                             <Skeleton className="h-12 w-full" />
+                             <Skeleton className="h-12 w-full" />
+                         </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+  }
 
   if (!course || !subject) {
     notFound();
@@ -77,7 +108,7 @@ export default function CourseDetailPage() {
             <p>{course.content}</p>
           </div>
 
-          {course.resources.length > 0 && (
+          {course.resources && course.resources.length > 0 && (
             <div className="mt-8">
               <h3 className="text-xl font-semibold mb-4 font-headline">Ressources du cours</h3>
               <div className="space-y-3">
