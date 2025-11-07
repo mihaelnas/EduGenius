@@ -78,9 +78,9 @@ service cloud.firestore {
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id || isAdmin();
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId) || isAdmin();
       allow delete: if isExistingOwner(userId) || isAdmin();
     }
 
@@ -89,7 +89,7 @@ service cloud.firestore {
      * @path /classes/{classId}
      */
     match /classes/{classId} {
-      allow get, list: if isAdmin();
+      allow get, list: if isSignedIn();
       allow create: if isAdmin();
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
@@ -122,7 +122,7 @@ service cloud.firestore {
       * @path /class_students/{classStudentId}
       */
      match /class_students/{classStudentId} {
-      allow get, list: if isAdmin();
+      allow get, list: if isSignedIn();
       allow create: if isAdmin();
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
@@ -133,7 +133,7 @@ service cloud.firestore {
      * @path /class_teachers/{classTeacherId}
      */
     match /class_teachers/{classTeacherId} {
-      allow get, list: if isAdmin();
+      allow get, list: if isSignedIn();
       allow create: if isAdmin();
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
