@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -10,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ScheduleEvent, getDisplayName } from '@/lib/placeholder-data';
+import { ScheduleEvent, Class, Subject, getDisplayName } from '@/lib/placeholder-data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useUser } from '@/firebase';
 
@@ -31,9 +30,11 @@ type AddEventDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     onEventAdded: (newEvent: FormValues) => void;
+    teacherClasses: Class[];
+    teacherSubjects: Subject[];
 }
 
-export function AddEventDialog({ isOpen, setIsOpen, onEventAdded }: AddEventDialogProps) {
+export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses, teacherSubjects }: AddEventDialogProps) {
   const { toast } = useToast();
   const { user } = useUser();
 
@@ -95,14 +96,58 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded }: AddEventDial
                 <FormField control={form.control} name="startTime" render={({ field }) => ( <FormItem><FormLabel>Heure de début</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="endTime" render={({ field }) => ( <FormItem><FormLabel>Heure de fin</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem> )} />
             </div>
-            <FormField control={form.control} name="subject" render={({ field }) => ( <FormItem><FormLabel>Matière</FormLabel><FormControl><Input placeholder="Ex: Mathématiques" {...field} /></FormControl><FormMessage /></FormItem> )} />
-            <FormField control={form.control} name="class" render={({ field }) => ( <FormItem><FormLabel>Classe</FormLabel><FormControl><Input placeholder="Ex: Licence 3 - IG" {...field} /></FormControl><FormMessage /></FormItem> )} />
+
+            <FormField
+              control={form.control}
+              name="subject"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Matière</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner une matière..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {teacherSubjects.map(subject => (
+                        <SelectItem key={subject.id} value={subject.name}>{subject.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="class"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Classe</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner une classe..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {teacherClasses.map(c => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             {user && (
                 <FormItem>
                     <FormLabel>Enseignant</FormLabel>
                     <FormControl>
-                        <Input value={user.displayName || user.email || ''} disabled />
+                        <Input value={getDisplayName({firstName: user.displayName || '', lastName: ''}) || user.email || ''} disabled />
                     </FormControl>
                 </FormItem>
             )}

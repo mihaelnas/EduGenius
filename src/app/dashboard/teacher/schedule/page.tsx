@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -8,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { PlusCircle, User, Video } from 'lucide-react';
 import { fr } from 'date-fns/locale';
 import { format } from 'date-fns';
-import { ScheduleEvent, getDisplayName, AppUser } from '@/lib/placeholder-data';
+import { ScheduleEvent, getDisplayName, AppUser, Class, Subject } from '@/lib/placeholder-data';
 import { AddEventDialog } from '@/components/teacher/add-event-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,11 +41,24 @@ export default function TeacherSchedulePage() {
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: users, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
 
+  const teacherClassesQuery = useMemoFirebase(() => 
+    user ? query(collection(firestore, 'classes'), where('teacherIds', 'array-contains', user.uid)) : null,
+    [user, firestore]
+  );
+  const { data: teacherClasses, isLoading: isLoadingClasses } = useCollection<Class>(teacherClassesQuery);
+
+  const teacherSubjectsQuery = useMemoFirebase(() => 
+    user ? query(collection(firestore, 'subjects'), where('teacherId', '==', user.uid)) : null,
+    [user, firestore]
+  );
+  const { data: teacherSubjects, isLoading: isLoadingSubjects } = useCollection<Subject>(teacherSubjectsQuery);
+
   const getTeacherById = (id: string): AppUser | undefined => users?.find(u => u.id === id);
 
   const selectedDateStr = date ? format(date, 'yyyy-MM-dd') : '';
   const todaysEvents = React.useMemo(() => 
-    (schedule || []).filter(event => event.date === selectedDateStr),
+    (schedule || []).filter(event => event.date === selectedDateStr)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime)),
     [schedule, selectedDateStr]
   );
   
@@ -60,7 +72,7 @@ export default function TeacherSchedulePage() {
     addDocumentNonBlocking(scheduleCollectionRef, newEvent);
   };
 
-  const isLoading = isLoadingSchedule || isLoadingUsers;
+  const isLoading = isLoadingSchedule || isLoadingUsers || isLoadingClasses || isLoadingSubjects;
 
   return (
     <>
@@ -151,6 +163,8 @@ export default function TeacherSchedulePage() {
         isOpen={isAddEventDialogOpen}
         setIsOpen={setIsAddEventDialogOpen}
         onEventAdded={handleEventAdded}
+        teacherClasses={teacherClasses || []}
+        teacherSubjects={teacherSubjects || []}
       />
     </>
   );
