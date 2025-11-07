@@ -96,7 +96,7 @@ service cloud.firestore {
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      allow list: if isSignedIn();
       allow create: if isOwner(userId) || isAdmin();
       allow update: if isExistingOwner(userId) || isAdmin();
       allow delete: if isExistingOwner(userId) || isAdmin();
@@ -119,11 +119,11 @@ service cloud.firestore {
      */
     match /subjects/{subjectId} {
       allow get, list: if true;
-      allow create: if isAdmin();
+      allow create: if (isSignedIn() && request.resource.data.teacherId == request.auth.uid) || isAdmin();
       allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
       allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
     }
-
+    
     /**
      * @description Rules for courses (root collection).
      * @path /courses/{courseId}
