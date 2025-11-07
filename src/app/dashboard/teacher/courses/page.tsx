@@ -100,9 +100,9 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     <>
       <CardContent className="p-6 pt-0">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-muted-foreground">
+          <div className="text-muted-foreground">
               {isLoadingCourses ? <Skeleton className="h-4 w-20"/> : `${(courses || []).length} cours publiés.`}
-          </p>
+          </div>
           <Button variant="outline" size="sm" onClick={handleOpenAddDialog}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Ajouter un cours
