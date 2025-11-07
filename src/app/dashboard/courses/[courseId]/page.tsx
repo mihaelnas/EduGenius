@@ -33,10 +33,8 @@ export default function CourseDetailPage() {
   const firestore = useFirestore();
 
   const courseDocRef = useMemoFirebase(() => {
-    if (courseId) {
-      return doc(firestore, 'courses', courseId);
-    }
-    return null;
+    if (!firestore || !courseId) return null;
+    return doc(firestore, 'courses', courseId);
   }, [firestore, courseId]);
 
   const { data: course, isLoading: isLoadingCourse } = useDoc<Course>(courseDocRef);
@@ -142,3 +140,5 @@ export default function CourseDetailPage() {
     </div>
   );
 }
+
+    

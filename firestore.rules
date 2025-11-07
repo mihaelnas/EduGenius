@@ -26,6 +26,10 @@ service cloud.firestore {
     function isExistingTeacherForEvent() {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
+    
+    function isTeacherForSubject(subjectId) {
+      return isSignedIn() && get(/databases/$(database)/documents/subjects/$(subjectId)).data.teacherId == request.auth.uid;
+    }
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
@@ -47,15 +51,14 @@ service cloud.firestore {
       allow create: if (isSignedIn() && request.resource.data.teacherId == request.auth.uid) || isAdmin();
       allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
       allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
+      
+      match /courses/{courseId} {
+        allow get, list: if true;
+        allow create: if isTeacherForSubject(subjectId) || isAdmin();
+        allow update, delete: if (isTeacherForSubject(subjectId) && resource.data.teacherId == request.auth.uid) || isAdmin();
+      }
     }
     
-    match /courses/{courseId} {
-      allow get, list: if true;
-      allow create: if isTeacherForEvent() || isAdmin();
-      allow update: if isExistingTeacherForEvent() || isAdmin();
-      allow delete: if isExistingTeacherForEvent() || isAdmin();
-    }
-
      match /class_students/{classStudentId} {
       allow get, list: if isSignedIn();
       allow create: if isAdmin();
@@ -86,3 +89,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

@@ -80,8 +80,10 @@ function SubjectCourses({ subject }: { subject: Subject }) {
       return;
     }
     
+    // 1. Create a new document reference with a unique ID
     const courseDocRef = doc(collection(firestore, 'courses'));
 
+    // 2. Add the generated ID to the payload
     const finalPayload: Course = {
         id: courseDocRef.id,
         ...newCoursePayload,
@@ -90,6 +92,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     };
 
     try {
+      // 3. Use setDoc with the reference and the complete payload
       await setDoc(courseDocRef, finalPayload);
       toast({
         title: 'Cours ajouté',
@@ -112,7 +115,9 @@ function SubjectCourses({ subject }: { subject: Subject }) {
         return;
     }
     const courseDocRef = doc(firestore, 'courses', updatedCourse.id);
-    await updateDoc(courseDocRef, { ...updatedCourse });
+    // Remove ID from the data to be updated to avoid redundancy
+    const { id, ...courseData } = updatedCourse;
+    await updateDoc(courseDocRef, courseData);
     toast({
       title: 'Cours modifié',
       description: `Le cours "${updatedCourse.title}" a été mis à jour.`,

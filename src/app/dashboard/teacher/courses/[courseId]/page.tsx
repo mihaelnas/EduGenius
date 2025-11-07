@@ -9,7 +9,6 @@ import {
 } from '@/lib/placeholder-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Paperclip, Video, Link as LinkIcon, ChevronRight, ArrowLeft } from 'lucide-react';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,13 +30,15 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 export default function TeacherCourseDetailPage() {
   const params = useParams();
   const courseId = params.courseId as string;
+  // The subjectId is available if you need it, but we'll fetch the course directly.
+  // const subjectId = params.subjectId as string; 
   const firestore = useFirestore();
 
   const courseDocRef = useMemoFirebase(() => {
-    if (courseId) {
-      return doc(firestore, 'courses', courseId);
-    }
-    return null;
+    if (!firestore || !courseId) return null;
+    // Assuming courses are a root collection for simplicity now.
+    // If they are a subcollection, the path would be `subjects/${subjectId}/courses/${courseId}`
+    return doc(firestore, 'courses', courseId);
   }, [firestore, courseId]);
 
   const { data: course, isLoading: isLoadingCourse } = useDoc<Course>(courseDocRef);
@@ -69,11 +70,13 @@ export default function TeacherCourseDetailPage() {
     );
   }
   
+  // Only trigger 404 if loading is complete AND the course is still null.
   if (!isLoadingCourse && !course) {
     notFound();
     return null; 
   }
 
+  // Return null while loading if there's no course data yet to prevent premature render
   if (!course) {
     return null;
   }
@@ -130,3 +133,5 @@ export default function TeacherCourseDetailPage() {
     </div>
   );
 }
+
+    
