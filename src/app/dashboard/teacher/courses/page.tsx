@@ -39,8 +39,8 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   const { toast } = useToast();
   
   const coursesQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, `courses`), where('subjectId', '==', subject.id), where('teacherId', '==', user?.uid)) : null,
-    [firestore, subject.id, user?.uid]
+    () => firestore && user ? query(collection(firestore, `courses`), where('subjectId', '==', subject.id), where('teacherId', '==', user?.uid)) : null,
+    [firestore, subject.id, user]
   );
   const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery as Query<Course> | null);
 
@@ -83,33 +83,34 @@ function SubjectCourses({ subject }: { subject: Subject }) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur ou service non disponible.' });
       return;
     }
-
+  
     const courseCollectionRef = collection(firestore, 'courses');
-
+  
     try {
-        const newCourseData: Omit<Course, 'id'> = {
-            title: values.title,
-            content: values.content,
-            subjectId: subject.id,
-            subjectName: subject.name,
-            teacherId: user.uid,
-            createdAt: new Date().toISOString(),
-            resources: values.resources.map(r => ({
-                ...r,
-                id: `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            }))
-        };
-        
-        const courseDocRef = await addDoc(courseCollectionRef, newCourseData);
-        // Now, update the document to include its own ID
-        await updateDoc(courseDocRef, {
-          id: courseDocRef.id
-        });
-
-        toast({
-            title: 'Cours ajouté',
-            description: `Le cours "${values.title}" a été créé avec succès.`,
-        });
+      // 1. Create the document with addDoc to get an auto-generated ID
+      const courseDocRef = await addDoc(courseCollectionRef, {
+        title: values.title,
+        content: values.content,
+        subjectId: subject.id,
+        subjectName: subject.name,
+        teacherId: user.uid,
+        createdAt: new Date().toISOString(),
+        resources: values.resources.map(r => ({
+          ...r,
+          id: `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        })),
+        // We leave out the 'id' field for now
+      });
+  
+      // 2. Update the newly created document to include its own ID
+      await updateDoc(courseDocRef, {
+        id: courseDocRef.id
+      });
+  
+      toast({
+        title: 'Cours ajouté',
+        description: `Le cours "${values.title}" a été créé avec succès.`,
+      });
     } catch (error) {
       console.error("Failed to add course:", error);
       toast({
@@ -154,12 +155,12 @@ function SubjectCourses({ subject }: { subject: Subject }) {
             <div key={course.id} className="rounded-lg border bg-card p-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                    <Link href={`/dashboard/courses/${course.id}`} className="font-semibold text-base hover:underline">{course.title}</Link>
+                    <Link href={`/dashboard/teacher/courses/${course.id}`} className="font-semibold text-base hover:underline">{course.title}</Link>
                     <p className="text-sm text-muted-foreground line-clamp-2">{course.content}</p>
                 </div>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                        <Link href={`/dashboard/courses/${course.id}`}>
+                        <Link href={`/dashboard/teacher/courses/${course.id}`}>
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">Voir</span>
                         </Link>
