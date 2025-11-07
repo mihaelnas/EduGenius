@@ -7,7 +7,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, User, Video } from 'lucide-react';
 import { fr } from 'date-fns/locale';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { ScheduleEvent, getDisplayName, AppUser, Class, Subject } from '@/lib/placeholder-data';
 import { AddEventDialog } from '@/components/teacher/add-event-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -52,12 +52,17 @@ export default function TeacherSchedulePage() {
 
   const getTeacherById = (id: string): AppUser | undefined => users?.find(u => u.id === id);
 
-  const selectedDateStr = date ? format(date, 'yyyy-MM-dd') : '';
-  const todaysEvents = React.useMemo(() => 
-    (schedule || []).filter(event => event.date === selectedDateStr)
-      .sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    [schedule, selectedDateStr]
-  );
+  const todaysEvents = React.useMemo(() => {
+    if (!date || !schedule) return [];
+    return schedule
+      .filter(event => {
+        // Use isSameDay to correctly compare dates ignoring timezones.
+        // new Date(event.date) handles cases where date is a string 'YYYY-MM-DD'
+        // or a full ISO string.
+        return isSameDay(new Date(event.date), date);
+      })
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }, [schedule, date]);
   
   const handleEventAdded = async (newEventData: Omit<ScheduleEvent, 'id' | 'teacherId'>) => {
     if (!user) return;
