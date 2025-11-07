@@ -37,7 +37,7 @@ import { AppUser } from '@/lib/placeholder-data';
 import { useAuth, useFirestore } from '@/firebase';
 import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { debounce } from 'lodash';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
 const baseSchema = z.object({
@@ -196,11 +196,15 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
     }
 
     try {
-        // Create the user in Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const newUser = userCredential.user;
 
-        // Prepare the user profile for Firestore
+        // Set display name and photo for the new user
+        await updateProfile(newUser, {
+            displayName: `${values.firstName} ${values.lastName}`,
+            photoURL: values.photo || null,
+        });
+        
         const { password, ...userData } = values;
         const userProfile: Omit<AppUser, 'id'> = {
             ...userData,
@@ -212,19 +216,12 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
             delete userProfile.photo;
         }
 
-        // Save the user profile in Firestore with the UID from Auth
         const userDocRef = doc(firestore, 'users', newUser.uid);
         await setDoc(userDocRef, userProfile);
 
         // Sign out the newly created user to keep the admin session active
         await signOut(auth);
 
-        // This part is tricky. We need to re-authenticate the admin.
-        // For this demo, we'll assume the onAuthStateChanged in the provider will handle it,
-        // but in a real-world scenario, you might need a more robust way to re-sign-in the admin
-        // or use a Cloud Function to create users.
-        // For now, we rely on the provider to re-establish the admin's auth state.
-        
         toast({
             title: 'Utilisateur créé',
             description: `Le compte pour ${values.firstName} ${values.lastName} a été créé.`,
@@ -341,7 +338,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
                         {role === 'teacher' && (
                             <>
                                 <FormField control={form.control} name="emailPro" render={({ field }) => ( <FormItem><FormLabel>Email Professionnel</FormLabel><FormControl><Input placeholder="nom@univ.edu" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="genre" render={({ field }) => ( <FormItem><FormLabel>Genre</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="Homme">Homme</SelectItem><SelectItem value="Femme">Femme</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="genre" render={({ field }) => ( <FormItem><FormLabel>Genre</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="Homme">Homme</SelectItem><SelectItem value="Femme">Femme</SelectItem></SelectContent></Select><FormMessage /></FormMessage>)} />
                                 <FormField control={form.control} name="telephone" render={({ field }) => ( <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="0123456789" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="adresse" render={({ field }) => ( <FormItem><FormLabel>Adresse</FormLabel><FormControl><Input placeholder="123 Rue de Paris" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="specialite" render={({ field }) => ( <FormItem><FormLabel>Spécialité</FormLabel><FormControl><Input placeholder="Mathématiques" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -360,5 +357,3 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
     </Dialog>
   );
 }
-
-    
