@@ -3,6 +3,8 @@ export type User = {
   id: string;
   nom: string;
   prenom: string;
+  firstName: string;
+  lastName: string;
   email: string;
   username: string;
   role: 'admin' | 'teacher' | 'student';
@@ -91,6 +93,8 @@ export const users: AppUser[] = [
     id: 'usr_1', 
     nom: 'ADMIN', 
     prenom: 'User',
+    firstName: 'User',
+    lastName: 'ADMIN',
     username: '@admin',
     email: 'admin@edugenius.com', 
     role: 'admin', 
@@ -101,6 +105,8 @@ export const users: AppUser[] = [
     id: 'usr_2',
     nom: 'JOHNSON',
     prenom: 'Alice',
+    firstName: 'Alice',
+    lastName: 'JOHNSON',
     username: '@alicej',
     email: 'alice.j@enseignant.com',
     emailPro: 'alice.johnson@univ.edu',
@@ -117,6 +123,8 @@ export const users: AppUser[] = [
     id: 'usr_3',
     nom: 'WILLIAMS',
     prenom: 'Bob',
+    firstName: 'Bob',
+    lastName: 'WILLIAMS',
     username: '@bobw',
     email: 'bob.w@etudiant.com',
     role: 'student',
@@ -136,6 +144,8 @@ export const users: AppUser[] = [
     id: 'usr_4',
     nom: 'BROWN',
     prenom: 'Charlie',
+    firstName: 'Charlie',
+    lastName: 'BROWN',
     username: '@charlieb',
     email: 'charlie.b@etudiant.com',
     role: 'student',
@@ -155,6 +165,8 @@ export const users: AppUser[] = [
     id: 'usr_5',
     nom: 'PRINCE',
     prenom: 'Diana',
+    firstName: 'Diana',
+    lastName: 'PRINCE',
     username: '@dianap',
     email: 'diana.p@enseignant.com',
     emailPro: 'diana.prince@univ.edu',
@@ -171,6 +183,8 @@ export const users: AppUser[] = [
     id: 'usr_6',
     nom: 'DOE',
     prenom: 'John',
+    firstName: 'John',
+    lastName: 'DOE',
     username: '@johnd',
     email: 'john.d@etudiant.com',
     role: 'student',
@@ -263,6 +277,8 @@ export const students = [
 
 
 // Combine nom and prenom for display name
-export function getDisplayName(user: { prenom: string, nom: string }): string {
-    return `${user.prenom} ${user.nom}`;
+export function getDisplayName(user: { prenom?: string, nom?: string, firstName?: string, lastName?: string }): string {
+    const firstName = user.prenom || user.firstName || '';
+    const lastName = user.nom || user.lastName || '';
+    return `${firstName} ${lastName}`.trim();
 }

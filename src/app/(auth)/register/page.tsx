@@ -80,13 +80,12 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // Créer le profil utilisateur avec le rôle 'student'
       const userProfile = {
         id: user.uid,
         firstName: values.prenom,
         lastName: values.nom,
         email: values.email,
-        role: 'student', // Rôle par défaut
+        role: 'student',
         status: 'active',
         createdAt: new Date().toISOString(),
       };
@@ -94,7 +93,6 @@ export default function RegisterPage() {
       const userDocRef = doc(firestore, 'users', user.uid);
       await setDoc(userDocRef, userProfile);
 
-      // Déconnecter l'utilisateur pour qu'il se connecte manuellement
       await signOut(auth);
 
       toast({
