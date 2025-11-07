@@ -13,8 +13,8 @@
  *   teacher assignments.
  * - /subjects/{subjectId}: Stores subject information, access controlled by
  *   the assigned teacher.
- * - /subjects/{subjectId}/courses/{courseId}: Stores course information, access
- *   controlled by the parent subject's teacher.
+ * - /courses/{courseId}: Stores course information. Writes are controlled by
+ *   the `teacherId` field within the course document itself.
  * - /class_students/{classStudentId}: Represents the relationship between a class
  *   and a student.
  * - /class_teachers/{classTeacherId}: Represents the assignment of a teacher to
@@ -28,11 +28,13 @@
  *   /roles_admin/{userId} collection.
  *
  * Denormalization for Authorization:
- * - The `Subject` entity includes a `teacherId` field to directly authorize
- *   course creation and modification under that subject.
+ * - The `Course` entity includes a `teacherId` field to directly authorize
+ *   course creation and modification. This avoids costly and complex `get()`
+ *   calls in the rules.
  *
  * Structural Segregation:
  * - User-specific data is stored under /users/{userId} to ensure privacy.
+ * - Courses are now a root-level collection for simpler queries and rules.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -71,6 +73,22 @@ service cloud.firestore {
     function isAdmin() {
       return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
+    
+    /**
+     * @description Checks if the user creating/updating an event is the assigned teacher.
+     * @returns {boolean} True if the user is the teacher for the event.
+     */
+    function isTeacherForEvent() {
+      return isSignedIn() && request.resource.data.teacherId == request.auth.uid;
+    }
+
+    /**
+     * @description Checks if the user updating/deleting an event is the assigned teacher of the existing event.
+     * @returns {boolean} True if the user is the teacher for the event.
+     */
+    function isExistingTeacherForEvent() {
+      return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
+    }
 
     /**
      * @description Rules for user profiles.
@@ -101,20 +119,20 @@ service cloud.firestore {
      */
     match /subjects/{subjectId} {
       allow get, list: if true;
-      allow create: if (isSignedIn() && request.resource.data.teacherId == request.auth.uid) || isAdmin();
+      allow create: if isAdmin();
       allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
       allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
     }
 
     /**
-     * @description Rules for courses within a subject.
-     * @path /subjects/{subjectId}/courses/{courseId}
+     * @description Rules for courses (root collection).
+     * @path /courses/{courseId}
      */
-    match /subjects/{subjectId}/courses/{courseId} {
+    match /courses/{courseId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && get(/databases/$(database)/documents/subjects/$(subjectId)).data.teacherId == request.auth.uid || isAdmin();
-      allow update: if isSignedIn() && resource != null && get(/databases/$(database)/documents/subjects/$(subjectId)).data.teacherId == request.auth.uid || isAdmin();
-      allow delete: if isSignedIn() && resource != null && get(/databases/$(database)/documents/subjects/$(subjectId)).data.teacherId == request.auth.uid || isAdmin();
+      allow create: if isTeacherForEvent() || isAdmin();
+      allow update: if isExistingTeacherForEvent() || isAdmin();
+      allow delete: if isExistingTeacherForEvent() || isAdmin();
     }
 
      /**
@@ -146,9 +164,20 @@ service cloud.firestore {
     match /roles_admin/{userId} {
        allow get: if isAdmin();
        allow list: if false;
-       allow create: if isOwner(userId) || isAdmin();
+       allow create: if isAdmin();
        allow update: if false;
        allow delete: if isAdmin();
+    }
+    
+     /**
+     * @description Rules for schedule events.
+     * @path /schedule/{eventId}
+     */
+    match /schedule/{eventId} {
+      allow get, list: if isSignedIn();
+      allow create: if isTeacherForEvent() || isAdmin();
+      allow update: if isExistingTeacherForEvent() || isAdmin();
+      allow delete: if isExistingTeacherForEvent() || isAdmin();
     }
   }
 }

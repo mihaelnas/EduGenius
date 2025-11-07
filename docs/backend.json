@@ -87,8 +87,7 @@
       "required": [
         "id",
         "name",
-        "description",
-        "teacherId"
+        "description"
       ]
     },
     "Course": {
@@ -234,18 +233,14 @@
         }
       },
       {
-        "path": "/subjects/{subjectId}/courses/{courseId}",
+        "path": "/courses/{courseId}",
         "definition": {
           "entityName": "Course",
           "schema": {
             "$ref": "#/backend/entities/Course"
           },
-          "description": "Stores courses within a subject.  Authorization based on the `teacherId` in the course document itself.",
+          "description": "Stores courses as a root-level collection. Authorization based on the `teacherId` in the course document itself.",
           "params": [
-            {
-              "name": "subjectId",
-              "description": "The unique identifier of the subject."
-            },
             {
               "name": "courseId",
               "description": "The unique identifier of the course."
@@ -302,6 +297,7 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support EduGenius's role-based access control and feature set, focusing on Authorization Independence and Structural Segregation.\n\n**Authorization Independence:** Access control is enforced without relying on hierarchical `get()` calls. The key is denormalization. For example, instead of checking a user's role within a class by traversing the `Class` document, the `ClassStudent` and `ClassTeacher` documents could denormalize the role, or membership, directly within the document itself.  Additionally, subjects include the `teacherId`. This removes the need for rules to fetch the parent document to determine authorization.\n\n**Structural Segregation:**  Data with differing access requirements are stored in separate collections. User data, accessible only to the user and admins, is stored under `/users/{userId}`. Class, Subject and Course data are stored at the root level. All documents within a collection share the same security rules, simplifying rule definition.\n\n**QAPs Support:** List operations are secured by the structure. Listing users is restricted based on admin roles (checking the existence of `/roles_admin/{userId}`).  Classes, Subjects and Courses can be listed based on the user's role and explicit permissions defined using security rules within each collection.\n\n**Example of Authorization Independence:** Consider a scenario where a teacher needs to create a `Course` under a `Subject`. The `Course` document would store the `subjectId`, and security rules can verify that the user creating the course is the teacher assigned to that subject. This eliminates the need to `get()` the `Subject` document in the security rules to verify the teacher's identity.\n"
+    "reasoning": "The Firestore data structure is designed to support EduGenius's role-based access control and feature set, focusing on Authorization Independence and Structural Segregation.\n\n**Authorization Independence:** Access control is enforced without relying on hierarchical `get()` calls. The key is denormalization. For example, the `Course` collection is at the root level, and each course document contains a `teacherId`. This allows security rules to authorize writes directly on the course document without fetching the parent `Subject` document.\n\n**Structural Segregation:**  Data with differing access requirements are stored in separate collections. User data, accessible only to the user and admins, is stored under `/users/{userId}`. Class, Subject and Course data are stored at the root level. All documents within a collection share the same security rules, simplifying rule definition.\n\n**QAPs Support:** List operations are secured by the structure. Listing users is restricted based on admin roles (checking the existence of `/roles_admin/{userId}`).  Classes, Subjects and Courses can be listed based on the user's role and explicit permissions defined using security rules within each collection.\n"
   }
 }
+    

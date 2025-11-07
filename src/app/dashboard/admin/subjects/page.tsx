@@ -40,9 +40,10 @@ export default function AdminSubjectsPage() {
   
   const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
 
-  const handleAdd = (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt'> & { teacherId: string | null }) => {
+  const handleAdd = (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt'>) => {
       const newSubjectData = {
           ...newSubject,
+          teacherId: '', // Initialize with no teacher
           classCount: 0, // This will be calculated dynamically
           createdAt: new Date().toISOString(),
       };
@@ -232,3 +233,5 @@ export default function AdminSubjectsPage() {
     </>
   );
 }
+
+    

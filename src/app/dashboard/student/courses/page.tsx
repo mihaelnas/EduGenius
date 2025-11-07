@@ -13,11 +13,12 @@ import { Card, CardHeader } from '@/components/ui/card';
 
 function SubjectAccordionItem({ subject }: { subject: Subject }) {
     const firestore = useFirestore();
-    const coursesCollectionRef = useMemoFirebase(() => 
-        firestore ? collection(firestore, 'subjects', subject.id, 'courses') : null
+    
+    const coursesQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'courses'), where('subjectId', '==', subject.id)) : null
     , [firestore, subject.id]);
     
-    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesCollectionRef as Query<Course> | null);
+    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery as Query<Course> | null);
 
     return (
         <AccordionItem value={`item-${subject.id}`} className="border-b-0 rounded-lg bg-card overflow-hidden">
@@ -122,3 +123,5 @@ export default function StudentCoursesPage() {
     </>
   );
 }
+
+    

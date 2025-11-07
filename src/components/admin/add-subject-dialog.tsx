@@ -48,7 +48,7 @@ type FormValues = z.infer<typeof formSchema>;
 type AddSubjectDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onSubjectAdded: (newSubject: FormValues & { teacherId: string | null }) => void;
+    onSubjectAdded: (newSubject: Omit<FormValues, 'teacherId'>) => void;
 }
 
 export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubjectDialogProps) {
@@ -97,7 +97,6 @@ export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubje
     const finalValues = {
         ...values,
         name: values.name.toUpperCase(),
-        teacherId: null, // Initialize teacherId as null
     };
 
     const subjectsRef = collection(firestore, 'subjects');
@@ -220,3 +219,5 @@ export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubje
     </Dialog>
   );
 }
+
+    

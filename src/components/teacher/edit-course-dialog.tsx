@@ -18,7 +18,7 @@ const resourceSchema = z.object({
   id: z.string().optional(),
   type: z.enum(['pdf', 'video', 'link']),
   title: z.string().min(1, 'Le titre est requis.'),
-  url: z.string().optional(),
+  url: z.string().url("Veuillez fournir une URL valide.").optional().or(z.literal('')),
 });
 
 const formSchema = z.object({
@@ -33,11 +33,10 @@ type EditCourseDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     course: Course;
-    subjectId: string;
     onCourseUpdated: (updatedCourse: Course) => void;
 }
 
-export function EditCourseDialog({ isOpen, setIsOpen, course, subjectId, onCourseUpdated }: EditCourseDialogProps) {
+export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }: EditCourseDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
@@ -51,7 +50,7 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, subjectId, onCours
     if (course) {
       form.reset({
         ...course,
-        resources: course.resources.map(r => ({ ...r, url: r.url }))
+        resources: course.resources?.map(r => ({ ...r, url: r.url || '' })) || []
       });
     }
   }, [course, form]);
@@ -121,3 +120,5 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, subjectId, onCours
     </Dialog>
   );
 }
+
+    

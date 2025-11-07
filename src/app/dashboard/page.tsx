@@ -120,30 +120,21 @@ export default function DashboardPage() {
             // 3. Find recent courses in those subjects
             if (subjects.length > 0) {
                 const subjectIds = subjects.map(s => s.id);
-                const coursesPromises = subjectIds.map(subjectId => {
-                    const coursesQuery = query(
-                        collection(firestore, 'subjects', subjectId, 'courses'),
-                        orderBy('createdAt', 'desc'),
-                        limit(2) // Get the 2 most recent courses per subject
-                    );
-                    return getDocs(coursesQuery);
+                // Query courses across all relevant subjects
+                const coursesQuery = query(
+                    collection(firestore, 'courses'),
+                    where('subjectId', 'in', subjectIds),
+                    orderBy('createdAt', 'desc'),
+                    limit(3) // Get the 3 most recent courses overall
+                );
+                
+                const coursesSnapshot = await getDocs(coursesQuery);
+                const allRecentCourses = coursesSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return { ...data, id: doc.id } as Course;
                 });
-
-                const coursesSnapshots = await Promise.all(coursesPromises);
-                const allRecentCourses = coursesSnapshots
-                    .flatMap(snapshot => snapshot.docs.map(doc => {
-                       const data = doc.data();
-                       // Ensure createdAt exists and is valid before creating Date object
-                       const createdAt = data.createdAt && typeof data.createdAt === 'string' 
-                           ? new Date(data.createdAt).toISOString()
-                           : new Date(0).toISOString(); // Fallback date
-
-                       return { ...data, id: doc.id, createdAt } as Course
-                    }));
-
-                // Sort all collected courses by date and take the top 3 overall
-                const sortedCourses = allRecentCourses.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                setRecentCourses(sortedCourses.slice(0, 3));
+                
+                setRecentCourses(allRecentCourses);
             } else {
                 setRecentCourses([]);
             }
@@ -244,3 +235,5 @@ export default function DashboardPage() {
 
   return <>{renderDashboard()}</>;
 }
+
+    

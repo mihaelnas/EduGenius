@@ -35,7 +35,7 @@ export default function CourseDetailPage() {
   const firestore = useFirestore();
 
   const subjectDocRef = useMemoFirebase(() => subjectId ? doc(firestore, 'subjects', subjectId) : null, [firestore, subjectId]);
-  const courseDocRef = useMemoFirebase(() => (subjectId && courseId) ? doc(firestore, 'subjects', subjectId, 'courses', courseId) : null, [firestore, subjectId, courseId]);
+  const courseDocRef = useMemoFirebase(() => courseId ? doc(firestore, 'courses', courseId) : null, [firestore, courseId]);
 
   const { data: subject, isLoading: isLoadingSubject } = useDoc<Subject>(subjectDocRef);
   const { data: course, isLoading: isLoadingCourse } = useDoc<Course>(courseDocRef);
@@ -67,9 +67,7 @@ export default function CourseDetailPage() {
     );
   }
 
-  if (!course || !subject) {
-    // Affiche notFound() si le cours ou la matière n'est pas trouvé après le chargement
-    // Cela déclenchera la page 404 de Next.js
+  if (!course || !subject || course.subjectId !== subject.id) {
     notFound();
     return null;
   }
@@ -113,9 +111,9 @@ export default function CourseDetailPage() {
             <div className="mt-8">
               <h3 className="text-xl font-semibold mb-4 font-headline">Ressources du cours</h3>
               <div className="space-y-3">
-                {course.resources.map(resource => (
+                {course.resources.map((resource, index) => (
                   <a
-                    key={resource.id}
+                    key={resource.id || index}
                     href={resource.url}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -136,3 +134,5 @@ export default function CourseDetailPage() {
     </div>
   );
 }
+
+    

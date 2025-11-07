@@ -15,7 +15,7 @@ import { AddCourseDialog } from '@/components/teacher/add-course-dialog';
 import { EditCourseDialog } from '@/components/teacher/edit-course-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, getDocs } from 'firebase/firestore';
+import { collection, query, where, doc, Query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 
@@ -37,8 +37,8 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   const { user } = useUser();
   const { toast } = useToast();
   
-  const coursesCollectionRef = useMemoFirebase(() => collection(firestore, 'subjects', subject.id, 'courses'), [firestore, subject.id]);
-  const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesCollectionRef);
+  const coursesQuery = useMemoFirebase(() => query(collection(firestore, 'courses'), where('subjectId', '==', subject.id)), [firestore, subject.id]);
+  const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery as Query<Course> | null);
 
   const [isAddCourseDialogOpen, setIsAddCourseDialogOpen] = React.useState(false);
   const [isEditCourseDialogOpen, setIsEditCourseDialogOpen] = React.useState(false);
@@ -61,7 +61,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
 
   const confirmDelete = () => {
     if (selectedCourse) {
-      const courseDocRef = doc(firestore, 'subjects', subject.id, 'courses', selectedCourse.id);
+      const courseDocRef = doc(firestore, 'courses', selectedCourse.id);
       deleteDocumentNonBlocking(courseDocRef);
       toast({
         variant: 'destructive',
@@ -74,19 +74,16 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   };
 
   const handleAddCourse = async (newCourseData: Omit<Course, 'id' | 'subjectId' | 'createdAt' | 'teacherId'>) => {
-    if (!coursesCollectionRef || !user) {
-        toast({
-            variant: 'destructive',
-            title: 'Utilisateur non authentifié',
-            description: "Impossible de créer le cours.",
-        });
+    const coursesCollectionRef = collection(firestore, 'courses');
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur non authentifié.' });
         return;
-    };
+    }
 
     const coursePayload = {
       ...newCourseData,
       subjectId: subject.id,
-      teacherId: user.uid, // Include teacher's ID
+      teacherId: user.uid,
       createdAt: new Date().toISOString(),
     };
 
@@ -101,7 +98,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
         toast({
             variant: 'destructive',
             title: 'Échec de l\'ajout du cours',
-            description: "Vérifiez que vous êtes bien l'enseignant de cette matière ou contactez un administrateur.",
+            description: "La création du cours a échoué. Veuillez vérifier vos permissions ou contacter un administrateur.",
         });
     }
   };
@@ -109,7 +106,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
 
   const handleUpdateCourse = (updatedCourse: Course) => {
     const { id, ...courseData } = updatedCourse;
-    const courseDocRef = doc(firestore, 'subjects', subject.id, 'courses', id);
+    const courseDocRef = doc(firestore, 'courses', id);
     updateDocumentNonBlocking(courseDocRef, courseData);
     toast({
       title: 'Cours modifié',
@@ -154,9 +151,9 @@ function SubjectCourses({ subject }: { subject: Subject }) {
               {course.resources && course.resources.length > 0 && (
                 <div className="mt-3 space-y-2 border-t pt-3">
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ressources</h4>
-                  {course.resources.map(resource => (
+                  {course.resources.map((resource, index) => (
                     <a
-                      key={resource.id}
+                      key={resource.id || index}
                       href={resource.url}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -181,7 +178,6 @@ function SubjectCourses({ subject }: { subject: Subject }) {
       <AddCourseDialog
         isOpen={isAddCourseDialogOpen}
         setIsOpen={setIsAddCourseDialogOpen}
-        subjectId={subject.id}
         onCourseAdded={handleAddCourse}
       />
 
@@ -189,7 +185,6 @@ function SubjectCourses({ subject }: { subject: Subject }) {
         <EditCourseDialog
           isOpen={isEditCourseDialogOpen}
           setIsOpen={setIsEditCourseDialogOpen}
-          subjectId={subject.id}
           course={selectedCourse}
           onCourseUpdated={handleUpdateCourse}
         />
@@ -261,3 +256,5 @@ export default function TeacherCoursesPage() {
     </>
   );
 }
+
+    

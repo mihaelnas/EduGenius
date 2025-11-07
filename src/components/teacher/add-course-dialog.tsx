@@ -15,9 +15,10 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 const resourceSchema = z.object({
+  id: z.string().optional(),
   type: z.enum(['pdf', 'video', 'link']),
   title: z.string().min(1, 'Le titre est requis.'),
-  url: z.string().optional(),
+  url: z.string().url("Veuillez fournir une URL valide.").optional().or(z.literal('')),
 });
 
 const formSchema = z.object({
@@ -31,11 +32,10 @@ type FormValues = z.infer<typeof formSchema>;
 type AddCourseDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    subjectId: string;
-    onCourseAdded: (newCourse: FormValues) => void;
+    onCourseAdded: (newCourse: FormValues) => Promise<void>;
 }
 
-export function AddCourseDialog({ isOpen, setIsOpen, subjectId, onCourseAdded }: AddCourseDialogProps) {
+export function AddCourseDialog({ isOpen, setIsOpen, onCourseAdded }: AddCourseDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -50,8 +50,8 @@ export function AddCourseDialog({ isOpen, setIsOpen, subjectId, onCourseAdded }:
     name: "resources"
   });
   
-  function onSubmit(values: FormValues) {
-    onCourseAdded(values);
+  async function onSubmit(values: FormValues) {
+    await onCourseAdded(values);
     setIsOpen(false);
     form.reset();
   }
@@ -97,7 +97,9 @@ export function AddCourseDialog({ isOpen, setIsOpen, subjectId, onCourseAdded }:
 
             <DialogFooter className='pt-4'>
                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
-              <Button type="submit">Créer le cours</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Création...' : 'Créer le cours'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
@@ -105,3 +107,5 @@ export function AddCourseDialog({ isOpen, setIsOpen, subjectId, onCourseAdded }:
     </Dialog>
   );
 }
+
+    
