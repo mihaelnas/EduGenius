@@ -59,7 +59,6 @@ export default function StudentCoursesPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
     
-    const [studentClass, setStudentClass] = React.useState<Class | null>(null);
     const [subjects, setSubjects] = React.useState<Subject[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
 
@@ -76,18 +75,20 @@ export default function StudentCoursesPage() {
             const classQuery = query(collection(firestore, 'classes'), where('studentIds', 'array-contains', user.uid));
             const classSnapshot = await getDocs(classQuery);
             if (classSnapshot.empty) {
+                setSubjects([]);
                 setIsLoading(false);
                 return;
             }
             const studentClassData = { ...classSnapshot.docs[0].data(), id: classSnapshot.docs[0].id } as Class;
-            setStudentClass(studentClassData);
-
+            
             // 2. Find subjects taught by the teachers of that class
             if (studentClassData.teacherIds && studentClassData.teacherIds.length > 0) {
                 const subjectsQuery = query(collection(firestore, 'subjects'), where('teacherId', 'in', studentClassData.teacherIds));
                 const subjectsSnapshot = await getDocs(subjectsQuery);
                 const subjectsData = subjectsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Subject));
                 setSubjects(subjectsData);
+            } else {
+                setSubjects([]);
             }
             
             setIsLoading(false);
