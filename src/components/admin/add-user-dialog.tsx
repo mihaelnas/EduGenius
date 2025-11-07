@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PlusCircle } from 'lucide-react';
+import { Eye, EyeOff, PlusCircle } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
@@ -104,6 +104,9 @@ const initialValues = {
 };
 
 export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogProps) {
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialValues,
@@ -189,8 +192,43 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
 
                         <FormField control={form.control} name="username" render={({ field }) => ( <FormItem><FormLabel>Nom d'utilisateur</FormLabel><FormControl><Input placeholder="@jeandupont" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Mot de passe</FormLabel><FormControl><Input placeholder="8+ caractères" type="password" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="confirmPassword" render={({ field }) => ( <FormItem><FormLabel>Confirmer le mot de passe</FormLabel><FormControl><Input placeholder="Retapez le mot de passe" type="password" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        
+                        <FormField 
+                          control={form.control} 
+                          name="password" 
+                          render={({ field }) => ( 
+                            <FormItem>
+                              <FormLabel>Mot de passe</FormLabel>
+                              <div className="relative">
+                                <FormControl>
+                                  <Input placeholder="8+ caractères" type={showPassword ? 'text' : 'password'} {...field} />
+                                </FormControl>
+                                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" onClick={() => setShowPassword(prev => !prev)}>
+                                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </Button>
+                              </div>
+                              <FormMessage />
+                            </FormItem> 
+                          )} 
+                        />
+                        <FormField 
+                          control={form.control} 
+                          name="confirmPassword" 
+                          render={({ field }) => ( 
+                            <FormItem>
+                              <FormLabel>Confirmer le mot de passe</FormLabel>
+                              <div className="relative">
+                                <FormControl>
+                                  <Input placeholder="Retapez le mot de passe" type={showConfirmPassword ? 'text' : 'password'} {...field} />
+                                </FormControl>
+                                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" onClick={() => setShowConfirmPassword(prev => !prev)}>
+                                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </Button>
+                              </div>
+                              <FormMessage />
+                            </FormItem> 
+                          )} 
+                        />
                         
                         {role === 'student' && (
                             <>

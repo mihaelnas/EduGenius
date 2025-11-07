@@ -28,6 +28,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
+import React from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 
 const formSchema = z.object({
   firstName: z
@@ -62,6 +64,7 @@ export default function RegisterPage() {
   const { toast } = useToast();
   const auth = useAuth();
   const firestore = useFirestore();
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -219,9 +222,20 @@ export default function RegisterPage() {
               render={({ field }) => (
                 <FormItem className="grid gap-2">
                   <FormLabel>Mot de passe</FormLabel>
-                  <FormControl>
-                    <Input type="password" {...field} />
-                  </FormControl>
+                   <div className="relative">
+                    <FormControl>
+                      <Input type={showPassword ? 'text' : 'password'} {...field} />
+                    </FormControl>
+                     <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+                      onClick={() => setShowPassword(prev => !prev)}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </Button>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
