@@ -19,6 +19,14 @@ import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, u
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+
+const roleNames: Record<AppUser['role'], string> = {
+  admin: 'Administrateur',
+  teacher: 'Enseignant',
+  student: 'Étudiant',
+};
 
 export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -36,7 +44,7 @@ export default function AdminUsersPage() {
     const newUserData: Omit<AppUser, 'id'> = {
         ...newUser,
         status: 'active',
-        createdAt: new Date().toISOString().split('T')[0],
+        createdAt: new Date().toISOString(),
     };
     if (!newUserData.photo) {
         delete (newUserData as Partial<AppUser>).photo;
@@ -162,13 +170,13 @@ export default function AdminUsersPage() {
                       </div>
                     </TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell className="capitalize">{user.role}</TableCell>
+                    <TableCell className="capitalize">{roleNames[user.role]}</TableCell>
                     <TableCell>
                       <Badge variant={user.status === 'active' ? 'default' : 'secondary'} className={user.status === 'active' ? 'bg-green-600' : 'bg-gray-400'}>
                         {user.status === 'active' ? 'Actif' : 'Inactif'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{user.createdAt}</TableCell>
+                    <TableCell>{format(new Date(user.createdAt), 'd MMMM yyyy', { locale: fr })}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

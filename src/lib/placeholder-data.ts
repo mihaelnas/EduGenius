@@ -1,8 +1,6 @@
 
 export type User = {
   id: string;
-  nom: string;
-  prenom: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -91,10 +89,8 @@ export type ScheduleEvent = {
 export const users: AppUser[] = [
   { 
     id: 'usr_1', 
-    nom: 'ADMIN', 
-    prenom: 'User',
-    firstName: 'User',
-    lastName: 'ADMIN',
+    firstName: 'Admin',
+    lastName: 'User',
     username: '@admin',
     email: 'admin@edugenius.com', 
     role: 'admin', 
@@ -103,8 +99,6 @@ export const users: AppUser[] = [
   },
   { 
     id: 'usr_2',
-    nom: 'JOHNSON',
-    prenom: 'Alice',
     firstName: 'Alice',
     lastName: 'JOHNSON',
     username: '@alicej',
@@ -121,8 +115,6 @@ export const users: AppUser[] = [
   },
   { 
     id: 'usr_3',
-    nom: 'WILLIAMS',
-    prenom: 'Bob',
     firstName: 'Bob',
     lastName: 'WILLIAMS',
     username: '@bobw',
@@ -142,8 +134,6 @@ export const users: AppUser[] = [
   },
   { 
     id: 'usr_4',
-    nom: 'BROWN',
-    prenom: 'Charlie',
     firstName: 'Charlie',
     lastName: 'BROWN',
     username: '@charlieb',
@@ -163,8 +153,6 @@ export const users: AppUser[] = [
   },
   { 
     id: 'usr_5',
-    nom: 'PRINCE',
-    prenom: 'Diana',
     firstName: 'Diana',
     lastName: 'PRINCE',
     username: '@dianap',
@@ -181,8 +169,6 @@ export const users: AppUser[] = [
   },
    { 
     id: 'usr_6',
-    nom: 'DOE',
-    prenom: 'John',
     firstName: 'John',
     lastName: 'DOE',
     username: '@johnd',
@@ -277,8 +263,8 @@ export const students = [
 
 
 // Combine nom and prenom for display name
-export function getDisplayName(user: { prenom?: string, nom?: string, firstName?: string, lastName?: string }): string {
-    const firstName = user.prenom || user.firstName || '';
-    const lastName = user.nom || user.lastName || '';
+export function getDisplayName(user: { firstName?: string, lastName?: string }): string {
+    const firstName = user.firstName || '';
+    const lastName = user.lastName || '';
     return `${firstName} ${lastName}`.trim();
 }

@@ -74,7 +74,7 @@ export default function TeacherClassDetailPage() {
                                 <div className="flex items-center gap-3">
                                 <Avatar className="h-9 w-9">
                                     <AvatarImage src={student.photo} alt={getDisplayName(student)} />
-                                    <AvatarFallback>{student.prenom.charAt(0)}{student.nom.charAt(0)}</AvatarFallback>
+                                    <AvatarFallback>{(student.firstName || '').charAt(0)}{(student.lastName || '').charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div className="grid gap-0.5">
                                     <span className="font-semibold">{getDisplayName(student)}</span>

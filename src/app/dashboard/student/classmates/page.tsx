@@ -36,7 +36,7 @@ export default function StudentClassmatesPage() {
             <CardContent className="p-6 flex flex-col items-center gap-4">
               <Avatar className="h-24 w-24 border-4 border-muted-foreground/20">
                 <AvatarImage src={student.photo} alt={getDisplayName(student)} />
-                <AvatarFallback>{student.prenom.charAt(0)}{student.nom.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{(student.firstName || '').charAt(0)}{(student.lastName || '').charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="text-center">
                 <p className="font-semibold">{getDisplayName(student)}</p>
