@@ -15,13 +15,16 @@ import { AddUserDialog, AddUserFormValues } from '@/components/admin/add-user-di
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useAuth } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useAuth, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { firebaseConfig } from '@/firebase/config';
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -44,32 +47,16 @@ export default function AdminUsersPage() {
 
   const handleAdd = async (values: AddUserFormValues) => {
     const { password, ...userData } = values;
-    const adminUser = auth.currentUser;
-
-    if (!adminUser) {
-      toast({
-        variant: 'destructive',
-        title: 'Erreur : Administrateur non connecté',
-        description: 'Veuillez vous reconnecter pour créer un utilisateur.',
-      });
-      return;
-    }
+    
+    // This is a temporary workaround for client-side user creation without a backend function.
+    // In a real-world complex app, a Cloud Function would be the ideal solution.
+    const tempAuthApp = initializeApp(firebaseConfig, `temp-app-${new Date().getTime()}`);
+    const tempAuth = getAuth(tempAuthApp);
 
     try {
-      // Create user without signing the admin out. This is a workaround for client-side.
-      // A proper implementation would use a Cloud Function.
-      const tempAuth = auth; // In a real complex app, you might initialize a temporary app instance.
       const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, password);
       const newUser = userCredential.user;
 
-      // Immediately sign out the new user to keep the admin session active
-      if (tempAuth.currentUser?.uid === newUser.uid) {
-        await signOut(tempAuth);
-      }
-
-      // Restore admin session if it was affected - this is the tricky part client-side
-      // For this app, we rely on the onAuthStateChanged listener to restore the admin state naturally.
-      
       const userProfile: AppUser = {
         id: newUser.uid,
         ...userData,
@@ -82,11 +69,20 @@ export default function AdminUsersPage() {
       }
       
       const userDocRef = doc(firestore, 'users', newUser.uid);
-      await setDoc(userDocRef, userProfile);
-
-      toast({
-        title: `Utilisateur ${getDisplayName(values)} ajouté.`,
-        description: `Le profil pour ${values.email} a été créé avec succès.`,
+      
+      // Use a non-blocking write with custom error handling
+      setDoc(userDocRef, userProfile).then(() => {
+        toast({
+          title: `Utilisateur ${getDisplayName(values)} ajouté.`,
+          description: `Le profil pour ${values.email} a été créé avec succès.`,
+        });
+      }).catch(error => {
+        const permissionError = new FirestorePermissionError({
+          path: userDocRef.path,
+          operation: 'create',
+          requestResourceData: userProfile,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
 
     } catch (error: any) {
