@@ -1,7 +1,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -34,9 +34,9 @@ import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
 import { AppUser } from '@/lib/placeholder-data';
-import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { debounce } from 'lodash';
 
 const baseSchema = z.object({
   role: z.enum(['student', 'teacher', 'admin']),
@@ -103,7 +103,6 @@ const initialValues = {
 };
 
 export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogProps) {
-  const { toast } = useToast();
   const firestore = useFirestore();
 
   const form = useForm<FormValues>({
@@ -116,6 +115,38 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
     name: 'role',
   });
   
+  const usernameValue = useWatch({
+    control: form.control,
+    name: 'username',
+  });
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const checkUsername = useCallback(
+    debounce(async (username: string) => {
+      if (username && username.length > 1) {
+        const usersRef = collection(firestore, 'users');
+        const q = query(usersRef, where('username', '==', username));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          form.setError('username', {
+            type: 'manual',
+            message: 'Ce nom d\'utilisateur est déjà pris.',
+          });
+        } else {
+          form.clearErrors('username');
+        }
+      }
+    }, 500),
+    [firestore, form]
+  );
+
+  useEffect(() => {
+    if (role === 'student') {
+        checkUsername(usernameValue);
+    }
+  }, [usernameValue, role, checkUsername]);
+
+
   async function onSubmit(values: FormValues) {
     if (values.role === 'student') {
         const usersRef = collection(firestore, 'users');
@@ -245,3 +276,5 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
     </Dialog>
   );
 }
+
+    
