@@ -25,6 +25,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { firebaseConfig } from '@/firebase/config';
+import { deleteUser } from '@/lib/user-actions';
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -122,86 +123,78 @@ export default function AdminUsersPage() {
   };
 
   const confirmDelete = async () => {
-    if (selectedUser) {
-        const userId = selectedUser.id;
-        const userDocRef = doc(firestore, 'users', userId);
-        const batch = writeBatch(firestore);
+    if (!selectedUser) return;
+    
+    const userId = selectedUser.id;
+    const userDocRef = doc(firestore, 'users', userId);
+    const batch = writeBatch(firestore);
 
-        // If the user is a student, remove them from all classes
+    try {
+        // First, perform the server-side Auth deletion
+        const result = await deleteUser(userId);
+        if (!result.success) {
+            throw new Error(result.error || 'La suppression de l\'utilisateur d\'authentification a échoué.');
+        }
+
+        // If Auth deletion is successful, proceed with Firestore cleanup
         if (selectedUser.role === 'student') {
             const classesRef = collection(firestore, 'classes');
-            const classesQuery = query(classesRef, where('studentIds', 'array-contains', userId));
-            const classesSnapshot = await getDocs(classesQuery);
-
-            classesSnapshot.forEach(classDoc => {
-                const classData = classDoc.data() as Class;
-                const updatedStudentIds = classData.studentIds.filter(id => id !== userId);
-                batch.update(classDoc.ref, { studentIds: updatedStudentIds });
+            const q = query(classesRef, where('studentIds', 'array-contains', userId));
+            const snapshot = await getDocs(q);
+            snapshot.forEach(doc => {
+                const data = doc.data() as Class;
+                batch.update(doc.ref, { studentIds: data.studentIds.filter(id => id !== userId) });
             });
         }
         
-        // If the user is a teacher, handle related data
         if (selectedUser.role === 'teacher') {
-            // Unassign teacher from classes
             const classesRef = collection(firestore, 'classes');
-            const classesQuery = query(classesRef, where('teacherIds', 'array-contains', userId));
-            const classesSnapshot = await getDocs(classesQuery);
-            classesSnapshot.forEach(classDoc => {
-                const classData = classDoc.data() as Class;
-                const updatedTeacherIds = classData.teacherIds.filter(id => id !== userId);
-                batch.update(classDoc.ref, { teacherIds: updatedTeacherIds });
+            const qClasses = query(classesRef, where('teacherIds', 'array-contains', userId));
+            const snapshotClasses = await getDocs(qClasses);
+            snapshotClasses.forEach(doc => {
+                const data = doc.data() as Class;
+                batch.update(doc.ref, { teacherIds: data.teacherIds.filter(id => id !== userId) });
             });
 
-            // Unassign teacher from subjects
             const subjectsRef = collection(firestore, 'subjects');
-            const subjectsQuery = query(subjectsRef, where('teacherId', '==', userId));
-            const subjectsSnapshot = await getDocs(subjectsQuery);
-             subjectsSnapshot.forEach(subjectDoc => {
-                batch.update(subjectDoc.ref, { teacherId: '' });
+            const qSubjects = query(subjectsRef, where('teacherId', '==', userId));
+            const snapshotSubjects = await getDocs(qSubjects);
+            snapshotSubjects.forEach(doc => {
+                batch.update(doc.ref, { teacherId: '' });
             });
 
-            // Delete courses created by the teacher
             const coursesRef = collection(firestore, 'courses');
-            const coursesQuery = query(coursesRef, where('teacherId', '==', userId));
-            const coursesSnapshot = await getDocs(coursesQuery);
-            coursesSnapshot.forEach(courseDoc => {
-                batch.delete(courseDoc.ref);
-            });
+            const qCourses = query(coursesRef, where('teacherId', '==', userId));
+            const snapshotCourses = await getDocs(qCourses);
+            snapshotCourses.forEach(doc => batch.delete(doc.ref));
 
-            // Delete schedule events for the teacher
             const scheduleRef = collection(firestore, 'schedule');
-            const scheduleQuery = query(scheduleRef, where('teacherId', '==', userId));
-            const scheduleSnapshot = await getDocs(scheduleQuery);
-            scheduleSnapshot.forEach(eventDoc => {
-                batch.delete(eventDoc.ref);
-            });
+            const qSchedule = query(scheduleRef, where('teacherId', '==', userId));
+            const snapshotSchedule = await getDocs(qSchedule);
+            snapshotSchedule.forEach(doc => batch.delete(doc.ref));
         }
 
-        // Delete the user document itself
         batch.delete(userDocRef);
+        await batch.commit();
 
-        try {
-            await batch.commit();
-            // NOTE: In a real app, you would also need to delete the user from Firebase Auth
-            // which is a privileged operation typically done on a server.
-            toast({
-                variant: 'destructive',
-                title: 'Utilisateur et données associées supprimés',
-                description: `Le profil de ${getDisplayName(selectedUser)} et ses données liées ont été supprimés.`,
-            });
-        } catch (error) {
-            console.error("Failed to delete user and related data:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Erreur de suppression',
-                description: `La suppression a échoué.`,
-            });
-        }
+        toast({
+            variant: 'destructive',
+            title: 'Utilisateur supprimé',
+            description: `Le profil et le compte de ${getDisplayName(selectedUser)} ont été définitivement supprimés.`,
+        });
 
-        setIsDeleteDialogOpen(false);
-        setSelectedUser(null);
+    } catch (error: any) {
+        console.error("Échec de la suppression de l'utilisateur:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Erreur de suppression',
+            description: `La suppression a échoué: ${error.message}`,
+        });
     }
-};
+
+    setIsDeleteDialogOpen(false);
+    setSelectedUser(null);
+  };
 
   const filteredUsers = React.useMemo(() => (users || []).filter(user =>
     getDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -327,3 +320,5 @@ export default function AdminUsersPage() {
     </>
   );
 }
+
+    
