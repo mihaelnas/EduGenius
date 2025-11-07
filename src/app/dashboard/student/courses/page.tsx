@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -5,13 +6,51 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { BookOpen, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Query } from 'firebase/firestore';
-import type { Subject, Course } from '@/lib/placeholder-data';
+import { collection, query, where, Query, getDocs, limit } from 'firebase/firestore';
+import type { Subject, Course, Class } from '@/lib/placeholder-data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardHeader } from '@/components/ui/card';
 
-// This component now receives its subjects directly as a prop
-export default function StudentCoursesPage({ subjects, isLoading }: { subjects: Subject[], isLoading: boolean }) {
+export default function StudentCoursesPage() {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const [subjects, setSubjects] = React.useState<Subject[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function fetchStudentSubjects() {
+      if (isUserLoading || !user || !firestore) {
+        return;
+      }
+      setIsLoading(true);
+
+      const classQuery = query(collection(firestore, 'classes'), where('studentIds', 'array-contains', user.uid), limit(1));
+      const classSnapshot = await getDocs(classQuery);
+
+      if (classSnapshot.empty) {
+        setSubjects([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      const studentClassData = classSnapshot.docs[0].data() as Class;
+      const teacherIds = studentClassData.teacherIds;
+
+      if (!teacherIds || teacherIds.length === 0) {
+        setSubjects([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      const subjectsQuery = query(collection(firestore, 'subjects'), where('teacherId', 'in', teacherIds));
+      const subjectsSnapshot = await getDocs(subjectsQuery);
+      const subjectsData = subjectsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Subject));
+      
+      setSubjects(subjectsData);
+      setIsLoading(false);
+    }
+    fetchStudentSubjects();
+  }, [user, firestore, isUserLoading]);
 
   return (
     <>
@@ -44,7 +83,6 @@ export default function StudentCoursesPage({ subjects, isLoading }: { subjects: 
 function SubjectAccordionItem({ subject }: { subject: Subject }) {
     const firestore = useFirestore();
     
-    // This query is simple and efficient, as it only runs for the specific subject.
     const coursesQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'courses'), where('subjectId', '==', subject.id)) : null
     , [firestore, subject.id]);
@@ -85,4 +123,3 @@ function SubjectAccordionItem({ subject }: { subject: Subject }) {
         </AccordionItem>
     );
 }
-

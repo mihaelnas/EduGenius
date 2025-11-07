@@ -61,10 +61,15 @@ export default function CourseDetailPage() {
     );
   }
 
-  if (!course) {
+  // Call notFound() only if loading is complete and course is still null.
+  if (!isLoadingCourse && !course) {
     notFound();
     return null;
   }
+  
+  // This check is safe because we return null above if course is not loaded
+  if (!course) return null;
+
 
   return (
     <div>

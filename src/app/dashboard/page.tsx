@@ -76,15 +76,15 @@ export default function DashboardPage() {
   const { data: teacherSubjects, isLoading: teacherSubjectsLoading } = useCollection<Subject>(teacherSubjectsQuery);
   const { data: teacherSchedule, isLoading: teacherScheduleLoading } = useCollection<ScheduleEvent>(teacherScheduleQuery);
   
-  // --- Queries for Student ---
+  // --- Student Data Fetching ---
   const [studentClass, setStudentClass] = React.useState<Class | null>(null);
   const [studentSubjects, setStudentSubjects] = React.useState<Subject[]>([]);
   const [recentCourses, setRecentCourses] = React.useState<Course[]>([]);
   const [isStudentDataLoading, setIsStudentDataLoading] = React.useState(true);
 
   React.useEffect(() => {
-    async function fetchStudentData() {
-      if (userRole !== 'student' || isUserLoading || !user || !firestore) {
+    async function fetchStudentDashboardData() {
+      if (userRole !== 'student' || !user || !firestore) {
         if (userRole === 'student') setIsStudentDataLoading(false);
         return;
       }
@@ -120,18 +120,18 @@ export default function DashboardPage() {
       const subjectsData = subjectsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Subject));
       setStudentSubjects(subjectsData);
       
-      // 3. Find recent courses for those subjects (simplified query)
+      // 3. Find recent courses for those subjects
       if (subjectsData.length > 0) {
         const studentSubjectIds = new Set(subjectsData.map(s => s.id));
         const coursesQuery = query(
             collection(firestore, 'courses'),
             orderBy('createdAt', 'desc'),
-            limit(10) // Fetch more to increase chances of finding a match
+            limit(10)
         );
         const coursesSnapshot = await getDocs(coursesQuery);
         const allRecentCourses = coursesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Course));
         
-        // Filter client-side
+        // Filter client-side to avoid complex index
         const studentRecentCourses = allRecentCourses.filter(course => studentSubjectIds.has(course.subjectId)).slice(0, 3);
         
         setRecentCourses(studentRecentCourses);
@@ -142,7 +142,9 @@ export default function DashboardPage() {
       setIsStudentDataLoading(false);
     }
 
-    fetchStudentData();
+    if (!isUserLoading && userRole) {
+        fetchStudentDashboardData();
+    }
   }, [user, userRole, firestore, isUserLoading]);
 
     const getSubjectName = (subjectId: string) => {
