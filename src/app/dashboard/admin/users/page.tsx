@@ -16,12 +16,12 @@ import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useAuth } from '@/firebase';
-import { collection, doc, setDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, deleteUser } from 'firebase/auth';
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -43,40 +43,74 @@ export default function AdminUsersPage() {
   const { data: users, isLoading } = useCollection<AppUser>(usersCollectionRef);
 
   const handleAdd = async (values: AddUserFormValues) => {
-    // Cette fonction ne gère pas la création d'utilisateur dans Firebase Auth pour éviter la déconnexion de l'admin.
-    // Elle prépare l'objet et le passe pour être ajouté à Firestore.
-    // La création Auth doit être gérée côté serveur pour une meilleure expérience.
-
     const { password, ...userData } = values;
-    const newUserId = `temp_${Date.now()}`; // Placeholder ID
+    const adminUser = auth.currentUser;
 
-    const userProfile: AppUser = {
-      id: newUserId,
-      ...userData,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-    } as AppUser;
-
-    if (!userProfile.photo) {
-      delete (userProfile as Partial<AppUser>).photo;
+    if (!adminUser || !adminUser.email) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur : Administrateur non connecté',
+        description: 'Veuillez vous reconnecter pour créer un utilisateur.',
+      });
+      return;
     }
 
-    // Pour la démo, on simule l'ajout direct à Firestore sans créer d'utilisateur Auth réel.
-    // Dans une vraie app, on appellerait une Cloud Function ici.
+    // Sauvegarder les credentials de l'admin
+    // Note: Ceci est une simplification. Dans une vraie app, on utiliserait des Cloud Functions.
+    const adminEmail = adminUser.email;
+    
+    let newUser;
     try {
-      const userDocRef = doc(firestore, 'users', newUserId);
+      // 1. Créer le nouvel utilisateur. Cela va déconnecter l'admin.
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, password);
+      newUser = userCredential.user;
+
+      // 2. Préparer le profil Firestore
+      const userProfile: AppUser = {
+        id: newUser.uid,
+        ...userData,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      } as AppUser;
+
+      if (!userProfile.photo) {
+        delete (userProfile as Partial<AppUser>).photo;
+      }
+      
+      // 3. Sauvegarder le profil dans Firestore
+      const userDocRef = doc(firestore, 'users', newUser.uid);
       await setDoc(userDocRef, userProfile);
 
       toast({
         title: `Utilisateur ${getDisplayName(values)} ajouté.`,
-        description: 'Le profil a été créé dans Firestore.',
+        description: `Le profil pour ${values.email} a été créé avec succès.`,
       });
+
+      // 4. Déconnecter le nouvel utilisateur pour laisser la place à l'admin
+      await signOut(auth);
+
+      // 5. Reconnecter l'administrateur
+      // Note: This relies on a stored password which is not secure.
+      // This is a workaround for client-side limitations.
+      // A Cloud Function is the recommended approach for this flow.
+      const adminPassword = prompt("Veuillez entrer votre mot de passe administrateur pour continuer.");
+      if (adminPassword) {
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+      } else {
+         toast({
+            variant: 'destructive',
+            title: 'Session admin non restaurée',
+            description: 'Veuillez vous reconnecter manuellement.',
+        });
+        // router.push('/login'); // Optional: force re-login
+      }
+
     } catch (error: any) {
-      console.error("User creation failed:", error);
+      console.error("Erreur de création d'utilisateur:", error);
       toast({
         variant: 'destructive',
         title: 'Échec de la création',
-        description: error.message,
+        description: error.message || 'Une erreur est survenue.',
       });
     }
   };
@@ -246,3 +280,5 @@ export default function AdminUsersPage() {
     </>
   );
 }
+
+    
