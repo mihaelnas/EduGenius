@@ -25,6 +25,9 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc } from 'firebase/firestore';
 
 const formSchema = z.object({
   prenom: z
@@ -57,6 +60,8 @@ const formSchema = z.object({
 export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const auth = useAuth();
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -71,15 +76,34 @@ export default function RegisterPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    // This is mock logic. In a real app, you'd send this to your backend.
-    console.log('New user created (mock):', values);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
 
-    toast({
-      title: 'Inscription réussie',
-      description:
-        'Vous pouvez maintenant vous connecter avec votre nouveau compte.',
-    });
-    router.push('/login');
+      const userProfile = {
+        id: user.uid,
+        firstName: values.prenom,
+        lastName: values.nom,
+        email: values.email,
+        role: 'student', // Default role
+      };
+
+      const userDocRef = doc(firestore, 'users', user.uid);
+      setDocumentNonBlocking(userDocRef, userProfile, { merge: true });
+
+      toast({
+        title: 'Inscription réussie',
+        description: 'Vous pouvez maintenant vous connecter avec votre nouveau compte.',
+      });
+      router.push('/login');
+    } catch (error: any) {
+      console.error("Registration Error:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Échec de l\'inscription',
+        description: error.message || 'Une erreur est survenue.',
+      });
+    }
   }
 
   const handlePrenomBlur = (e: React.FocusEvent<HTMLInputElement>) => {

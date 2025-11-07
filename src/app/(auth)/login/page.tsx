@@ -25,7 +25,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { users } from '@/lib/placeholder-data';
+import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 
 const formSchema = z.object({
@@ -36,6 +37,7 @@ const formSchema = z.object({
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const auth = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,19 +48,14 @@ export default function LoginPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const user = users.find(u => u.email === values.email);
-
-    if (user) {
-      // In a real app, you'd verify the password
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: 'Connexion réussie',
         description: 'Redirection vers votre tableau de bord...',
       });
-       if (typeof window !== 'undefined') {
-        localStorage.setItem('userEmail', user.email);
-      }
       router.push('/dashboard');
-    } else {
+    } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Échec de la connexion',
