@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { studentCourses, studentSubjects } from '@/lib/placeholder-data';
 import { BookOpen, Users, BookCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
@@ -14,11 +13,11 @@ type StudentDashboardProps = {
 export function StudentDashboard({ userName }: StudentDashboardProps) {
 
     const stats = [
-        { title: "Matières Inscrites", value: studentSubjects.length, icon: <BookOpen className="h-6 w-6 text-primary" />, href: "/dashboard/student/courses" },
-        { title: "Camarades de classe", value: 4, icon: <Users className="h-6 w-6 text-primary" />, href: "/dashboard/student/classmates" },
+        { title: "Matières Inscrites", value: 0, icon: <BookOpen className="h-6 w-6 text-primary" />, href: "/dashboard/student/courses" },
+        { title: "Camarades de classe", value: 0, icon: <Users className="h-6 w-6 text-primary" />, href: "/dashboard/student/classmates" },
     ];
     
-    const recentCourses = studentCourses.slice(0, 3);
+    const recentCourses: any[] = [];
 
     return (
         <>
@@ -57,22 +56,26 @@ export function StudentDashboard({ userName }: StudentDashboardProps) {
                         <CardDescription>Reprenez là où vous vous êtes arrêté.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-4">
-                            {recentCourses.map(course => {
-                                const subject = studentSubjects.find(s => s.id === course.subjectId);
-                                return (
-                                    <Link key={course.id} href="/dashboard/student/courses" className="block p-4 rounded-lg border hover:bg-muted transition-colors">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="font-semibold">{course.title}</p>
-                                                <p className="text-sm text-muted-foreground">{subject?.name}</p>
+                        {recentCourses.length > 0 ? (
+                            <div className="space-y-4">
+                                {recentCourses.map(course => {
+                                    // const subject = studentSubjects.find(s => s.id === course.subjectId);
+                                    return (
+                                        <Link key={course.id} href="/dashboard/student/courses" className="block p-4 rounded-lg border hover:bg-muted transition-colors">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="font-semibold">{course.title}</p>
+                                                    <p className="text-sm text-muted-foreground">{/*subject?.name*/}</p>
+                                                </div>
+                                                <Button variant="ghost" size="sm">Voir le cours</Button>
                                             </div>
-                                            <Button variant="ghost" size="sm">Voir le cours</Button>
-                                        </div>
-                                    </Link>
-                                );
-                            })}
-                        </div>
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <p className="text-center text-muted-foreground py-8">Aucun cours récent.</p>
+                        )}
                     </CardContent>
                 </Card>
             </div>

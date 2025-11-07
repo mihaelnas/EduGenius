@@ -9,15 +9,16 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { subjects, courses as allCourses, Course, Resource } from '@/lib/placeholder-data';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Course, Resource, Subject } from '@/lib/placeholder-data';
 import { BookOpen, PlusCircle, Paperclip, Video, Link as LinkIcon, Edit, Trash2 } from 'lucide-react';
 import { AddCourseDialog } from '@/components/teacher/add-course-dialog';
 import { EditCourseDialog } from '@/components/teacher/edit-course-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
-
-// Mock: assumes the logged in teacher is Alice Johnson (id: usr_2)
-const TEACHER_ID = 'usr_2';
+import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, doc, getDocs } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
   switch (type) {
@@ -32,17 +33,19 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
   }
 };
 
-export default function TeacherCoursesPage() {
-  const teacherSubjects = subjects.filter(s => s.teacherId === TEACHER_ID);
-  const [courses, setCourses] = React.useState<Course[]>(allCourses);
+function SubjectCourses({ subject }: { subject: Subject }) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  
+  const coursesCollectionRef = useMemoFirebase(() => collection(firestore, 'subjects', subject.id, 'courses'), [firestore, subject.id]);
+  const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesCollectionRef);
+
   const [isAddCourseDialogOpen, setIsAddCourseDialogOpen] = React.useState(false);
   const [isEditCourseDialogOpen, setIsEditCourseDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedCourse, setSelectedCourse] = React.useState<Course | null>(null);
-  const [selectedSubjectId, setSelectedSubjectId] = React.useState<string | null>(null);
 
-  const handleOpenAddDialog = (subjectId: string) => {
-    setSelectedSubjectId(subjectId);
+  const handleOpenAddDialog = () => {
     setIsAddCourseDialogOpen(true);
   };
   
@@ -58,106 +61,116 @@ export default function TeacherCoursesPage() {
 
   const confirmDelete = () => {
     if (selectedCourse) {
-      setCourses(courses.filter(c => c.id !== selectedCourse.id));
+      const courseDocRef = doc(firestore, 'subjects', subject.id, 'courses', selectedCourse.id);
+      deleteDocumentNonBlocking(courseDocRef);
+      toast({
+        variant: 'destructive',
+        title: 'Cours supprimé',
+        description: `Le cours "${selectedCourse.title}" a été supprimé.`,
+      });
       setIsDeleteDialogOpen(false);
       setSelectedCourse(null);
     }
   };
 
+  const handleAddCourse = (newCourseData: Omit<Course, 'id' | 'subjectId' | 'createdAt'>) => {
+    const coursePayload = {
+      ...newCourseData,
+      subjectId: subject.id,
+      createdAt: new Date().toISOString(),
+    };
+    addDocumentNonBlocking(coursesCollectionRef, coursePayload);
+    toast({
+      title: 'Cours ajouté',
+      description: `Le cours "${newCourseData.title}" a été créé avec succès.`,
+    });
+  };
+
+  const handleUpdateCourse = (updatedCourse: Course) => {
+    const { id, ...courseData } = updatedCourse;
+    const courseDocRef = doc(firestore, 'subjects', subject.id, 'courses', id);
+    updateDocumentNonBlocking(courseDocRef, courseData);
+    toast({
+      title: 'Cours modifié',
+      description: `Le cours "${updatedCourse.title}" a été mis à jour.`,
+    });
+  };
+
   return (
     <>
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight font-headline">Gestion des Cours</h1>
-        <p className="text-muted-foreground">
-          Gérez le contenu pédagogique de vos matières.
-        </p>
-      </div>
-      
+      <CardContent className="p-6 pt-0">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-muted-foreground">
+              {isLoadingCourses ? <Skeleton className="h-4 w-20"/> : `${(courses || []).length} cours publiés.`}
+          </p>
+          <Button variant="outline" size="sm" onClick={handleOpenAddDialog}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Ajouter un cours
+          </Button>
+        </div>
+        <div className="space-y-4">
+          {isLoadingCourses ? (
+            <Skeleton className="h-24 w-full" />
+          ) : (courses || []).map(course => (
+            <div key={course.id} className="rounded-lg border bg-card p-4">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                    <h3 className="font-semibold text-base">{course.title}</h3>
+                    <p className="text-sm text-muted-foreground">{course.content}</p>
+                </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(course)}>
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Modifier</span>
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(course)}>
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Supprimer</span>
+                    </Button>
+                </div>
+              </div>
 
-      <div className="mt-6">
-        <Accordion type="single" collapsible className="w-full space-y-4">
-          {teacherSubjects.map(subject => (
-            <AccordionItem key={subject.id} value={`subject-${subject.id}`} className="border-b-0">
-              <Card>
-                <CardHeader className="p-0">
-                  <AccordionTrigger className="flex w-full items-center justify-between p-6 text-lg font-semibold hover:no-underline">
-                    {subject.name}
-                  </AccordionTrigger>
-                </CardHeader>
-                <AccordionContent>
-                  <CardContent className="p-6 pt-0">
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="text-muted-foreground">
-                         {courses.filter(c => c.subjectId === subject.id).length} cours publiés.
-                      </p>
-                       <Button variant="outline" size="sm" onClick={() => handleOpenAddDialog(subject.id)}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Ajouter un cours
-                      </Button>
-                    </div>
-                    <div className="space-y-4">
-                      {courses.filter(c => c.subjectId === subject.id).map(course => (
-                        <div key={course.id} className="rounded-lg border bg-card p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                                <h3 className="font-semibold text-base">{course.title}</h3>
-                                <p className="text-sm text-muted-foreground">{course.content}</p>
-                            </div>
-                             <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(course)}>
-                                    <Edit className="h-4 w-4" />
-                                    <span className="sr-only">Modifier</span>
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(course)}>
-                                    <Trash2 className="h-4 w-4" />
-                                    <span className="sr-only">Supprimer</span>
-                                </Button>
-                            </div>
-                          </div>
-
-                          {course.resources.length > 0 && (
-                            <div className="mt-3 space-y-2 border-t pt-3">
-                               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ressources</h4>
-                              {course.resources.map(resource => (
-                                <a
-                                  key={resource.id}
-                                  href={resource.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-3 text-sm text-primary hover:underline"
-                                >
-                                  <ResourceIcon type={resource.type} />
-                                  <span>{resource.title}</span>
-                                </a>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </AccordionContent>
-              </Card>
-            </AccordionItem>
+              {course.resources.length > 0 && (
+                <div className="mt-3 space-y-2 border-t pt-3">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ressources</h4>
+                  {course.resources.map(resource => (
+                    <a
+                      key={resource.id}
+                      href={resource.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 text-sm text-primary hover:underline"
+                    >
+                      <ResourceIcon type={resource.type} />
+                      <span>{resource.title}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
-        </Accordion>
-      </div>
+          {!isLoadingCourses && (courses || []).length === 0 && (
+            <p className="text-center text-sm text-muted-foreground py-4">
+              Aucun cours dans cette matière pour le moment.
+            </p>
+          )}
+        </div>
+      </CardContent>
 
-       {selectedSubjectId && (
-        <AddCourseDialog
-          isOpen={isAddCourseDialogOpen}
-          setIsOpen={setIsAddCourseDialogOpen}
-          subjectId={selectedSubjectId}
-          onCourseAdded={(newCourse) => setCourses(prev => [...prev, newCourse])}
-        />
-      )}
+      <AddCourseDialog
+        isOpen={isAddCourseDialogOpen}
+        setIsOpen={setIsAddCourseDialogOpen}
+        subjectId={subject.id}
+        onCourseAdded={handleAddCourse}
+      />
 
       {selectedCourse && (
         <EditCourseDialog
           isOpen={isEditCourseDialogOpen}
           setIsOpen={setIsEditCourseDialogOpen}
+          subjectId={subject.id}
           course={selectedCourse}
-          onCourseUpdated={(updatedCourse) => setCourses(courses.map(c => c.id === updatedCourse.id ? updatedCourse : c))}
+          onCourseUpdated={handleUpdateCourse}
         />
       )}
       
@@ -168,6 +181,62 @@ export default function TeacherCoursesPage() {
         itemName={selectedCourse?.title}
         itemType="le cours"
       />
+    </>
+  );
+}
+
+export default function TeacherCoursesPage() {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+
+  const teacherSubjectsQuery = useMemoFirebase(() => 
+    user ? query(collection(firestore, 'subjects'), where('teacherId', '==', user.uid)) : null,
+    [user, firestore]
+  );
+  
+  const { data: teacherSubjects, isLoading: isLoadingSubjects } = useCollection<Subject>(teacherSubjectsQuery);
+
+  const isLoading = isUserLoading || isLoadingSubjects;
+  
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight font-headline">Gestion des Cours</h1>
+        <p className="text-muted-foreground">
+          Gérez le contenu pédagogique de vos matières.
+        </p>
+      </div>
+
+      <div className="mt-6">
+        <Accordion type="single" collapsible className="w-full space-y-4">
+          {isLoading ? (
+            Array.from({ length: 2 }).map((_, i) => (
+                <Card key={i}><CardHeader><Skeleton className="h-8 w-1/3" /></CardHeader></Card>
+            ))
+          ) : teacherSubjects && teacherSubjects.length > 0 ? (
+            teacherSubjects.map(subject => (
+              <AccordionItem key={subject.id} value={`subject-${subject.id}`} className="border-b-0">
+                <Card>
+                  <CardHeader className="p-0">
+                    <AccordionTrigger className="flex w-full items-center justify-between p-6 text-lg font-semibold hover:no-underline">
+                      {subject.name}
+                    </AccordionTrigger>
+                  </CardHeader>
+                  <AccordionContent>
+                    <SubjectCourses subject={subject} />
+                  </AccordionContent>
+                </Card>
+              </AccordionItem>
+            ))
+          ) : (
+             <div className="flex flex-col items-center justify-center h-64 border rounded-lg">
+                <BookOpen className="h-12 w-12 text-muted-foreground" />
+                <p className="text-xl font-semibold mt-4">Aucune matière ne vous est assignée</p>
+                <p className="text-muted-foreground mt-2">Veuillez contacter un administrateur pour vous faire assigner à une matière.</p>
+            </div>
+          )}
+        </Accordion>
+      </div>
     </>
   );
 }
