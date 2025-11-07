@@ -203,6 +203,10 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
       );
       const newUser = userCredential.user;
 
+      if (auth.currentUser?.uid === newUser.uid) {
+         await signOut(auth);
+      }
+      
       await updateProfile(newUser, {
         displayName: `${values.firstName} ${values.lastName}`,
         photoURL: values.photo || null,
@@ -221,11 +225,6 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
 
       const userDocRef = doc(firestore, 'users', newUser.uid);
       await setDoc(userDocRef, userProfile);
-
-      // Déconnecte le nouvel utilisateur pour que l'admin reste connecté
-      if (auth.currentUser?.uid === newUser.uid) {
-        await signOut(auth);
-      }
 
       toast({
         title: 'Utilisateur créé',
