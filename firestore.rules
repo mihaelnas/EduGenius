@@ -78,7 +78,7 @@ service cloud.firestore {
      * @description Rules for user profiles.
      * @path /users/{userId}
      * @allow (create) User with ID 'user123' creates their own profile.
-     *     request.auth.uid == 'user123' and request.resource.data.id == 'user123'
+     *     request.auth.uid == 'user123' and request.resource.data.id == 'user122'
      * @allow (get, update, delete) User with ID 'user123' reads, updates, or deletes their own profile.
      *     request.auth.uid == 'user123'
      * @deny (create) User with ID 'user123' tries to create a profile with a different ID 'user456'.
@@ -187,16 +187,18 @@ service cloud.firestore {
      * @path /roles_admin/{userId}
      * @allow get: if isAdmin();
      * @allow list: if false;
-     * @allow create: if isAdmin();
+     * @allow create: if (request.auth.token.email == 'nasmihael@gmail.com' && request.auth.uid == userId) || isAdmin();
      * @allow update: if false;
      * @allow delete: if isAdmin();
      */
     match /roles_admin/{userId} {
        allow get: if isAdmin();
        allow list: if false;
-       allow create: if isAdmin();
+       allow create: if (request.auth.token.email == 'nasmihael@gmail.com' && request.auth.uid == userId) || isAdmin();
        allow update: if false;
        allow delete: if isAdmin();
     }
   }
 }
+
+    
