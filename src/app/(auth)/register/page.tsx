@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
 const formSchema = z.object({
@@ -97,6 +97,9 @@ export default function RegisterPage() {
       // Étape 2 : Créer le document de rôle admin correspondant
       const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
       await setDoc(adminRoleRef, { createdAt: new Date().toISOString() });
+
+      // Étape 3 : Déconnecter l'utilisateur pour qu'il se connecte manuellement
+      await signOut(auth);
 
       toast({
         title: 'Inscription réussie',
@@ -237,5 +240,3 @@ export default function RegisterPage() {
     </Card>
   );
 }
-
-    
