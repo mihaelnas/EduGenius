@@ -65,7 +65,7 @@ service cloud.firestore {
     match /roles_admin/{userId} {
        allow get: if isAdmin();
        allow list: if false;
-       allow create: if isOwner(userId); // Allows a user to create their own admin role doc
+       allow create: if isAdmin();
        allow update: if false;
        allow delete: if isAdmin();
     }

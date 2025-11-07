@@ -80,13 +80,13 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // Étape 1 : Créer le profil utilisateur avec le rôle 'admin'
+      // Créer le profil utilisateur avec le rôle 'student'
       const userProfile = {
         id: user.uid,
         firstName: values.prenom,
         lastName: values.nom,
         email: values.email,
-        role: 'admin', // FORCER LE ROLE ADMIN
+        role: 'student', // Rôle par défaut
         status: 'active',
         createdAt: new Date().toISOString(),
       };
@@ -94,16 +94,12 @@ export default function RegisterPage() {
       const userDocRef = doc(firestore, 'users', user.uid);
       await setDoc(userDocRef, userProfile);
 
-      // Étape 2 : Créer le document de rôle admin correspondant
-      const adminRoleRef = doc(firestore, 'roles_admin', user.uid);
-      await setDoc(adminRoleRef, { createdAt: new Date().toISOString() });
-
-      // Étape 3 : Déconnecter l'utilisateur pour qu'il se connecte manuellement
+      // Déconnecter l'utilisateur pour qu'il se connecte manuellement
       await signOut(auth);
 
       toast({
         title: 'Inscription réussie',
-        description: 'Compte administrateur créé. Vous pouvez maintenant vous connecter.',
+        description: 'Votre compte a été créé. Vous pouvez maintenant vous connecter.',
       });
       router.push('/login');
     } catch (error: any) {
