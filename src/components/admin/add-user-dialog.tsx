@@ -110,7 +110,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
   const firestore = useFirestore();
   const auth = useAuth();
   const { toast } = useToast();
-  const adminUser = auth.currentUser;
+  
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -186,6 +186,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
 
 
   async function onSubmit(values: FormValues) {
+    const adminUser = auth.currentUser;
     if (!adminUser) {
       toast({
         variant: 'destructive',
@@ -217,9 +218,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
       await setDoc(userDocRef, userProfile);
       
       // Critical: Sign out the newly created user to keep the admin session active.
-      if (auth.currentUser?.uid === newAuthUser.uid) {
-         await signOut(auth);
-      }
+      await signOut(auth);
 
       toast({
         title: 'Utilisateur créé',
