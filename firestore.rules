@@ -22,7 +22,7 @@
  *   this document grants admin rights.
  *
  * Key Security Decisions:
- * - User listing is denied to prevent information leakage.
+ * - User listing is denied to prevent information leakage, except for admins.
  * - Admin privileges are determined by the existence of a document in the
  *   /roles_admin/{userId} collection.
  * - Read-only collections are not explicitly defined but can be achieved by
@@ -87,7 +87,7 @@ service cloud.firestore {
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if false; // Prevent listing all users
+      allow list: if isAdmin();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
