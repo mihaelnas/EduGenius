@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Course, Resource, Subject } from '@/lib/placeholder-data';
-import { BookOpen, PlusCircle, Paperclip, Video, Link as LinkIcon, Edit, Trash2 } from 'lucide-react';
+import { BookOpen, PlusCircle, Paperclip, Video, Link as LinkIcon, Edit, Trash2, Eye } from 'lucide-react';
 import { AddCourseDialog } from '@/components/teacher/add-course-dialog';
 import { EditCourseDialog } from '@/components/teacher/edit-course-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
@@ -18,6 +18,7 @@ import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebas
 import { collection, query, where, doc, Query, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
   switch (type) {
@@ -79,7 +80,6 @@ function SubjectCourses({ subject }: { subject: Subject }) {
       return;
     }
     
-    // Generate a new document reference with a unique ID
     const courseDocRef = doc(collection(firestore, 'courses'));
 
     const finalPayload: Course = {
@@ -138,10 +138,16 @@ function SubjectCourses({ subject }: { subject: Subject }) {
             <div key={course.id} className="rounded-lg border bg-card p-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                    <h3 className="font-semibold text-base">{course.title}</h3>
-                    <p className="text-sm text-muted-foreground">{course.content}</p>
+                    <Link href={`/dashboard/teacher/courses/${course.id}`} className="font-semibold text-base hover:underline">{course.title}</Link>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{course.content}</p>
                 </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                        <Link href={`/dashboard/teacher/courses/${course.id}`}>
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">Voir</span>
+                        </Link>
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(course)}>
                         <Edit className="h-4 w-4" />
                         <span className="sr-only">Modifier</span>
