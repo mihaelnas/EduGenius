@@ -28,7 +28,7 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 };
 
 export default function TeacherCourseDetailPage({ params }: { params: { courseId: string } }) {
-  const { courseId } = params;
+  const courseId = params.courseId;
   const firestore = useFirestore();
 
   const courseDocRef = useMemoFirebase(() => {
