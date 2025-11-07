@@ -211,7 +211,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
       };
 
       if (!userProfile.photo) {
-        delete userProfile.photo;
+        delete (userProfile as Partial<AppUser>).photo;
       }
 
       const userDocRef = doc(firestore, 'users', newAuthUser.uid);
@@ -349,7 +349,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
                 </ScrollArea>
                 <DialogFooter className='pt-4'>
                     <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
-                    <Button type="submit">Créer l'utilisateur</Button>
+                    <Button type="submit" disabled={form.formState.isSubmitting}>Créer l'utilisateur</Button>
                 </DialogFooter>
             </form>
         </Form>
@@ -357,3 +357,5 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
     </Dialog>
   );
 }
+
+    
