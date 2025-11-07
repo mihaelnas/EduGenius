@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -69,6 +68,8 @@ export default function CourseDetailPage() {
   }
 
   if (!course || !subject) {
+    // Affiche notFound() si le cours ou la matière n'est pas trouvé après le chargement
+    // Cela déclenchera la page 404 de Next.js
     notFound();
     return null;
   }
