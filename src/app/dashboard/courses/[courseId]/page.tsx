@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -29,7 +30,8 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 
 export default function CourseDetailPage({ params }: { params: { courseId: string } }) {
   const { user } = useUser();
-  const { courseId } = params;
+  // Correctly unwrap params using React.use()
+  const { courseId } = React.use(params);
   const firestore = useFirestore();
 
   const courseDocRef = useMemoFirebase(() => {
