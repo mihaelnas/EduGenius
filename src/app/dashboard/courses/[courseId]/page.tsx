@@ -7,12 +7,13 @@ import {
   Resource,
 } from '@/lib/placeholder-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Paperclip, Video, Link as LinkIcon, ChevronRight } from 'lucide-react';
+import { Paperclip, Video, Link as LinkIcon, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { notFound } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 
 const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
   switch (type) {
@@ -28,7 +29,8 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 };
 
 export default function CourseDetailPage({ params }: { params: { courseId: string } }) {
-  const { courseId } = React.use(params);
+  const { user } = useUser();
+  const courseId = React.use(params.courseId);
   const firestore = useFirestore();
 
   const courseDocRef = useMemoFirebase(() => {
@@ -41,7 +43,7 @@ export default function CourseDetailPage({ params }: { params: { courseId: strin
   if (isLoadingCourse) {
     return (
         <div>
-            <Skeleton className="h-6 w-1/2 mb-6" />
+            <Skeleton className="h-9 w-40 mb-6" />
             <Card>
                 <CardHeader>
                     <Skeleton className="h-4 w-1/4 mb-2" />
@@ -68,29 +70,20 @@ export default function CourseDetailPage({ params }: { params: { courseId: strin
     return null; 
   }
 
+  const breadcrumbBase = user?.uid === course.teacherId 
+    ? { href: '/dashboard/teacher/courses', label: 'Mes Cours' }
+    : { href: '/dashboard/student/courses', label: 'Mes Cours' };
+
 
   return (
     <div>
         <div className="mb-6">
-            <Breadcrumb>
-                <BreadcrumbList>
-                    <BreadcrumbItem>
-                    <BreadcrumbLink asChild>
-                        <Link href="/dashboard">Tableau de bord</Link>
-                    </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                    <BreadcrumbLink asChild>
-                        <Link href="/dashboard/student/courses">Mes Cours</Link>
-                    </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                         <span className="font-medium text-foreground">{course.title}</span>
-                    </BreadcrumbItem>
-                </BreadcrumbList>
-            </Breadcrumb>
+             <Button asChild variant="outline" size="sm">
+              <Link href={breadcrumbBase.href}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Retour à la liste
+              </Link>
+            </Button>
       </div>
 
       <Card>

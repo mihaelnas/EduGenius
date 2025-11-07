@@ -99,6 +99,8 @@ function SubjectCourses({ subject }: { subject: Subject }) {
             }))
         };
         const docRef = await addDoc(courseCollectionRef, newCourse);
+        
+        // Firestore automatically assigns an ID, but let's write it to the document for consistency
         await updateDoc(docRef, { id: docRef.id });
 
         toast({
@@ -148,12 +150,12 @@ function SubjectCourses({ subject }: { subject: Subject }) {
             <div key={course.id} className="rounded-lg border bg-card p-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                    <Link href={`/dashboard/teacher/courses/${course.id}`} className="font-semibold text-base hover:underline">{course.title}</Link>
+                    <Link href={`/dashboard/courses/${course.id}`} className="font-semibold text-base hover:underline">{course.title}</Link>
                     <p className="text-sm text-muted-foreground line-clamp-2">{course.content}</p>
                 </div>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                        <Link href={`/dashboard/teacher/courses/${course.id}`}>
+                        <Link href={`/dashboard/courses/${course.id}`}>
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">Voir</span>
                         </Link>
