@@ -7,8 +7,8 @@ import { TeacherDashboard } from '@/components/dashboards/teacher-dashboard';
 import { StudentDashboard } from '@/components/dashboards/student-dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, getDoc, collection, query, where } from 'firebase/firestore';
-import type { AppUser, Class, Subject, ScheduleEvent } from '@/lib/placeholder-data';
+import { doc, getDoc, collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import type { AppUser, Class, Subject, ScheduleEvent, Course } from '@/lib/placeholder-data';
 
 
 export default function DashboardPage() {
@@ -66,7 +66,6 @@ export default function DashboardPage() {
     : null
   , [firestore, user, userRole, isRoleLoading]);
   
-  // This query will need adjustment if we want to query based on classes
   const teacherScheduleQuery = useMemoFirebase(() =>
     user && !isRoleLoading && userRole === 'teacher'
     ? query(collection(firestore, 'schedule'), where('teacherId', '==', user.uid))
@@ -76,6 +75,70 @@ export default function DashboardPage() {
   const { data: teacherClasses, isLoading: teacherClassesLoading } = useCollection<Class>(teacherClassesQuery);
   const { data: teacherSubjects, isLoading: teacherSubjectsLoading } = useCollection<Subject>(teacherSubjectsQuery);
   const { data: teacherSchedule, isLoading: teacherScheduleLoading } = useCollection<ScheduleEvent>(teacherScheduleQuery);
+  
+  // --- Queries for Student ---
+    const studentClassQuery = useMemoFirebase(() =>
+        user && !isRoleLoading && userRole === 'student'
+        ? query(collection(firestore, 'classes'), where('studentIds', 'array-contains', user.uid), limit(1))
+        : null
+    , [firestore, user, userRole, isRoleLoading]);
+
+    const { data: studentClasses, isLoading: studentClassLoading } = useCollection<Class>(studentClassQuery);
+    const studentClass = studentClasses?.[0];
+
+    const [studentSubjects, setStudentSubjects] = React.useState<Subject[]>([]);
+    const [recentCourses, setRecentCourses] = React.useState<Course[]>([]);
+    const [isStudentDataLoading, setIsStudentDataLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        async function fetchStudentData() {
+            if (!studentClass || !firestore) {
+                if (userRole === 'student' && !studentClassLoading) {
+                    setIsStudentDataLoading(false);
+                }
+                return;
+            }
+            
+            setIsStudentDataLoading(true);
+
+            // 1. Find all teachers for the student's class
+            const teacherIds = studentClass.teacherIds;
+
+            // 2. Find all subjects taught by those teachers
+            const subjectsQuery = query(collection(firestore, 'subjects'), where('teacherId', 'in', teacherIds));
+            const subjectsSnapshot = await getDocs(subjectsQuery);
+            const subjects: Subject[] = subjectsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Subject));
+            setStudentSubjects(subjects);
+
+            // 3. Find recent courses in those subjects
+            if (subjects.length > 0) {
+                const subjectIds = subjects.map(s => s.id);
+                const coursesPromises = subjectIds.map(subjectId => {
+                    const coursesQuery = query(
+                        collection(firestore, 'subjects', subjectId, 'courses'),
+                        orderBy('createdAt', 'desc'),
+                        limit(2) // Get the 2 most recent courses per subject
+                    );
+                    return getDocs(coursesQuery);
+                });
+
+                const coursesSnapshots = await Promise.all(coursesPromises);
+                const allRecentCourses = coursesSnapshots
+                    .flatMap(snapshot => snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Course)));
+
+                // Sort all collected courses by date and take the top 3 overall
+                const sortedCourses = allRecentCourses.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                setRecentCourses(sortedCourses.slice(0, 3));
+            } else {
+                setRecentCourses([]);
+            }
+
+            setIsStudentDataLoading(false);
+        }
+
+        fetchStudentData();
+
+    }, [studentClass, firestore, userRole, studentClassLoading]);
 
   const renderDashboard = () => {
     if (isUserLoading || isRoleLoading) {
@@ -139,9 +202,28 @@ export default function DashboardPage() {
             schedule={teacherSchedule || []}
         />;
       case 'student':
-        return <StudentDashboard userName={userProfile?.firstName} />;
+         if (studentClassLoading || isStudentDataLoading) {
+            return (
+                <>
+                    <Skeleton className="h-8 w-1/2" />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Skeleton className="h-40" />
+                        <Skeleton className="h-40" />
+                    </div>
+                    <div className="grid gap-4 mt-4">
+                        <Skeleton className="h-64" />
+                    </div>
+                </>
+            );
+         }
+        return <StudentDashboard 
+            userName={userProfile?.firstName}
+            studentClass={studentClass}
+            subjects={studentSubjects}
+            recentCourses={recentCourses}
+        />;
       default:
-        return <StudentDashboard userName={userProfile?.firstName} />;
+        return <div>Rôle utilisateur non reconnu.</div>;
     }
   };
 

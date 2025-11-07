@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -5,19 +6,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BookOpen, Users, BookCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
+import type { Class, Subject, Course } from '@/lib/placeholder-data';
 
 type StudentDashboardProps = {
     userName: string | null;
+    studentClass: Class | null | undefined;
+    subjects: Subject[];
+    recentCourses: Course[];
 }
 
-export function StudentDashboard({ userName }: StudentDashboardProps) {
+export function StudentDashboard({ userName, studentClass, subjects, recentCourses }: StudentDashboardProps) {
 
     const stats = [
-        { title: "Matières Inscrites", value: 0, icon: <BookOpen className="h-6 w-6 text-primary" />, href: "/dashboard/student/courses" },
-        { title: "Camarades de classe", value: 0, icon: <Users className="h-6 w-6 text-primary" />, href: "/dashboard/student/classmates" },
+        { title: "Matières Inscrites", value: subjects.length, icon: <BookOpen className="h-6 w-6 text-primary" />, href: "/dashboard/student/courses" },
+        { title: "Camarades de classe", value: studentClass ? studentClass.studentIds.length - 1 : 0, icon: <Users className="h-6 w-6 text-primary" />, href: "/dashboard/student/classmates" },
     ];
     
-    const recentCourses: any[] = [];
+    const getSubjectName = (subjectId: string) => {
+        return subjects.find(s => s.id === subjectId)?.name || 'Matière inconnue';
+    }
 
     return (
         <>
@@ -58,23 +65,20 @@ export function StudentDashboard({ userName }: StudentDashboardProps) {
                     <CardContent>
                         {recentCourses.length > 0 ? (
                             <div className="space-y-4">
-                                {recentCourses.map(course => {
-                                    // const subject = studentSubjects.find(s => s.id === course.subjectId);
-                                    return (
-                                        <Link key={course.id} href="/dashboard/student/courses" className="block p-4 rounded-lg border hover:bg-muted transition-colors">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-semibold">{course.title}</p>
-                                                    <p className="text-sm text-muted-foreground">{/*subject?.name*/}</p>
-                                                </div>
-                                                <Button variant="ghost" size="sm">Voir le cours</Button>
+                                {recentCourses.map(course => (
+                                    <Link key={course.id} href={`/dashboard/student/courses/${course.id}`} className="block p-4 rounded-lg border hover:bg-muted transition-colors">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="font-semibold">{course.title}</p>
+                                                <p className="text-sm text-muted-foreground">{getSubjectName(course.subjectId)}</p>
                                             </div>
-                                        </Link>
-                                    );
-                                })}
+                                            <Button variant="ghost" size="sm">Voir le cours</Button>
+                                        </div>
+                                    </Link>
+                                ))}
                             </div>
                         ) : (
-                            <p className="text-center text-muted-foreground py-8">Aucun cours récent.</p>
+                            <p className="text-center text-muted-foreground py-8">Aucun cours récent disponible.</p>
                         )}
                     </CardContent>
                 </Card>
