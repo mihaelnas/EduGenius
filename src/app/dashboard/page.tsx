@@ -37,7 +37,7 @@ export default function DashboardPage() {
   
   // Queries for Admin
   const adminUsersQuery = useMemoFirebase(() => 
-    !isRoleLoading && userRole === 'admin' ? collection(firestore, 'users') : null
+    !isRoleLoading && userRole === 'admin' ? query(collection(firestore, 'users'), where('role', '!=', 'superadmin')) : null
   , [firestore, userRole, isRoleLoading]);
 
   const adminClassesQuery = useMemoFirebase(() => 
@@ -119,18 +119,21 @@ export default function DashboardPage() {
       const subjectsData = subjectsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Subject));
       setStudentSubjects(subjectsData);
       
-      // 3. Find recent courses for those subjects
+      // 3. Find recent courses for those subjects (simplified query)
       if (subjectsData.length > 0) {
-        const subjectIds = subjectsData.map(s => s.id);
+        const studentSubjectIds = new Set(subjectsData.map(s => s.id));
         const coursesQuery = query(
             collection(firestore, 'courses'),
-            where('subjectId', 'in', subjectIds),
             orderBy('createdAt', 'desc'),
-            limit(3)
+            limit(10) // Fetch more to increase chances of finding a match
         );
         const coursesSnapshot = await getDocs(coursesQuery);
-        const coursesData = coursesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Course));
-        setRecentCourses(coursesData);
+        const allRecentCourses = coursesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Course));
+        
+        // Filter client-side
+        const studentRecentCourses = allRecentCourses.filter(course => studentSubjectIds.has(course.subjectId)).slice(0, 3);
+        
+        setRecentCourses(studentRecentCourses);
       } else {
         setRecentCourses([]);
       }
