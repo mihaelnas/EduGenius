@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useParams, notFound } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import {
   Course,
@@ -27,9 +27,8 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
   }
 };
 
-export default function TeacherCourseDetailPage() {
-  const params = useParams();
-  const courseId = params.courseId as string;
+export default function TeacherCourseDetailPage({ params }: { params: { courseId: string } }) {
+  const { courseId } = params;
   const firestore = useFirestore();
 
   const courseDocRef = useMemoFirebase(() => {
@@ -66,17 +65,10 @@ export default function TeacherCourseDetailPage() {
     );
   }
   
-  // Only trigger 404 if loading is complete AND the course is still null.
-  if (!isLoadingCourse && !course) {
+  if (!course) {
     notFound();
     return null; 
   }
-
-  // Return null while loading if there's no course data yet to prevent premature render
-  if (!course) {
-    return null;
-  }
-
 
   return (
     <div>
@@ -129,5 +121,3 @@ export default function TeacherCourseDetailPage() {
     </div>
   );
 }
-
-    

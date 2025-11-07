@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { useParams, notFound } from 'next/navigation';
 import Link from 'next/link';
 import {
   Course,
@@ -13,6 +12,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbS
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { notFound } from 'next/navigation';
 
 const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
   switch (type) {
@@ -27,9 +27,8 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
   }
 };
 
-export default function CourseDetailPage() {
-  const params = useParams();
-  const courseId = params.courseId as string;
+export default function CourseDetailPage({ params }: { params: { courseId: string } }) {
+  const { courseId } = params;
   const firestore = useFirestore();
 
   const courseDocRef = useMemoFirebase(() => {
@@ -64,15 +63,9 @@ export default function CourseDetailPage() {
     );
   }
 
-  // If loading is finished and there's still no course, then it's a 404
-  if (!isLoadingCourse && !course) {
+  if (!course) {
     notFound();
     return null; 
-  }
-
-  // If the course is still loading or doesn't exist, don't render anything yet
-  if (!course) {
-    return null;
   }
 
 
@@ -140,5 +133,3 @@ export default function CourseDetailPage() {
     </div>
   );
 }
-
-    
