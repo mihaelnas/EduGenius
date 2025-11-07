@@ -9,7 +9,7 @@ import {
 } from '@/lib/placeholder-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Paperclip, Video, Link as LinkIcon, ChevronRight, ArrowLeft } from 'lucide-react';
-import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { notFound } from 'next/navigation';
@@ -29,8 +29,7 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 };
 
 export default function TeacherCourseDetailPage({ params }: { params: { courseId: string } }) {
-  const { user } = useUser();
-  const { courseId } = React.use(params);
+  const { courseId } = params;
   const firestore = useFirestore();
 
   const courseDocRef = useMemoFirebase(() => {
