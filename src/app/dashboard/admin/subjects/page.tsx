@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { subjects as initialSubjects, Subject, users, getDisplayName, AppUser, classes } from '@/lib/placeholder-data';
+import { getDisplayName, AppUser, Subject, Class } from '@/lib/placeholder-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Search } from 'lucide-react';
 import Image from 'next/image';
@@ -15,27 +15,38 @@ import { EditSubjectDialog } from '@/components/admin/edit-subject-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { AssignSubjectTeacherDialog } from '@/components/admin/assign-subject-teacher-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminSubjectsPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [subjects, setSubjects] = React.useState<Subject[]>(initialSubjects);
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [isAssignTeacherDialogOpen, setIsAssignTeacherDialogOpen] = React.useState(false);
   const [selectedSubject, setSelectedSubject] = React.useState<Subject | null>(null);
   const { toast } = useToast();
+  const firestore = useFirestore();
 
-  const allTeachers = users.filter(u => u.role === 'teacher');
+  const subjectsCollectionRef = useMemoFirebase(() => collection(firestore, 'subjects'), [firestore]);
+  const { data: subjects, isLoading: isLoadingSubjects } = useCollection<Subject>(subjectsCollectionRef);
+  
+  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const { data: users, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
+
+  const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
+  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
+  
+  const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
 
   const handleAdd = (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt'>) => {
-      const newSubjectData: Subject = {
+      const newSubjectData = {
           ...newSubject,
-          id: `sub_${Date.now()}`,
-          classCount: 0,
-          createdAt: new Date().toISOString().split('T')[0],
+          classCount: 0, // This will be calculated dynamically
+          createdAt: new Date().toISOString(),
       };
-      setSubjects(prev => [newSubjectData, ...prev]);
+      addDocumentNonBlocking(subjectsCollectionRef, newSubjectData);
       toast({
         title: 'Matière ajoutée',
         description: `La matière ${newSubject.name} a été créée avec succès.`,
@@ -43,7 +54,9 @@ export default function AdminSubjectsPage() {
   };
 
   const handleUpdate = (updatedSubject: Subject) => {
-    setSubjects(prev => prev.map(s => s.id === updatedSubject.id ? updatedSubject : s));
+    const subjectDocRef = doc(firestore, 'subjects', updatedSubject.id);
+    const { id, ...subjectData } = updatedSubject;
+    updateDocumentNonBlocking(subjectDocRef, subjectData);
     toast({
       title: 'Matière modifiée',
       description: `La matière ${updatedSubject.name} a été mise à jour.`,
@@ -64,10 +77,16 @@ export default function AdminSubjectsPage() {
     setSelectedSubject(subject);
     setIsAssignTeacherDialogOpen(true);
   };
+  
+  const handleAssignTeacherSave = (subjectId: string, teacherId: string | undefined) => {
+    const subjectDocRef = doc(firestore, 'subjects', subjectId);
+    updateDocumentNonBlocking(subjectDocRef, { teacherId });
+  };
 
   const confirmDelete = () => {
     if (selectedSubject) {
-      setSubjects(subjects.filter(s => s.id !== selectedSubject.id));
+      const subjectDocRef = doc(firestore, 'subjects', selectedSubject.id);
+      deleteDocumentNonBlocking(subjectDocRef);
       toast({
         variant: 'destructive',
         title: 'Matière supprimée',
@@ -78,16 +97,18 @@ export default function AdminSubjectsPage() {
     }
   };
 
-  const getTeacherById = (id: string): AppUser | undefined => users.find(u => u.id === id);
+  const getTeacherById = (id: string): AppUser | undefined => users?.find(u => u.id === id);
 
-  const filteredSubjects = subjects.map(subject => {
-      const assignedClassesCount = classes.filter(c => 
+  const filteredSubjects = React.useMemo(() => (subjects || []).map(subject => {
+      const assignedClassesCount = (classes || []).filter(c => 
           c.teacherIds.some(tId => tId === subject.teacherId)
       ).length;
       return { ...subject, classCount: assignedClassesCount };
   }).filter(subject =>
     subject.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [subjects, classes, searchTerm]);
+
+  const isLoading = isLoadingSubjects || isLoadingUsers || isLoadingClasses;
 
   return (
     <>
@@ -131,42 +152,55 @@ export default function AdminSubjectsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredSubjects.map((subject) => {
-                const teacher = subject.teacherId ? getTeacherById(subject.teacherId) : undefined;
-                return (
-                <TableRow key={subject.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-3">
-                      {subject.photo ? (
-                          <Image src={subject.photo} alt={subject.name} width={40} height={40} className="rounded-sm object-cover" />
-                      ) : (
-                          <div className="w-10 h-10 rounded-sm bg-muted flex items-center justify-center text-muted-foreground text-xs">IMG</div>
-                      )}
-                      <span>{subject.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{subject.credit}</TableCell>
-                  <TableCell>{subject.semestre}</TableCell>
-                  <TableCell>{teacher ? getDisplayName(teacher) : 'Non assigné'}</TableCell>
-                  <TableCell>{subject.classCount}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Ouvrir le menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                         <DropdownMenuItem onClick={() => handleEdit(subject)}>Modifier les détails</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleAssignTeacher(subject)}>Assigner un enseignant</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(subject)}>Supprimer</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              )})}
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-10 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-10" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                filteredSubjects.map((subject) => {
+                  const teacher = subject.teacherId ? getTeacherById(subject.teacherId) : undefined;
+                  return (
+                  <TableRow key={subject.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        {subject.photo ? (
+                            <Image src={subject.photo} alt={subject.name} width={40} height={40} className="rounded-sm object-cover" />
+                        ) : (
+                            <div className="w-10 h-10 rounded-sm bg-muted flex items-center justify-center text-muted-foreground text-xs">IMG</div>
+                        )}
+                        <span>{subject.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{subject.credit}</TableCell>
+                    <TableCell>{subject.semestre}</TableCell>
+                    <TableCell>{teacher ? getDisplayName(teacher) : 'Non assigné'}</TableCell>
+                    <TableCell>{subject.classCount}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Ouvrir le menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => handleEdit(subject)}>Modifier les détails</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleAssignTeacher(subject)}>Assigner un enseignant</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(subject)}>Supprimer</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                )})
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -185,9 +219,7 @@ export default function AdminSubjectsPage() {
           setIsOpen={setIsAssignTeacherDialogOpen}
           subject={selectedSubject}
           allTeachers={allTeachers}
-          onAssign={(subjectId, teacherId) => {
-            setSubjects(subjects.map(s => s.id === subjectId ? {...s, teacherId} : s));
-          }}
+          onAssign={handleAssignTeacherSave}
         />
       )}
       <DeleteConfirmationDialog
