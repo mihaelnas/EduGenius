@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -77,74 +76,71 @@ export default function DashboardPage() {
   const { data: teacherSchedule, isLoading: teacherScheduleLoading } = useCollection<ScheduleEvent>(teacherScheduleQuery);
   
   // --- Queries for Student ---
-    const studentClassQuery = useMemoFirebase(() =>
-        user && !isRoleLoading && userRole === 'student'
-        ? query(collection(firestore, 'classes'), where('studentIds', 'array-contains', user.uid), limit(1))
-        : null
-    , [firestore, user, userRole, isRoleLoading]);
+  const [studentClass, setStudentClass] = React.useState<Class | null>(null);
+  const [studentSubjects, setStudentSubjects] = React.useState<Subject[]>([]);
+  const [recentCourses, setRecentCourses] = React.useState<Course[]>([]);
+  const [isStudentDataLoading, setIsStudentDataLoading] = React.useState(true);
 
-    const { data: studentClasses, isLoading: studentClassLoading } = useCollection<Class>(studentClassQuery);
-    const studentClass = studentClasses?.[0];
+  React.useEffect(() => {
+    async function fetchStudentData() {
+      if (userRole !== 'student' || isUserLoading || !user || !firestore) {
+        if (userRole === 'student') setIsStudentDataLoading(false);
+        return;
+      }
+      
+      setIsStudentDataLoading(true);
 
-    const [studentSubjects, setStudentSubjects] = React.useState<Subject[]>([]);
-    const [recentCourses, setRecentCourses] = React.useState<Course[]>([]);
-    const [isStudentDataLoading, setIsStudentDataLoading] = React.useState(true);
+      // 1. Find the student's class
+      const classQuery = query(collection(firestore, 'classes'), where('studentIds', 'array-contains', user.uid), limit(1));
+      const classSnapshot = await getDocs(classQuery);
 
-    React.useEffect(() => {
-        async function fetchStudentData() {
-            if (userRole !== 'student' || studentClassLoading) {
-                return;
-            }
-            if (!studentClass) {
-                setIsStudentDataLoading(false);
-                return;
-            }
-            
-            setIsStudentDataLoading(true);
+      if (classSnapshot.empty) {
+        setStudentClass(null);
+        setStudentSubjects([]);
+        setRecentCourses([]);
+        setIsStudentDataLoading(false);
+        return;
+      }
+      
+      const studentClassData = { id: classSnapshot.docs[0].id, ...classSnapshot.docs[0].data() } as Class;
+      setStudentClass(studentClassData);
 
-            // 1. Find all teachers for the student's class
-            const teacherIds = studentClass.teacherIds;
-            if (!teacherIds || teacherIds.length === 0) {
-              setStudentSubjects([]);
-              setRecentCourses([]);
-              setIsStudentDataLoading(false);
-              return;
-            }
+      // 2. Find all subjects taught by the teachers of that class
+      const teacherIds = studentClassData.teacherIds;
+      if (!teacherIds || teacherIds.length === 0) {
+        setStudentSubjects([]);
+        setRecentCourses([]);
+        setIsStudentDataLoading(false);
+        return;
+      }
+      
+      const subjectsQuery = query(collection(firestore, 'subjects'), where('teacherId', 'in', teacherIds));
+      const subjectsSnapshot = await getDocs(subjectsQuery);
+      const subjectsData = subjectsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Subject));
+      setStudentSubjects(subjectsData);
+      
+      // 3. Find recent courses for those subjects
+      if (subjectsData.length > 0) {
+        const subjectIds = subjectsData.map(s => s.id);
+        const coursesQuery = query(
+            collection(firestore, 'courses'),
+            where('subjectId', 'in', subjectIds),
+            orderBy('createdAt', 'desc'),
+            limit(3)
+        );
+        const coursesSnapshot = await getDocs(coursesQuery);
+        const coursesData = coursesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Course));
+        setRecentCourses(coursesData);
+      } else {
+        setRecentCourses([]);
+      }
 
-            // 2. Find all subjects taught by those teachers
-            const subjectsQuery = query(collection(firestore, 'subjects'), where('teacherId', 'in', teacherIds));
-            const subjectsSnapshot = await getDocs(subjectsQuery);
-            const subjects: Subject[] = subjectsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Subject));
-            setStudentSubjects(subjects);
+      setIsStudentDataLoading(false);
+    }
 
-            // 3. Find recent courses and then filter them by subject
-            if (subjects.length > 0) {
-                const subjectIds = new Set(subjects.map(s => s.id));
-                
-                // Fetch the most recent courses globally (simplified query)
-                const coursesQuery = query(
-                    collection(firestore, 'courses'),
-                    orderBy('createdAt', 'desc'),
-                    limit(10) // Fetch a bit more to have a chance to find relevant ones
-                );
-                
-                const coursesSnapshot = await getDocs(coursesQuery);
-                const allRecentCourses = coursesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Course));
+    fetchStudentData();
+  }, [user, userRole, firestore, isUserLoading]);
 
-                // Filter these recent courses to only include those in the student's subjects
-                const studentRecentCourses = allRecentCourses.filter(course => subjectIds.has(course.subjectId));
-                
-                setRecentCourses(studentRecentCourses.slice(0, 3)); // Keep the top 3 relevant ones
-            } else {
-                setRecentCourses([]);
-            }
-
-            setIsStudentDataLoading(false);
-        }
-
-        fetchStudentData();
-
-    }, [studentClass, firestore, userRole, studentClassLoading]);
 
   const renderDashboard = () => {
     if (isUserLoading || isRoleLoading) {
@@ -208,7 +204,7 @@ export default function DashboardPage() {
             schedule={teacherSchedule || []}
         />;
       case 'student':
-         if (studentClassLoading || isStudentDataLoading) {
+         if (isStudentDataLoading) {
             return (
                 <>
                     <Skeleton className="h-8 w-1/2" />
