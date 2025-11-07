@@ -37,7 +37,7 @@ export default function AdminUsersPage() {
         status: 'active',
         createdAt: new Date().toISOString().split('T')[0],
     };
-    if (!newUser.photo) {
+    if (!newUserData.photo) {
         delete newUserData.photo;
     }
     
@@ -51,6 +51,11 @@ export default function AdminUsersPage() {
   const handleUpdate = (updatedUser: AppUser) => {
     const userDocRef = doc(firestore, 'users', updatedUser.id);
     const { id, ...userData } = updatedUser;
+    
+    if (userData.photo === '') {
+      delete (userData as Partial<AppUser>).photo;
+    }
+
     updateDocumentNonBlocking(userDocRef, userData);
     toast({
       title: 'Utilisateur modifié',
