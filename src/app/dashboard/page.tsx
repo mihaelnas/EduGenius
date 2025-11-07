@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -6,49 +7,75 @@ import { TeacherDashboard } from '@/components/dashboards/teacher-dashboard';
 import { StudentDashboard } from '@/components/dashboards/student-dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, getDoc, collection } from 'firebase/firestore';
-import type { AppUser, Class, Subject } from '@/lib/placeholder-data';
+import { doc, getDoc, collection, query, where } from 'firebase/firestore';
+import type { AppUser, Class, Subject, ScheduleEvent } from '@/lib/placeholder-data';
 
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const [userRole, setUserRole] = React.useState<string | null>(null);
+  const [userProfile, setUserProfile] = React.useState<AppUser | null>(null);
   const [isRoleLoading, setIsRoleLoading] = React.useState(true);
+  
+  const userRole = userProfile?.role;
 
   React.useEffect(() => {
     if (user) {
       const userDocRef = doc(firestore, 'users', user.uid);
       getDoc(userDocRef).then(docSnap => {
         if (docSnap.exists()) {
-          setUserRole(docSnap.data().role);
+          setUserProfile(docSnap.data() as AppUser);
         } else {
-          // Handle case where user doc might not be created yet
-          setUserRole('student'); // Default or error handling
+          // Fallback or error handling
+          setUserProfile({ role: 'student' } as AppUser);
         }
         setIsRoleLoading(false);
       });
     } else if (!isUserLoading) {
-        setIsRoleLoading(false); // No user, so role loading is done
+        setIsRoleLoading(false);
     }
   }, [user, firestore, isUserLoading]);
   
-  const usersQuery = useMemoFirebase(() => 
+  // Queries for Admin
+  const adminUsersQuery = useMemoFirebase(() => 
     !isRoleLoading && userRole === 'admin' ? collection(firestore, 'users') : null
   , [firestore, userRole, isRoleLoading]);
 
-  const classesQuery = useMemoFirebase(() => 
+  const adminClassesQuery = useMemoFirebase(() => 
     !isRoleLoading && userRole === 'admin' ? collection(firestore, 'classes') : null
   , [firestore, userRole, isRoleLoading]);
 
-  const subjectsQuery = useMemoFirebase(() => 
+  const adminSubjectsQuery = useMemoFirebase(() => 
     !isRoleLoading && userRole === 'admin' ? collection(firestore, 'subjects') : null
   , [firestore, userRole, isRoleLoading]);
 
-  const { data: users, isLoading: usersLoading } = useCollection<AppUser>(usersQuery);
-  const { data: classes, isLoading: classesLoading } = useCollection<Class>(classesQuery);
-  const { data: subjects, isLoading: subjectsLoading } = useCollection<Subject>(subjectsQuery);
+  const { data: adminUsers, isLoading: usersLoading } = useCollection<AppUser>(adminUsersQuery);
+  const { data: adminClasses, isLoading: classesLoading } = useCollection<Class>(adminClassesQuery);
+  const { data: adminSubjects, isLoading: subjectsLoading } = useCollection<Subject>(adminSubjectsQuery);
 
+  // Queries for Teacher
+  const teacherClassesQuery = useMemoFirebase(() =>
+    user && !isRoleLoading && userRole === 'teacher' 
+    ? query(collection(firestore, 'classes'), where('teacherIds', 'array-contains', user.uid))
+    : null
+  , [firestore, user, userRole, isRoleLoading]);
+
+  const teacherSubjectsQuery = useMemoFirebase(() =>
+    user && !isRoleLoading && userRole === 'teacher'
+    ? query(collection(firestore, 'subjects'), where('teacherId', '==', user.uid))
+    : null
+  , [firestore, user, userRole, isRoleLoading]);
+  
+  // This query will need adjustment if we want to query based on classes
+  const teacherScheduleQuery = useMemoFirebase(() =>
+    user && !isRoleLoading && userRole === 'teacher'
+    ? query(collection(firestore, 'schedule'), where('teacherId', '==', user.uid))
+    : null
+  , [firestore, user, userRole, isRoleLoading]);
+
+  const { data: teacherClasses, isLoading: teacherClassesLoading } = useCollection<Class>(teacherClassesQuery);
+  const { data: teacherSubjects, isLoading: teacherSubjectsLoading } = useCollection<Subject>(teacherSubjectsQuery);
+  const { data: teacherSchedule, isLoading: teacherScheduleLoading } = useCollection<ScheduleEvent>(teacherScheduleQuery);
 
   const renderDashboard = () => {
     if (isUserLoading || isRoleLoading) {
@@ -71,7 +98,6 @@ export default function DashboardPage() {
 
     switch (userRole) {
       case 'admin':
-        // Admin dashboard also needs loading state for its specific data
         if (usersLoading || classesLoading || subjectsLoading) {
             return (
                 <>
@@ -89,14 +115,33 @@ export default function DashboardPage() {
                 </>
             );
         }
-        return <AdminDashboard userName={user?.displayName || user?.email} users={users || []} classes={classes || []} subjects={subjects || []} />;
+        return <AdminDashboard userName={userProfile?.firstName} users={adminUsers || []} classes={adminClasses || []} subjects={adminSubjects || []} />;
       case 'teacher':
-        return <TeacherDashboard userName={user?.displayName || user?.email} />;
+        if (teacherClassesLoading || teacherSubjectsLoading || teacherScheduleLoading) {
+             return (
+                <>
+                    <Skeleton className="h-8 w-1/2" />
+                    <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
+                        <Skeleton className="h-32" />
+                        <Skeleton className="h-32" />
+                        <Skeleton className="h-32" />
+                    </div>
+                    <div className="grid gap-4 mt-4">
+                        <Skeleton className="h-64" />
+                    </div>
+                </>
+            );
+        }
+        return <TeacherDashboard 
+            userName={userProfile?.firstName} 
+            classes={teacherClasses || []}
+            subjects={teacherSubjects || []}
+            schedule={teacherSchedule || []}
+        />;
       case 'student':
-        return <StudentDashboard userName={user?.displayName || user?.email} />;
+        return <StudentDashboard userName={userProfile?.firstName} />;
       default:
-        // This can be shown if the user is logged in but has no role or doc for some reason
-        return <StudentDashboard userName={user?.displayName || user?.email} />;
+        return <StudentDashboard userName={userProfile?.firstName} />;
     }
   };
 

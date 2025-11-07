@@ -1,8 +1,9 @@
+
 'use client';
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { classes, subjects, schedule } from '@/lib/placeholder-data';
+import { Class, Subject, ScheduleEvent } from '@/lib/placeholder-data';
 import { School, BookOpen, Calendar, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
@@ -12,15 +13,12 @@ import { fr } from 'date-fns/locale';
 
 type TeacherDashboardProps = {
     userName: string | null;
+    classes: Class[];
+    subjects: Subject[];
+    schedule: ScheduleEvent[];
 }
 
-// Mock: assumes the logged in teacher is Alice Johnson (id: usr_2)
-const TEACHER_ID = 'usr_2';
-
-export function TeacherDashboard({ userName }: TeacherDashboardProps) {
-    const teacherClasses = classes.filter(c => c.teacherIds.includes(TEACHER_ID));
-    const teacherSubjects = subjects.filter(s => s.teacherId === TEACHER_ID);
-
+export function TeacherDashboard({ userName, classes, subjects, schedule }: TeacherDashboardProps) {
     const todaysDateStr = format(new Date(), 'yyyy-MM-dd');
     const upcomingEvents = schedule
         .filter(event => event.date >= todaysDateStr && event.status === 'planifié')
@@ -28,8 +26,8 @@ export function TeacherDashboard({ userName }: TeacherDashboardProps) {
         .slice(0, 3);
 
     const stats = [
-        { title: "Mes Classes", value: teacherClasses.length, icon: <School className="h-6 w-6 text-primary" />, href: "/dashboard/teacher/classes" },
-        { title: "Mes Matières", value: teacherSubjects.length, icon: <BookOpen className="h-6 w-6 text-primary" />, href: "/dashboard/teacher/courses" },
+        { title: "Mes Classes", value: classes.length, icon: <School className="h-6 w-6 text-primary" />, href: "/dashboard/teacher/classes" },
+        { title: "Mes Matières", value: subjects.length, icon: <BookOpen className="h-6 w-6 text-primary" />, href: "/dashboard/teacher/courses" },
         { title: "Événements à venir", value: upcomingEvents.length, icon: <Calendar className="h-6 w-6 text-primary" />, href: "/dashboard/teacher/schedule" },
     ];
 
