@@ -19,7 +19,11 @@ const resourceSchema = z.object({
   id: z.string().optional(),
   type: z.enum(['pdf', 'video', 'link']),
   title: z.string().min(1, 'Le titre est requis.'),
-  url: z.any().refine(val => (typeof val === 'string' && val.length > 0) || (typeof window !== 'undefined' && val instanceof FileList && val.length > 0) || (val && typeof val[0]?.name === 'string'), {
+  url: z.any().refine(val => {
+    if (typeof val === 'string') return val.length > 0;
+    if (typeof window !== 'undefined' && val instanceof FileList) return val.length > 0;
+    return false;
+  }, {
     message: 'Un fichier ou une URL est requis(e).',
   }),
 });
@@ -41,7 +45,7 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }:
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: course,
+    // defaultValues will be set by form.reset in useEffect
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -52,7 +56,12 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }:
   const watchedResources = form.watch('resources');
   
   React.useEffect(() => {
-    form.reset(course);
+    if (course) {
+      form.reset({
+        ...course,
+        resources: course.resources.map(r => ({ ...r, url: r.url })) // Use URL directly
+      });
+    }
   }, [course, form]);
 
 
@@ -62,20 +71,16 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }:
       title: values.title,
       content: values.content,
       resources: values.resources.map((r, i) => {
-        const originalResource = course.resources[i] || {};
         let newUrl = r.url;
         // In a real app, you'd handle file uploads and get a URL.
-        // For demo, we check if a new file was selected.
-        if (typeof newUrl === 'object' && newUrl.length > 0) {
-            newUrl = newUrl[0].name; // Use new file name
-        } else {
-            newUrl = originalResource.url; // Keep old URL if no new file
+        if (typeof newUrl === 'object' && newUrl instanceof FileList && newUrl.length > 0) {
+            newUrl = newUrl[0].name; // Use new file name for demo
         }
-
+        
         return { 
-            ...originalResource,
-            ...r, 
-            id: originalResource.id || `res_${Date.now()}_${Math.random()}`,
+            id: r.id || `res_${Date.now()}_${Math.random()}`,
+            type: r.type,
+            title: r.title,
             url: newUrl,
         }
       })
@@ -107,18 +112,18 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }:
               <h4 className="text-sm font-medium mb-2">Ressources</h4>
               <div className="space-y-4">
                 {fields.map((field, index) => {
-                  const resourceType = watchedResources[index]?.type;
+                  const resourceType = watchedResources?.[index]?.type;
                   const currentUrl = course.resources[index]?.url;
                   return(
                     <div key={field.id} className="flex gap-2 items-end p-3 border rounded-md">
                       <FormField control={form.control} name={`resources.${index}.type`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="pdf">PDF</SelectItem><SelectItem value="video">Vidéo</SelectItem><SelectItem value="link">Lien</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                       <FormField control={form.control} name={`resources.${index}.title`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>Titre</FormLabel><FormControl><Input placeholder="Titre de la ressource" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                       <FormField control={form.control} name={`resources.${index}.url`} render={({ field: { onChange, ...fieldProps} }) => (
+                       <FormField control={form.control} name={`resources.${index}.url`} render={() => (
                         <FormItem className="flex-1">
                           <FormLabel>{resourceType === 'link' || resourceType === 'video' ? 'URL' : 'Fichier'}</FormLabel>
                           <FormControl>
                             {resourceType === 'link' || resourceType === 'video' ? (
-                                <Input placeholder="https://..." {...fieldProps} onChange={onChange} defaultValue={currentUrl}/>
+                                <Input placeholder="https://..." {...form.register(`resources.${index}.url`)} defaultValue={currentUrl} />
                             ) : (
                                 <div>
                                     <Input type="file" {...form.register(`resources.${index}.url`)} />
