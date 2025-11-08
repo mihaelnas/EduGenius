@@ -1,14 +1,19 @@
 
-name: Deploy to Firebase App Hosting
+name: CI/CD for App Hosting
 
 on:
   push:
     branches:
       - main
       - develop
+  pull_request:
+    branches:
+      - main
+      - develop
 
 jobs:
-  build_and_deploy:
+  ci_checks:
+    name: Continuous Integration Checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -32,6 +37,28 @@ jobs:
       - name: Build application
         run: npm run build
 
+  build_and_deploy:
+    name: Build and Deploy to App Hosting
+    # Ce job ne s'exécute que sur un push vers main ou develop, pas sur les PRs
+    if: github.event_name == 'push'
+    needs: ci_checks # Dépend du succès du job de CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build application
+        run: npm run build
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -42,4 +69,3 @@ jobs:
         with:
           project_id: '${{ secrets.GCP_PROJECT_ID }}'
           location: 'us-central1' # Remplacez par votre région si nécessaire
-
