@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { createUserWithEmailAndPassword, sendEmailVerification, ActionCodeSettings } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
@@ -105,12 +105,8 @@ export default function RegisterPage() {
         errorEmitter.emit('permission-error', permissionError);
       });
 
-      // --- Send verification email with custom redirect ---
-      const actionCodeSettings: ActionCodeSettings = {
-        url: `${window.location.origin}/verify-email`, // URL of our new page
-        handleCodeInApp: true,
-      };
-      await sendEmailVerification(user, actionCodeSettings);
+      // --- Send verification email (Default Firebase behavior) ---
+      await sendEmailVerification(user);
 
       toast({
         title: 'Inscription presque terminée !',
