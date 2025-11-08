@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
@@ -97,12 +97,16 @@ export default function RegisterPage() {
       const userDocRef = doc(firestore, 'users', user.uid);
       await setDoc(userDocRef, userProfile);
 
+      // Send verification email
+      await sendEmailVerification(user);
+
+      // Sign out the user immediately after registration
       await signOut(auth);
 
       toast({
-        title: 'Inscription réussie !',
-        description: "Votre compte a été créé et est en attente de validation par un administrateur.",
-        duration: 5000,
+        title: 'Inscription presque terminée !',
+        description: "Un e-mail de vérification a été envoyé. Veuillez consulter votre boîte de réception et attendre la validation de l'administrateur.",
+        duration: 10000,
       });
       router.push('/login');
     } catch (error: any) {
