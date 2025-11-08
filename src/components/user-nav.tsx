@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogIn, LogOut, Settings, User } from 'lucide-react';
+import { LogIn, LogOut, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useUser, useFirestore, useAuth } from '@/firebase';
@@ -87,12 +87,6 @@ export function UserNav() {
                 <Link href="/dashboard/profile">
                   <User className="mr-2 h-4 w-4" />
                   <span>Profil</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/profile">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Paramètres</span>
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
