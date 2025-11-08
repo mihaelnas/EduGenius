@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { createUserWithEmailAndPassword, sendEmailVerification, signOut, ActionCodeSettings } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, ActionCodeSettings } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
@@ -110,9 +110,6 @@ export default function RegisterPage() {
         handleCodeInApp: true,
       };
       await sendEmailVerification(user, actionCodeSettings);
-
-      // Sign out the user immediately after sending the email
-      await signOut(auth);
 
       toast({
         title: 'Inscription presque terminée !',
