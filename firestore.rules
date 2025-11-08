@@ -63,7 +63,7 @@ service cloud.firestore {
     
     match /courses/{courseId} {
       allow get, list: if isSignedIn();
-      allow create: if isTeacherForCourse() || isAdmin();
+      allow create: if (isTeacherForCourse() && isTeacherForSubject(request.resource.data.subjectId)) || isAdmin();
       allow update: if isExistingTeacherForCourse() || isAdmin();
       allow delete: if isExistingTeacherForCourse() || isAdmin();
     }
@@ -98,5 +98,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
