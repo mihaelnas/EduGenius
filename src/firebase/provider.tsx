@@ -1,10 +1,12 @@
+
 'use client';
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User } from 'firebase/auth';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+import { FirebaseStorage } from 'firebase/storage';
 
 // Combined state for the Firebase context
 export interface FirebaseContextState {
@@ -12,6 +14,7 @@ export interface FirebaseContextState {
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
   auth: Auth | null; // The Auth service instance
+  storage: FirebaseStorage | null;
 }
 
 // React Context
@@ -22,6 +25,7 @@ interface FirebaseProviderProps {
   firebaseApp: FirebaseApp;
   firestore: Firestore;
   auth: Auth;
+  storage: FirebaseStorage;
 }
 
 
@@ -34,17 +38,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   firebaseApp,
   firestore,
   auth,
+  storage,
 }) => {
   
   const contextValue = useMemo((): FirebaseContextState => {
-    const servicesAvailable = !!(firebaseApp && firestore && auth);
+    const servicesAvailable = !!(firebaseApp && firestore && auth && storage);
     return {
       areServicesAvailable: servicesAvailable,
       firebaseApp: servicesAvailable ? firebaseApp : null,
       firestore: servicesAvailable ? firestore : null,
       auth: servicesAvailable ? auth : null,
+      storage: servicesAvailable ? storage : null,
     };
-  }, [firebaseApp, firestore, auth]);
+  }, [firebaseApp, firestore, auth, storage]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -59,14 +65,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
  * Hook to access core Firebase services.
  * Throws error if core services are not available or used outside provider.
  */
-const useFirebaseServices = (): { firebaseApp: FirebaseApp, firestore: Firestore, auth: Auth } => {
+const useFirebaseServices = (): { firebaseApp: FirebaseApp, firestore: Firestore, auth: Auth, storage: FirebaseStorage } => {
   const context = useContext(FirebaseContext);
 
   if (context === undefined) {
     throw new Error('useFirebaseServices must be used within a FirebaseProvider.');
   }
 
-  if (!context.areServicesAvailable || !context.firebaseApp || !context.firestore || !context.auth) {
+  if (!context.areServicesAvailable || !context.firebaseApp || !context.firestore || !context.auth || !context.storage) {
     throw new Error('Firebase core services not available. Check FirebaseProvider props.');
   }
 
@@ -74,6 +80,7 @@ const useFirebaseServices = (): { firebaseApp: FirebaseApp, firestore: Firestore
     firebaseApp: context.firebaseApp,
     firestore: context.firestore,
     auth: context.auth,
+    storage: context.storage,
   };
 };
 
@@ -88,6 +95,12 @@ export const useAuth = (): Auth => {
 export const useFirestore = (): Firestore => {
   const { firestore } = useFirebaseServices();
   return firestore;
+};
+
+/** Hook to access Firebase Storage instance. */
+export const useStorage = (): FirebaseStorage => {
+  const { storage } = useFirebaseServices();
+  return storage;
 };
 
 /** Hook to access Firebase App instance. */
