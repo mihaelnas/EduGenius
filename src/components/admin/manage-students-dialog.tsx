@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
 import { Class, AppUser, getDisplayName, Student } from '@/lib/placeholder-data';
 import { Label } from '../ui/label';
 import { ScrollArea } from '../ui/scroll-area';
@@ -29,7 +28,6 @@ type ManageStudentsDialogProps = {
 }
 
 export function ManageStudentsDialog({ isOpen, setIsOpen, classData, allStudents, onUpdate }: ManageStudentsDialogProps) {
-  const { toast } = useToast();
   const [selectedStudentIds, setSelectedStudentIds] = React.useState<string[]>(classData.studentIds);
   const [searchTerm, setSearchTerm] = React.useState('');
 
@@ -47,11 +45,6 @@ export function ManageStudentsDialog({ isOpen, setIsOpen, classData, allStudents
 
   const handleSave = () => {
     onUpdate(classData.id, selectedStudentIds);
-    toast({
-      title: 'Étudiants mis à jour',
-      description: `La liste des étudiants pour la classe ${classData.name} a été mise à jour.`,
-    });
-    setIsOpen(false);
   };
   
   const filteredStudents = allStudents.filter(student =>

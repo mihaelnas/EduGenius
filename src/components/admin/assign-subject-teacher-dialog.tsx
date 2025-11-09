@@ -18,7 +18,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
 import { Subject, AppUser, getDisplayName } from '@/lib/placeholder-data';
 import { Label } from '../ui/label';
 
@@ -31,7 +30,6 @@ type AssignSubjectTeacherDialogProps = {
 }
 
 export function AssignSubjectTeacherDialog({ isOpen, setIsOpen, subject, allTeachers, onAssign }: AssignSubjectTeacherDialogProps) {
-  const { toast } = useToast();
   const [selectedTeacherId, setSelectedTeacherId] = React.useState<string | undefined>(subject.teacherId);
   
   React.useEffect(() => {
@@ -40,20 +38,10 @@ export function AssignSubjectTeacherDialog({ isOpen, setIsOpen, subject, allTeac
 
   const handleSave = () => {
     onAssign(subject.id, selectedTeacherId);
-    toast({
-      title: 'Assignation réussie',
-      description: `L'enseignant a été mis à jour pour la matière ${subject.name}.`,
-    });
-    setIsOpen(false);
   }
   
   const handleRemove = () => {
     onAssign(subject.id, undefined);
-    toast({
-      title: 'Enseignant retiré',
-      description: `L'enseignant a été retiré de la matière ${subject.name}.`,
-    });
-    setIsOpen(false);
   }
 
   return (

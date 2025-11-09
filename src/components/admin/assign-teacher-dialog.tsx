@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
 import { Class, AppUser, getDisplayName } from '@/lib/placeholder-data';
 import { Label } from '../ui/label';
 import { ScrollArea } from '../ui/scroll-area';
@@ -26,7 +25,6 @@ type AssignTeacherDialogProps = {
 }
 
 export function AssignTeacherDialog({ isOpen, setIsOpen, classData, allTeachers, onAssign }: AssignTeacherDialogProps) {
-  const { toast } = useToast();
   const [selectedTeacherIds, setSelectedTeacherIds] = React.useState<string[]>(classData.teacherIds);
 
   React.useEffect(() => {
@@ -43,11 +41,6 @@ export function AssignTeacherDialog({ isOpen, setIsOpen, classData, allTeachers,
 
   const handleSave = () => {
     onAssign(classData.id, selectedTeacherIds);
-    toast({
-      title: 'Assignation réussie',
-      description: `Les enseignants pour la classe ${classData.name} ont été mis à jour.`,
-    });
-    setIsOpen(false);
   };
 
   return (

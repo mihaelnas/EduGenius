@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -104,7 +105,6 @@ export default function AdminClassesPage() {
         const classDocRef = doc(firestore, 'classes', selectedClass.id);
         batch.delete(classDocRef);
         
-        // Commit all operations
         await batch.commit();
 
         toast({
@@ -229,7 +229,9 @@ export default function AdminClassesPage() {
           isOpen={isEditDialogOpen}
           setIsOpen={setIsEditDialogOpen}
           classData={selectedClass}
-          onClassUpdated={(updatedData) => handleUpdate({...selectedClass, ...updatedData})}
+          onClassUpdated={async (updatedData) => {
+            await handleUpdate({...selectedClass, ...updatedData})
+          }}
         />
       )}
        {selectedClass && (
@@ -238,8 +240,13 @@ export default function AdminClassesPage() {
           setIsOpen={setIsAssignTeacherDialogOpen}
           classData={selectedClass}
           allTeachers={allTeachers}
-          onAssign={(classId, teacherIds) => {
-            handleUpdatePartial(classId, { teacherIds });
+          onAssign={async (classId, teacherIds) => {
+            await handleUpdatePartial(classId, { teacherIds });
+            toast({
+              title: 'Assignation réussie',
+              description: `Les enseignants pour la classe ${selectedClass.name} ont été mis à jour.`,
+            });
+            setIsAssignTeacherDialogOpen(false);
           }}
         />
       )}
@@ -249,8 +256,13 @@ export default function AdminClassesPage() {
           setIsOpen={setIsManageStudentsDialogOpen}
           classData={selectedClass}
           allStudents={allStudents}
-          onUpdate={(classId, studentIds) => {
-            handleUpdatePartial(classId, { studentIds });
+          onUpdate={async (classId, studentIds) => {
+            await handleUpdatePartial(classId, { studentIds });
+            toast({
+              title: 'Étudiants mis à jour',
+              description: `La liste des étudiants pour la classe ${selectedClass.name} a été mise à jour.`,
+            });
+            setIsManageStudentsDialogOpen(false);
           }}
         />
       )}

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -76,7 +77,7 @@ export type AddUserFormValues = z.infer<typeof formSchema>;
 type AddUserDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onUserAdded: (newUser: AddUserFormValues) => void;
+    onUserAdded: (newUser: AddUserFormValues) => Promise<void>;
 }
 
 const initialValues = {

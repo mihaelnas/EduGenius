@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -12,7 +13,6 @@ import { doc, updateDoc } from 'firebase/firestore';
 import type { AppUser } from '@/lib/placeholder-data';
 import { useParams } from 'next/navigation';
 import { UpdatePhotoDialog } from '@/components/update-photo-dialog';
-import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ChangePasswordDialog } from '@/components/profile/change-password-dialog';
@@ -36,7 +36,6 @@ export default function ProfileDetailPage() {
   const userId = params.id as string;
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
-  const { toast } = useToast();
 
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = React.useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
@@ -54,10 +53,6 @@ export default function ProfileDetailPage() {
   const handlePhotoUpdate = async (newPhotoUrl: string) => {
     if (userDocRef) {
         await updateDoc(userDocRef, { photo: newPhotoUrl });
-        toast({
-            title: 'Photo de profil mise à jour',
-            description: 'Votre nouvelle photo a été enregistrée.'
-        });
     }
   }
 

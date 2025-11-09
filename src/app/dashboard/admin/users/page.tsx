@@ -92,6 +92,8 @@ export default function AdminUsersPage() {
           description: error.message || "Une erreur inconnue est survenue.",
         });
       }
+      // Re-throw the error if you want to handle it further up the chain
+      throw error;
     }
   };
 
@@ -173,6 +175,9 @@ export default function AdminUsersPage() {
             title: 'Utilisateur supprimé de Firestore',
             description: `Le profil de ${getDisplayName(selectedUser)} a été supprimé de la base de données.`,
         });
+        
+        setIsDeleteDialogOpen(false);
+        setSelectedUser(null);
 
     } catch (error: any) {
         console.error("Échec de la suppression de l'utilisateur de Firestore:", error);
@@ -182,9 +187,6 @@ export default function AdminUsersPage() {
             description: `La suppression a échoué: ${error.message}`,
         });
     }
-
-    setIsDeleteDialogOpen(false);
-    setSelectedUser(null);
   };
 
   const filteredUsers = React.useMemo(() => (users || []).filter(user =>

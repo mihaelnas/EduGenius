@@ -46,7 +46,7 @@ type FormValues = z.infer<typeof formSchema>;
 type AddClassDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onClassAdded: (newClass: FormValues) => void;
+    onClassAdded: (newClass: FormValues) => Promise<void>;
 };
 
 export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDialogProps) {
@@ -58,8 +58,8 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
     },
   });
 
-  function onSubmit(values: FormValues) {
-    onClassAdded(values);
+  async function onSubmit(values: FormValues) {
+    await onClassAdded(values);
     setIsOpen(false);
     form.reset();
   }
@@ -162,7 +162,9 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
             />
             <DialogFooter>
                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
-              <Button type="submit">Créer la classe</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? "Création..." : "Créer la classe"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -42,14 +41,13 @@ const defaultFormValues: FormValues = {
 type AddEventDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onEventAdded: (newEvent: FormValues) => void;
+    onEventAdded: (newEvent: FormValues) => Promise<void>;
     teacherClasses: Class[];
     teacherSubjects: Subject[];
     selectedDate?: Date;
 }
 
 export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses, teacherSubjects, selectedDate }: AddEventDialogProps) {
-  const { toast } = useToast();
   const { user } = useUser();
 
   const form = useForm<FormValues>({
@@ -72,17 +70,17 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
     }
   }, [selectedDate, isOpen, form]);
 
-  function onSubmit(values: FormValues) {
-    onEventAdded(values);
-    toast({
-      title: 'Événement ajouté',
-      description: `Le cours de ${values.subject} a été ajouté à l'emploi du temps.`,
-    });
+  async function onSubmit(values: FormValues) {
+    await onEventAdded(values);
     setIsOpen(false);
   }
   
   const handleOpenChange = (open: boolean) => {
+      if (form.formState.isSubmitting) return;
       setIsOpen(open);
+      if (!open) {
+        form.reset();
+      }
   }
 
   return (
@@ -177,8 +175,10 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
               />
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
-              <Button type="submit">Ajouter l'événement</Button>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={form.formState.isSubmitting}>Annuler</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? "Ajout..." : "Ajouter l'événement"}
+                </Button>
             </DialogFooter>
           </form>
         </Form>

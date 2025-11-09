@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -79,8 +80,14 @@ export default function AdminSubjectsPage() {
   };
   
   const handleAssignTeacherSave = async (subjectId: string, teacherId: string | undefined) => {
+    if (!selectedSubject) return;
     const subjectDocRef = doc(firestore, 'subjects', subjectId);
     await updateDoc(subjectDocRef, { teacherId });
+    toast({
+      title: 'Assignation réussie',
+      description: `L'enseignant a été mis à jour pour la matière ${selectedSubject.name}.`,
+    });
+    setIsAssignTeacherDialogOpen(false);
   };
 
   const confirmDelete = async () => {
@@ -107,7 +114,6 @@ export default function AdminSubjectsPage() {
         const subjectDocRef = doc(firestore, 'subjects', selectedSubject.id);
         batch.delete(subjectDocRef);
 
-        // Commit all operations
         await batch.commit();
 
         toast({
@@ -234,7 +240,9 @@ export default function AdminSubjectsPage() {
           isOpen={isEditDialogOpen}
           setIsOpen={setIsEditDialogOpen}
           subject={selectedSubject}
-          onSubjectUpdated={(updatedData) => handleUpdate({...selectedSubject, ...updatedData})}
+          onSubjectUpdated={async (updatedData) => {
+            await handleUpdate({...selectedSubject, ...updatedData})
+          }}
         />
       )}
        {selectedSubject && (

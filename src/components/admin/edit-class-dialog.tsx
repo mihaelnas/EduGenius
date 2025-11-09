@@ -45,7 +45,7 @@ type EditClassDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     classData: Class;
-    onClassUpdated: (updatedClass: FormValues) => void;
+    onClassUpdated: (updatedClass: FormValues) => Promise<void>;
 }
 
 export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }: EditClassDialogProps) {
@@ -58,8 +58,8 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
     form.reset(classData);
   }, [classData, form]);
 
-  function onSubmit(values: FormValues) {
-    onClassUpdated(values);
+  async function onSubmit(values: FormValues) {
+    await onClassUpdated(values);
     setIsOpen(false);
   }
   
@@ -155,7 +155,9 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
-              <Button type="submit">Sauvegarder</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? "Sauvegarde..." : "Sauvegarder"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
