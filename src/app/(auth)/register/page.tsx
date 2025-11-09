@@ -110,7 +110,7 @@ export default function RegisterPage() {
         email: values.email,
         username: values.username,
         role: 'student' as const,
-        status: 'inactive' as const,
+        status: 'inactive' as const, // <-- Set status to inactive
         createdAt: new Date().toISOString(),
         matricule: values.matricule,
         dateDeNaissance: values.dateDeNaissance,
@@ -145,7 +145,7 @@ export default function RegisterPage() {
 
       toast({
         title: 'Inscription presque terminée !',
-        description: "Un e-mail de vérification a été envoyé. Veuillez consulter votre boîte de réception pour valider votre adresse e-mail.",
+        description: "Un e-mail de vérification a été envoyé. Veuillez consulter votre boîte de réception pour valider votre adresse e-mail. Votre compte sera ensuite validé par un administrateur.",
         duration: 10000,
       });
 

@@ -33,9 +33,8 @@ import { ScrollArea } from '../ui/scroll-area';
 import { AppUser } from '@/lib/placeholder-data';
 import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, ShieldAlert } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { Alert, AlertDescription } from '../ui/alert';
 
 const baseSchema = z.object({
   role: z.enum(['student', 'teacher', 'admin']),

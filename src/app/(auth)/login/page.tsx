@@ -137,12 +137,8 @@ export default function LoginPage() {
 
     } catch (error: any) {
        let description = 'Identifiants incorrects. Veuillez réessayer.';
-       if (error.code === 'auth/invalid-credential') {
+       if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
             description = 'Email ou mot de passe invalide. Veuillez vérifier vos informations.';
-       } else if (error.code === 'auth/user-not-found') {
-           description = 'Aucun compte trouvé avec cette adresse e-mail.';
-       } else if (error.code === 'auth/wrong-password') {
-           description = 'Mot de passe incorrect.';
        }
       toast({
         variant: 'destructive',
