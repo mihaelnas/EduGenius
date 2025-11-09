@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -24,7 +25,7 @@ import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { firebaseConfig } from '@/firebase/config';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 const roleNames: Record<AppUser['role'], string> = {
@@ -195,8 +196,9 @@ export default function AdminUsersPage() {
     <>
       <Alert variant="destructive" className="mb-4">
         <ShieldAlert className="h-4 w-4" />
+        <AlertTitle>Action de suppression limitée</AlertTitle>
         <AlertDescription>
-          <strong>Attention :</strong> La suppression d'un utilisateur est limitée à la base de données (Firestore). Le compte d'authentification ne sera pas supprimé en raison de limitations de l'environnement. L'utilisateur ne pourra plus se connecter.
+          La suppression d'un utilisateur est limitée à la base de données (Firestore). Le compte d'authentification ne sera pas supprimé en raison des restrictions de sécurité de l'environnement de développement. Après cette action, l'utilisateur concerné ne pourra plus se connecter.
         </AlertDescription>
       </Alert>
       <Card>

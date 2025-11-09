@@ -1,20 +1,9 @@
+
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Fichiers publics, lisibles par tous
-    match /public/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null; // Seuls les utilisateurs connectés peuvent écrire
-    }
-
-    // Photos de profil : Seul l'utilisateur propriétaire peut écrire, tout le monde peut lire
-    match /profile-pictures/{userId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Par défaut, refuser toutes les autres opérations
+    // Par défaut, refuser toutes les opérations
     match /{allPaths=**} {
       allow read, write: if false;
     }

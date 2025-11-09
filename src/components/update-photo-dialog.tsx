@@ -17,25 +17,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { User, Loader2 } from 'lucide-react';
-import { useStorage, useUser } from '@/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
+import { User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from './ui/progress';
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const formSchema = z.object({
-  photo: z
-    .any()
-    .refine((files) => files?.length == 1, "Une image est requise.")
-    .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `La taille maximale est de 5Mo.`)
-    .refine(
-      (files) => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type),
-      "Formats acceptés: .jpg, .jpeg, .png and .webp."
-    ),
+  photo: z.string().url("Veuillez entrer une URL valide.").or(z.literal('')),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -48,83 +34,34 @@ type UpdatePhotoDialogProps = {
 };
 
 export function UpdatePhotoDialog({ isOpen, setIsOpen, currentPhotoUrl, onUpdate }: UpdatePhotoDialogProps) {
-  const storage = useStorage();
-  const { user } = useUser();
   const { toast } = useToast();
   
-  const [previewUrl, setPreviewUrl] = React.useState<string | undefined>(currentPhotoUrl);
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadProgress, setUploadProgress] = React.useState(0);
-
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema)
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      photo: currentPhotoUrl || '',
+    }
   });
 
-  const fileRef = form.register("photo");
-
   React.useEffect(() => {
-    setPreviewUrl(currentPhotoUrl);
-  }, [currentPhotoUrl]);
+    form.setValue('photo', currentPhotoUrl || '');
+  }, [currentPhotoUrl, form]);
   
-  const photoFile = form.watch('photo');
-
-  React.useEffect(() => {
-    if (photoFile && photoFile.length > 0) {
-      const file = photoFile[0];
-      if (file instanceof File) {
-          const newPreviewUrl = URL.createObjectURL(file);
-          setPreviewUrl(newPreviewUrl);
-          return () => URL.revokeObjectURL(newPreviewUrl);
-      }
-    } else {
-        setPreviewUrl(currentPhotoUrl);
-    }
-  }, [photoFile, currentPhotoUrl]);
+  const photoUrl = form.watch('photo');
 
 
   async function onSubmit(values: FormValues) {
-    if (!user) {
-        toast({ variant: "destructive", title: "Erreur", description: "Utilisateur non authentifié."});
-        return;
-    }
-    
-    setIsUploading(true);
-    setUploadProgress(0);
-
-    const file = values.photo[0];
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `${uuidv4()}.${fileExtension}`;
-    const storageRef = ref(storage, `profile-pictures/${user.uid}/${fileName}`);
-
-    const uploadTask = uploadBytesResumable(storageRef, file);
-
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setUploadProgress(progress);
-      },
-      (error) => {
-        console.error("Upload Error:", error);
-        toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible de téléverser l'image."});
-        setIsUploading(false);
-        setUploadProgress(0);
-      },
-      () => {
-        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-          onUpdate(downloadURL);
-          setIsOpen(false);
-          setIsUploading(false);
-        });
-      }
-    );
+    onUpdate(values.photo);
+    toast({
+        title: 'URL de la photo mise à jour',
+    });
+    setIsOpen(false);
   }
 
   const handleOpenChange = (open: boolean) => {
-    if (isUploading) return;
     setIsOpen(open);
     if (!open) {
       form.reset();
-      setPreviewUrl(currentPhotoUrl);
     }
   }
 
@@ -134,12 +71,12 @@ export function UpdatePhotoDialog({ isOpen, setIsOpen, currentPhotoUrl, onUpdate
         <DialogHeader>
           <DialogTitle>Mettre à jour la photo de profil</DialogTitle>
           <DialogDescription>
-            Choisissez une image depuis votre appareil.
+            Collez une nouvelle URL pour votre photo de profil.
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-center items-center py-4">
             <Avatar className="h-24 w-24">
-                <AvatarImage src={previewUrl} />
+                <AvatarImage src={photoUrl} />
                 <AvatarFallback>
                     <User className="h-12 w-12 text-muted-foreground" />
                 </AvatarFallback>
@@ -152,27 +89,18 @@ export function UpdatePhotoDialog({ isOpen, setIsOpen, currentPhotoUrl, onUpdate
               name="photo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nouvelle photo</FormLabel>
+                  <FormLabel>URL de la photo</FormLabel>
                   <FormControl>
-                    <Input type="file" accept="image/*" {...fileRef} disabled={isUploading} />
+                    <Input placeholder="https://..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {isUploading && <Progress value={uploadProgress} className="w-full" />}
             
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isUploading}>Annuler</Button>
-              <Button type="submit" disabled={isUploading}>
-                {isUploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Téléversement...
-                  </>
-                ) : "Sauvegarder"}
-              </Button>
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
+              <Button type="submit">Sauvegarder</Button>
             </DialogFooter>
           </form>
         </Form>
