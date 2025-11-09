@@ -58,6 +58,7 @@ const formSchema = z.object({
   password: z
     .string()
     .min(8, { message: 'Le mot de passe doit contenir au moins 8 caractères.' }),
+  confirmPassword: z.string(),
   matricule: z.string().min(1, { message: 'Le matricule est requis.' }),
   dateDeNaissance: z.string().min(1, { message: 'La date de naissance est requise.' }),
   lieuDeNaissance: z.string().min(1, { message: 'Le lieu de naissance est requis.' }),
@@ -66,6 +67,9 @@ const formSchema = z.object({
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2'], { required_error: 'Le niveau est requis.'}),
   filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC'], { required_error: 'La filière est requise.'}),
   photo: z.string().url({ message: 'Veuillez entrer une URL valide.' }).optional().or(z.literal('')),
+}).refine(data => data.password === data.confirmPassword, {
+  message: 'Les mots de passe ne correspondent pas.',
+  path: ['confirmPassword'],
 });
 
 export default function RegisterPage() {
@@ -74,6 +78,7 @@ export default function RegisterPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -83,6 +88,7 @@ export default function RegisterPage() {
       username: '@',
       email: '',
       password: '',
+      confirmPassword: '',
       matricule: '',
       dateDeNaissance: '',
       lieuDeNaissance: '',
@@ -198,6 +204,7 @@ export default function RegisterPage() {
                 <FormField control={form.control} name="username" render={({ field }) => ( <FormItem><FormLabel>Nom d'utilisateur</FormLabel><FormControl><Input placeholder="@jeandupont" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Mot de passe</FormLabel><div className="relative"><FormControl><Input type={showPassword ? 'text' : 'password'} {...field} /></FormControl><Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" onClick={() => setShowPassword(prev => !prev)}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="confirmPassword" render={({ field }) => ( <FormItem><FormLabel>Confirmer le mot de passe</FormLabel><div className="relative"><FormControl><Input type={showConfirmPassword ? 'text' : 'password'} {...field} /></FormControl><Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" onClick={() => setShowConfirmPassword(prev => !prev)}>{showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div><FormMessage /></FormItem> )} />
                 
                 <hr className="my-2 border-border" />
                 
