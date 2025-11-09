@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -57,19 +58,7 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // 1. Vérifier si l'e-mail est validé
-      if (!user.emailVerified) {
-        toast({
-          variant: 'destructive',
-          title: 'E-mail non vérifié',
-          description: "Veuillez vérifier votre adresse e-mail avant de vous connecter. Consultez l'e-mail que nous vous avons envoyé.",
-          duration: 7000
-        });
-        await signOut(auth); // Déconnecter l'utilisateur
-        return;
-      }
-
-      // 2. Vérifier le statut de l'utilisateur dans Firestore
+      // 1. Fetch user profile from Firestore FIRST
       const userDocRef = doc(firestore, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
 
@@ -85,6 +74,19 @@ export default function LoginPage() {
       
       const userProfile = userDoc.data() as AppUser;
 
+      // 2. Bypass email verification for admins
+      if (userProfile.role !== 'admin' && !user.emailVerified) {
+        toast({
+          variant: 'destructive',
+          title: 'E-mail non vérifié',
+          description: "Veuillez vérifier votre adresse e-mail avant de vous connecter. Consultez l'e-mail que nous vous avons envoyé.",
+          duration: 7000
+        });
+        await signOut(auth); // Déconnecter l'utilisateur
+        return;
+      }
+
+      // 3. Check user status in Firestore
       if (userProfile.status !== 'active') {
          toast({
             variant: 'destructive',
@@ -96,7 +98,7 @@ export default function LoginPage() {
         return;
       }
       
-      // Si tout est bon, on continue
+      // If everything is good, proceed
       toast({
         title: 'Connexion réussie',
         description: 'Redirection vers votre tableau de bord...',
