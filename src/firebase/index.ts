@@ -50,3 +50,6 @@ export * from './firestore/use-doc';
 export * from './errors';
 export * from './error-emitter';
 export * from './user-provider';
+
+// Explicitly export useStorage here for consistency
+export { useStorage } from './provider';
