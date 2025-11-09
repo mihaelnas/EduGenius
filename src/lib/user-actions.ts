@@ -2,6 +2,8 @@
 'use server';
 
 import * as admin from 'firebase-admin';
+import { ServiceAccount } from 'firebase-admin';
+import { Agent } from 'http';
 
 /**
  * Deletes a user from Firebase Authentication.
@@ -12,11 +14,21 @@ import * as admin from 'firebase-admin';
  */
 export async function deleteUser(uid: string): Promise<{ success: boolean; error?: string }> {
   // Initialize Firebase Admin SDK if not already initialized.
-  // In a Google Cloud environment (like App Hosting), initializeApp() without arguments
-  // will automatically use the service account credentials of the environment.
   if (!admin.apps.length) {
     try {
-      admin.initializeApp();
+      // Explicitly build the service account credential from environment variables.
+      const serviceAccount: ServiceAccount = {
+        projectId: process.env.GCP_PROJECT_ID,
+        clientEmail: process.env.GCP_CLIENT_EMAIL,
+        privateKey: (process.env.GCP_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+      };
+
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        // This agent is a workaround for environments where the default metadata server is not reachable.
+        httpAgent: new Agent({ keepAlive: false }), 
+      });
+
     } catch (error: any) {
       console.error('Firebase admin initialization error:', error);
       return { success: false, error: 'Erreur d\'initialisation du serveur Firebase.' };
