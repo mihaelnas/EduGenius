@@ -18,7 +18,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { User, Loader2 } from 'lucide-react';
-import { useAuth, useStorage } from '@/firebase';
+import { useStorage, useUser } from '@/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
@@ -49,7 +49,7 @@ type UpdatePhotoDialogProps = {
 
 export function UpdatePhotoDialog({ isOpen, setIsOpen, currentPhotoUrl, onUpdate }: UpdatePhotoDialogProps) {
   const storage = useStorage();
-  const { user } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
   
   const [previewUrl, setPreviewUrl] = React.useState<string | undefined>(currentPhotoUrl);
