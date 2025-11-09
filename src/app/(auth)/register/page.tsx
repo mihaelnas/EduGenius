@@ -110,7 +110,7 @@ export default function RegisterPage() {
         email: values.email,
         username: values.username,
         role: 'student' as const,
-        status: 'inactive' as const,
+        status: 'pending' as const, // Changed from 'inactive' to 'pending'
         createdAt: new Date().toISOString(),
         matricule: values.matricule,
         dateDeNaissance: values.dateDeNaissance,
@@ -242,3 +242,5 @@ export default function RegisterPage() {
     </Card>
   );
 }
+
+    

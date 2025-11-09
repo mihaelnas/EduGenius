@@ -43,7 +43,7 @@ const baseSchema = z.object({
   username: z.string().min(2, { message: "Le nom d'utilisateur est requis." }).startsWith('@', { message: 'Doit commencer par @.' }),
   email: z.string().email({ message: 'Email invalide.' }),
   photo: z.string().url({ message: 'URL invalide.' }).optional().or(z.literal('')),
-  status: z.enum(['active', 'inactive']),
+  status: z.enum(['active', 'inactive', 'pending']),
 });
 
 const studentSchema = baseSchema.extend({
@@ -225,6 +225,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                                     <SelectContent>
                                         <SelectItem value="active">Actif</SelectItem>
                                         <SelectItem value="inactive">Inactif</SelectItem>
+                                        <SelectItem value="pending">En attente</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -277,3 +278,5 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
     </Dialog>
   );
 }
+
+    

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getDisplayName, AppUser, Class } from '@/lib/placeholder-data';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Search, ShieldAlert, KeyRound } from 'lucide-react';
+import { MoreHorizontal, Search, ShieldAlert, KeyRound, Clock } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AddUserDialog, AddUserFormValues } from '@/components/admin/add-user-dialog';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
@@ -33,6 +33,13 @@ const roleNames: Record<AppUser['role'], string> = {
   teacher: 'Enseignant',
   student: 'Étudiant',
 };
+
+const statusMap: Record<AppUser['status'], { text: string, className: string, icon?: React.ReactNode }> = {
+    active: { text: 'Actif', className: 'bg-green-600' },
+    inactive: { text: 'Inactif', className: 'bg-gray-400' },
+    pending: { text: 'En attente', className: 'bg-yellow-500', icon: <Clock className="mr-1 h-3 w-3" /> }
+}
+
 
 export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -249,7 +256,7 @@ export default function AdminUsersPage() {
                     <TableCell><Skeleton className="h-10 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-48" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
@@ -272,9 +279,10 @@ export default function AdminUsersPage() {
                     <TableCell>{user.email}</TableCell>
                     <TableCell className="capitalize">{roleNames[user.role]}</TableCell>
                     <TableCell>
-                      <Badge variant={user.status === 'active' ? 'default' : 'secondary'} className={user.status === 'active' ? 'bg-green-600' : 'bg-gray-400'}>
-                        {user.status === 'active' ? 'Actif' : 'Inactif'}
-                      </Badge>
+                       <Badge variant={'outline'} className={statusMap[user.status].className}>
+                          {statusMap[user.status].icon}
+                          {statusMap[user.status].text}
+                        </Badge>
                     </TableCell>
                     <TableCell>{format(new Date(user.createdAt), 'd MMMM yyyy', { locale: fr })}</TableCell>
                     <TableCell>
@@ -326,3 +334,5 @@ export default function AdminUsersPage() {
     </>
   );
 }
+
+    

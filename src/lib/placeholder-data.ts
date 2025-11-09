@@ -6,7 +6,7 @@ export type User = {
   email: string;
   username: string;
   role: 'admin' | 'teacher' | 'student';
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'pending';
   createdAt: string;
   photo?: string;
   genre?: 'Homme' | 'Femme';
@@ -94,3 +94,5 @@ export function getDisplayName(user: { firstName?: string, lastName?: string }):
     const lastName = user.lastName || '';
     return `${firstName} ${lastName}`.trim();
 }
+
+    
