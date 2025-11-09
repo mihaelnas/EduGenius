@@ -6,9 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Search } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, addDoc, doc, deleteDoc } from 'firebase/firestore';
-import type { AuthorizedStudent } from '@/lib/placeholder-data';
+import type { AuthorizedStudent, AppUser } from '@/lib/placeholder-data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { AddAuthorizedStudentDialog, AddAuthorizedStudentFormValues } from '@/components/admin/add-authorized-student-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { getDisplayName } from '@/lib/placeholder-data';
+import { useDoc } from '@/firebase/firestore/use-doc';
 
 export default function AuthorizedStudentsPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -25,16 +26,26 @@ export default function AuthorizedStudentsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedStudent, setSelectedStudent] = React.useState<AuthorizedStudent | null>(null);
 
+  const { user: currentUser, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
 
+  const userDocRef = useMemoFirebase(() => currentUser ? doc(firestore, 'users', currentUser.uid) : null, [firestore, currentUser]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
+
+  const isUserAdmin = userProfile?.role === 'admin';
+
   const authorizedStudentsCollectionRef = useMemoFirebase(
-    () => collection(firestore, 'authorized_students'),
-    [firestore]
+    () => isUserAdmin ? collection(firestore, 'authorized_students') : null,
+    [firestore, isUserAdmin]
   );
-  const { data: students, isLoading } = useCollection<AuthorizedStudent>(authorizedStudentsCollectionRef);
+
+  const { data: students, isLoading: isLoadingStudents } = useCollection<AuthorizedStudent>(authorizedStudentsCollectionRef);
+
+  const isLoading = isUserLoading || isProfileLoading || (isUserAdmin && isLoadingStudents);
 
   const handleAdd = async (values: AddAuthorizedStudentFormValues) => {
+    if (!authorizedStudentsCollectionRef) return;
     try {
       await addDoc(authorizedStudentsCollectionRef, {
         ...values,
@@ -76,6 +87,19 @@ export default function AuthorizedStudentsPage() {
     getDisplayName(student).toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.matricule.toLowerCase().includes(searchTerm.toLowerCase())
   ), [students, searchTerm]);
+
+  if (!isUserLoading && !isProfileLoading && !isUserAdmin) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline text-destructive">Accès Refusé</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>

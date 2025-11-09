@@ -98,8 +98,7 @@ service cloud.firestore {
     }
 
     match /authorized_students/{studentId} {
-      allow list, get: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }
