@@ -110,7 +110,7 @@ export default function RegisterPage() {
         email: values.email,
         username: values.username,
         role: 'student' as const,
-        status: 'inactive' as const, // <-- Set status to inactive
+        status: 'inactive' as const,
         createdAt: new Date().toISOString(),
         matricule: values.matricule,
         dateDeNaissance: values.dateDeNaissance,
@@ -131,6 +131,7 @@ export default function RegisterPage() {
 
       const userDocRef = doc(firestore, 'users', user.uid);
       
+      // Use .catch() for non-blocking UI and specific permission error handling
       setDoc(userDocRef, userProfile).catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
           path: userDocRef.path,
@@ -159,10 +160,11 @@ export default function RegisterPage() {
             description: 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.',
         });
       } else {
+        // This will catch other auth errors, but not the Firestore permission error which is now handled separately.
         toast({
             variant: 'destructive',
             title: 'Échec de l\'inscription',
-            description: error.message || 'Une erreur est survenue.',
+            description: error.message || 'Une erreur d\'authentification est survenue.',
         });
       }
     }
