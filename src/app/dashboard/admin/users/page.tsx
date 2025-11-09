@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -9,22 +8,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getDisplayName, AppUser, Class } from '@/lib/placeholder-data';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Search } from 'lucide-react';
+import { MoreHorizontal, Search, ShieldAlert, KeyRound } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AddUserDialog, AddUserFormValues } from '@/components/admin/add-user-dialog';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser, useAuth } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch, updateDoc, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { firebaseConfig } from '@/firebase/config';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -41,6 +42,7 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
+  const auth = useAuth();
 
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: users, isLoading } = useCollection<AppUser>(usersCollectionRef);
@@ -48,8 +50,6 @@ export default function AdminUsersPage() {
   const handleAdd = async (values: AddUserFormValues) => {
     const { password, confirmPassword, ...userData } = values;
     
-    // Create a temporary, secondary Firebase app instance for user creation.
-    // This prevents the current admin user from being signed out.
     const tempAuthApp = initializeApp(firebaseConfig, `temp-app-${Date.now()}`);
     const tempAuth = getAuth(tempAuthApp);
 
@@ -98,7 +98,6 @@ export default function AdminUsersPage() {
   const handleUpdate = async (updatedUser: AppUser) => {
     const { id, ...userData } = updatedUser;
     
-    // Update Firestore document
     const userDocRef = doc(firestore, 'users', id);
     if (userData.photo === '') {
       delete (userData as Partial<AppUser>).photo;
@@ -127,17 +126,6 @@ export default function AdminUsersPage() {
     const userId = selectedUser.id;
 
     try {
-        // 1. Delete Auth User via API route
-        const response = await fetch(`/api/users/${userId}`, {
-            method: 'DELETE',
-        });
-        
-        if (!response.ok) {
-            const result = await response.json();
-            throw new Error(result.error || 'La suppression de l\'utilisateur d\'authentification a échoué.');
-        }
-
-        // 2. If Auth deletion is successful, proceed with Firestore cleanup in a batch
         const batch = writeBatch(firestore);
         const userDocRef = doc(firestore, 'users', userId);
 
@@ -181,15 +169,15 @@ export default function AdminUsersPage() {
 
         toast({
             variant: 'destructive',
-            title: 'Utilisateur supprimé',
-            description: `Le compte et les données de ${getDisplayName(selectedUser)} ont été supprimés.`,
+            title: 'Utilisateur supprimé de Firestore',
+            description: `Le profil de ${getDisplayName(selectedUser)} a été supprimé de la base de données.`,
         });
 
     } catch (error: any) {
-        console.error("Échec de la suppression de l'utilisateur:", error);
+        console.error("Échec de la suppression de l'utilisateur de Firestore:", error);
         toast({
             variant: 'destructive',
-            title: 'Erreur de suppression',
+            title: 'Erreur de suppression Firestore',
             description: `La suppression a échoué: ${error.message}`,
         });
     }
@@ -205,6 +193,12 @@ export default function AdminUsersPage() {
 
   return (
     <>
+      <Alert variant="destructive" className="mb-4">
+        <ShieldAlert className="h-4 w-4" />
+        <AlertDescription>
+          <strong>Attention :</strong> La suppression d'un utilisateur est limitée à la base de données (Firestore). Le compte d'authentification ne sera pas supprimé en raison de limitations de l'environnement. L'utilisateur ne pourra plus se connecter.
+        </AlertDescription>
+      </Alert>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
@@ -323,7 +317,7 @@ export default function AdminUsersPage() {
         setIsOpen={setIsDeleteDialogOpen}
         onConfirm={confirmDelete}
         itemName={selectedUser ? getDisplayName(selectedUser) : ''}
-        itemType="l'utilisateur et son compte d'authentification"
+        itemType="l'utilisateur"
       />
     </>
   );

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -173,7 +172,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
         <DialogHeader>
           <DialogTitle>Modifier un utilisateur</DialogTitle>
           <DialogDescription>
-            Modifiez les informations de l'utilisateur.
+            Modifiez les informations de l'utilisateur. L'e-mail de connexion ne peut pas être modifié.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -217,7 +216,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                             name="status"
                             render={({ field }) => (
                                 <FormItem>
-                                <FormLabel>Statut (Firestore)</FormLabel>
+                                <FormLabel>Statut</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                     <SelectTrigger>
