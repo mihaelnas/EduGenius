@@ -41,7 +41,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isSignedIn();
+      allow list: if isSignedIn(); // Allow logged-in users to list/read user profiles
       allow create: if isOwner(userId) || isAdmin();
       allow update: if isExistingOwner(userId) || isAdmin();
       allow delete: if isExistingOwner(userId) || isAdmin();
@@ -98,8 +98,7 @@ service cloud.firestore {
     }
 
     match /authorized_students/{studentId} {
-      allow list: if isSignedIn();
-      allow get, create, update, delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }
