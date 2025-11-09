@@ -19,7 +19,7 @@ import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { User, Loader2 } from 'lucide-react';
 import { useStorage, useUser } from '@/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from './ui/progress';
@@ -89,26 +89,34 @@ export function UpdatePhotoDialog({ isOpen, setIsOpen, currentPhotoUrl, onUpdate
     }
     
     setIsUploading(true);
-    setUploadProgress(30);
+    setUploadProgress(0);
 
     const file = values.photo[0];
     const fileExtension = file.name.split('.').pop();
     const fileName = `${uuidv4()}.${fileExtension}`;
     const storageRef = ref(storage, `profile-pictures/${user.uid}/${fileName}`);
 
-    try {
-        await uploadBytes(storageRef, file);
-        setUploadProgress(70);
-        const downloadURL = await getDownloadURL(storageRef);
-        setUploadProgress(100);
-        onUpdate(downloadURL);
-        setIsOpen(false);
-    } catch(error) {
-         toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible de téléverser l'image."});
-    } finally {
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setUploadProgress(progress);
+      },
+      (error) => {
+        console.error("Upload Error:", error);
+        toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible de téléverser l'image."});
         setIsUploading(false);
         setUploadProgress(0);
-    }
+      },
+      () => {
+        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+          onUpdate(downloadURL);
+          setIsOpen(false);
+          setIsUploading(false);
+        });
+      }
+    );
   }
 
   const handleOpenChange = (open: boolean) => {
