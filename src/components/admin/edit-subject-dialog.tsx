@@ -95,8 +95,10 @@ export function EditSubjectDialog({ isOpen, setIsOpen, subject, onSubjectUpdated
 
 
   React.useEffect(() => {
-    form.reset(subject);
-  }, [subject, form]);
+    if (isOpen) {
+      form.reset(subject);
+    }
+  }, [subject, form, isOpen]);
 
   async function onSubmit(values: FormValues) {
     const finalValues = {
@@ -125,7 +127,7 @@ export function EditSubjectDialog({ isOpen, setIsOpen, subject, onSubjectUpdated
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      form.reset();
+      form.reset(subject);
     }
   }
 
