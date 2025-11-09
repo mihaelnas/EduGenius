@@ -91,10 +91,6 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
     resolver: zodResolver(formSchema),
   });
 
-  const emailValue = useWatch({ control: form.control, name: 'email' });
-  const isEmailChanged = user && emailValue !== user.email;
-
-
   React.useEffect(() => {
     if (user) {
       const defaultValues: any = {
@@ -214,22 +210,14 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
 
                         <FormField control={form.control} name="username" render={({ field }) => ( <FormItem><FormLabel>Nom d'utilisateur</FormLabel><FormControl><Input placeholder="@jeandupont" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         
-                        <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        {isEmailChanged && (
-                            <Alert variant="destructive">
-                                <ShieldAlert className="h-4 w-4" />
-                                <AlertDescription>
-                                La modification de l'e-mail affectera l'identifiant de connexion de l'utilisateur.
-                                </AlertDescription>
-                            </Alert>
-                        )}
+                        <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email (Connexion)</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} disabled /></FormControl><FormMessage /></FormItem> )} />
                         
                         <FormField
                             control={form.control}
                             name="status"
                             render={({ field }) => (
                                 <FormItem>
-                                <FormLabel>Statut du compte</FormLabel>
+                                <FormLabel>Statut (Firestore)</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                     <SelectTrigger>
@@ -237,8 +225,8 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="active">Actif (peut se connecter)</SelectItem>
-                                        <SelectItem value="inactive">Inactif (ne peut pas se connecter)</SelectItem>
+                                        <SelectItem value="active">Actif</SelectItem>
+                                        <SelectItem value="inactive">Inactif</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />

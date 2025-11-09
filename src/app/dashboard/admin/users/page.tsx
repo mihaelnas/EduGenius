@@ -97,33 +97,8 @@ export default function AdminUsersPage() {
 
   const handleUpdate = async (updatedUser: AppUser) => {
     const { id, ...userData } = updatedUser;
-
-    // 1. Sync with Firebase Auth
-    try {
-      const response = await fetch(`/api/users/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userData.email,
-          disabled: userData.status === 'inactive',
-        }),
-      });
-
-      if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error || 'La mise à jour de l\'authentification a échoué.');
-      }
-    } catch (error: any) {
-      console.error("Échec de la mise à jour de l'authentification :", error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur de synchronisation',
-        description: `La mise à jour du compte d'authentification a échoué: ${error.message}`,
-      });
-      return; // Stop if auth update fails
-    }
     
-    // 2. Update Firestore document
+    // Update Firestore document
     const userDocRef = doc(firestore, 'users', id);
     if (userData.photo === '') {
       delete (userData as Partial<AppUser>).photo;
