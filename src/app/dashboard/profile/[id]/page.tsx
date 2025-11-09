@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getDisplayName, Student, Teacher } from '@/lib/placeholder-data';
-import { AtSign, Cake, GraduationCap, Home, Mail, MapPin, Phone, School, User as UserIcon, Briefcase, Building, Camera } from 'lucide-react';
+import { AtSign, Cake, GraduationCap, Home, Mail, MapPin, Phone, School, User as UserIcon, Briefcase, Building, Camera, KeyRound, MailPlus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -13,6 +13,10 @@ import type { AppUser } from '@/lib/placeholder-data';
 import { useParams } from 'next/navigation';
 import { UpdatePhotoDialog } from '@/components/update-photo-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { ChangePasswordDialog } from '@/components/profile/change-password-dialog';
+import { ChangeEmailDialog } from '@/components/profile/change-email-dialog';
 
 const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string, value?: string | null }) => {
   if (!value) return null;
@@ -35,6 +39,8 @@ export default function ProfileDetailPage() {
   const { toast } = useToast();
 
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = React.useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
+  const [isChangeEmailOpen, setIsChangeEmailOpen] = React.useState(false);
 
   const isOwnProfile = currentUser?.uid === userId;
 
@@ -128,12 +134,27 @@ export default function ProfileDetailPage() {
           <CardTitle className="font-headline flex items-center gap-2"><UserIcon/> Informations Personnelles</CardTitle>
         </CardHeader>
         <CardContent className="grid md:grid-cols-2 gap-x-8 gap-y-6">
-            <InfoRow icon={<Mail className="h-5 w-5"/>} label="Email" value={user.email} />
+            <InfoRow icon={<Mail className="h-5 w-5"/>} label="Email de connexion" value={user.email} />
             <InfoRow icon={<AtSign className="h-5 w-5"/>} label="Nom d'utilisateur" value={user.username} />
             <InfoRow icon={<Phone className="h-5 w-5"/>} label="Téléphone" value={user.telephone} />
             <InfoRow icon={<Home className="h-5 w-5"/>} label="Adresse" value={user.adresse} />
             <InfoRow icon={<UserIcon className="h-5 w-5"/>} label="Genre" value={user.genre} />
         </CardContent>
+        {isOwnProfile && (
+            <>
+                <Separator />
+                <CardContent className="p-6 flex flex-col sm:flex-row gap-2">
+                     <Button variant="outline" onClick={() => setIsChangeEmailOpen(true)}>
+                        <MailPlus className="mr-2 h-4 w-4" />
+                        Changer d'email
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsChangePasswordOpen(true)}>
+                        <KeyRound className="mr-2 h-4 w-4" />
+                        Changer le mot de passe
+                    </Button>
+                </CardContent>
+            </>
+        )}
       </Card>
 
       {student && (
@@ -165,12 +186,27 @@ export default function ProfileDetailPage() {
 
     </div>
     {user && (
-        <UpdatePhotoDialog 
-            isOpen={isPhotoDialogOpen}
-            setIsOpen={setIsPhotoDialogOpen}
-            currentPhotoUrl={user.photo}
-            onUpdate={handlePhotoUpdate}
-        />
+        <>
+            <UpdatePhotoDialog 
+                isOpen={isPhotoDialogOpen}
+                setIsOpen={setIsPhotoDialogOpen}
+                currentPhotoUrl={user.photo}
+                onUpdate={handlePhotoUpdate}
+            />
+            {isOwnProfile && (
+                <>
+                 <ChangePasswordDialog 
+                    isOpen={isChangePasswordOpen}
+                    setIsOpen={setIsChangePasswordOpen}
+                 />
+                 <ChangeEmailDialog
+                    isOpen={isChangeEmailOpen}
+                    setIsOpen={setIsChangeEmailOpen}
+                    currentEmail={user.email}
+                 />
+                </>
+            )}
+        </>
     )}
     </>
   );

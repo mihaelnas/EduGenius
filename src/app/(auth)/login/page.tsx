@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -26,11 +25,13 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { AppUser } from '@/lib/placeholder-data';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Label } from '@/components/ui/label';
 
 
 const formSchema = z.object({
@@ -44,6 +45,8 @@ export default function LoginPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const [showPassword, setShowPassword] = React.useState(false);
+  const [resetEmail, setResetEmail] = React.useState("");
+  const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,6 +55,32 @@ export default function LoginPage() {
       password: '',
     },
   });
+  
+  const handlePasswordReset = async () => {
+    if (!resetEmail) {
+      toast({
+        variant: 'destructive',
+        title: 'Email requis',
+        description: 'Veuillez entrer une adresse e-mail.',
+      });
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      toast({
+        title: 'Email envoyé',
+        description: 'Un lien de réinitialisation de mot de passe a été envoyé à votre adresse e-mail.',
+      });
+      setIsResetDialogOpen(false);
+      setResetEmail("");
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: "Impossible d'envoyer l'e-mail. Vérifiez que l'adresse est correcte.",
+      });
+    }
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
@@ -106,15 +135,24 @@ export default function LoginPage() {
       router.push('/dashboard');
 
     } catch (error: any) {
+       let description = 'Identifiants incorrects. Veuillez réessayer.';
+       if (error.code === 'auth/invalid-credential') {
+            description = 'Email ou mot de passe invalide. Veuillez vérifier vos informations.';
+       } else if (error.code === 'auth/user-not-found') {
+           description = 'Aucun compte trouvé avec cette adresse e-mail.';
+       } else if (error.code === 'auth/wrong-password') {
+           description = 'Mot de passe incorrect.';
+       }
       toast({
         variant: 'destructive',
         title: 'Échec de la connexion',
-        description: 'Identifiants incorrects. Veuillez réessayer.',
+        description: description,
       });
     }
   }
 
   return (
+    <>
     <Card className="w-full max-w-sm shadow-2xl">
       <CardHeader>
         <CardTitle className="text-2xl font-headline">Ravi de vous revoir !</CardTitle>
@@ -147,7 +185,17 @@ export default function LoginPage() {
               name="password"
               render={({ field }) => (
                 <FormItem className="grid gap-2">
-                  <FormLabel>Mot de passe</FormLabel>
+                    <div className="flex items-center">
+                        <FormLabel>Mot de passe</FormLabel>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="link" className="ml-auto p-0 h-auto text-xs" onClick={() => {
+                                setResetEmail(form.getValues('email'))
+                                setIsResetDialogOpen(true)
+                            }}>
+                                Mot de passe oublié ?
+                            </Button>
+                        </AlertDialogTrigger>
+                    </div>
                   <div className="relative">
                     <FormControl>
                       <Input type={showPassword ? 'text' : 'password'} {...field} />
@@ -181,5 +229,31 @@ export default function LoginPage() {
         </form>
       </Form>
     </Card>
+
+    <AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Réinitialiser le mot de passe</AlertDialogTitle>
+            <AlertDialogDescription>
+                Entrez votre adresse e-mail pour recevoir un lien de réinitialisation.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid gap-2">
+                <Label htmlFor="reset-email">Email</Label>
+                <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="nom@exemple.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                />
+            </div>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePasswordReset}>Envoyer le lien</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
