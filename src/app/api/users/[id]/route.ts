@@ -1,24 +1,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
-import { ServiceAccount } from 'firebase-admin';
 
 // Helper function to initialize Firebase Admin SDK
 function initializeAdminApp() {
+  // If the app is already initialized, return it.
   if (admin.apps.length > 0) {
     return admin.app();
   }
-
-  // Explicitly build the service account credential from environment variables.
-  const serviceAccount: ServiceAccount = {
-    projectId: process.env.GCP_PROJECT_ID,
-    clientEmail: process.env.GCP_CLIENT_EMAIL,
-    privateKey: (process.env.GCP_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
-  };
-
-  return admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
+  
+  // Otherwise, initialize the app. The SDK will automatically
+  // find the credentials in a Google Cloud environment.
+  return admin.initializeApp();
 }
 
 /**
@@ -46,9 +39,14 @@ export async function DELETE(
     let statusCode = 500;
 
     if (error.code === 'auth/user-not-found') {
-      errorMessage = 'Authentication user not found.';
-      statusCode = 404;
-    } else if (error.message) {
+      // This is not a critical error for our flow, as the user might have already been deleted from auth.
+      // We can return success to allow the Firestore cleanup to proceed.
+      return NextResponse.json({ success: true, message: 'Authentication user not found, proceeding with cleanup.' }, { status: 200 });
+    } else if (error.code === 'auth/project-not-found') {
+        errorMessage = 'Firebase project not found. Check server configuration.';
+        statusCode = 500;
+    }
+    else if (error.message) {
       errorMessage = error.message;
     }
 
