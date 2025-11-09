@@ -97,7 +97,8 @@ service cloud.firestore {
     }
 
     match /authorized_students/{studentId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
   }
 }
