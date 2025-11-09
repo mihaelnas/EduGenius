@@ -95,10 +95,5 @@ service cloud.firestore {
       allow update: if isExistingTeacherForEvent() || isAdmin();
       delete: if isExistingTeacherForEvent() || isAdmin();
     }
-
-    match /authorized_students/{studentId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
   }
 }

@@ -88,14 +88,6 @@ export type ScheduleEvent = {
   conferenceLink?: string;
 };
 
-export type AuthorizedStudent = {
-    id: string;
-    matricule: string;
-    firstName: string;
-    lastName: string;
-    createdAt: string;
-}
-
 // Combine nom and prenom for display name
 export function getDisplayName(user: { firstName?: string, lastName?: string }): string {
     const firstName = user.firstName || '';
