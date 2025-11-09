@@ -18,7 +18,6 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { User } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   photo: z.string().url("Veuillez entrer une URL valide.").or(z.literal('')),
@@ -34,7 +33,6 @@ type UpdatePhotoDialogProps = {
 };
 
 export function UpdatePhotoDialog({ isOpen, setIsOpen, currentPhotoUrl, onUpdate }: UpdatePhotoDialogProps) {
-  const { toast } = useToast();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -52,9 +50,6 @@ export function UpdatePhotoDialog({ isOpen, setIsOpen, currentPhotoUrl, onUpdate
 
   async function onSubmit(values: FormValues) {
     onUpdate(values.photo);
-    toast({
-        title: 'URL de la photo mise à jour',
-    });
     setIsOpen(false);
   }
 
