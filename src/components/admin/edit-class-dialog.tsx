@@ -27,13 +27,16 @@ import {
 } from '@/components/ui/select';
 import { Class } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { useFirestore } from '@/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { debounce } from 'lodash';
 
 const formSchema = z.object({
-  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']),
-  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']),
+  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2'], { required_error: "Le niveau est requis." }),
+  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC'], { required_error: "La filière est requise." }),
   groupe: z.coerce.number().min(1, { message: "Le groupe est requis."}),
   anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
 });
@@ -48,6 +51,7 @@ type EditClassDialogProps = {
 }
 
 export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }: EditClassDialogProps) {
+  const firestore = useFirestore();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
@@ -60,16 +64,41 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
     return '';
   }, [niveau, filiere, groupe]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const checkClassNameUniqueness = useCallback(
+    debounce(async (name: string) => {
+        if (!name || name === classData.name) {
+            form.clearErrors('groupe');
+            return;
+        }
+      const classesRef = collection(firestore, 'classes');
+      const q = query(classesRef, where('name', '==', name));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        form.setError('groupe', {
+          type: 'manual',
+          message: 'Ce nom de classe existe déjà.',
+        });
+      } else {
+        form.clearErrors('groupe');
+      }
+    }, 500),
+    [firestore, form, classData.name]
+  );
+
+  useEffect(() => {
+    if (className) {
+      checkClassNameUniqueness(className);
+    }
+  }, [className, checkClassNameUniqueness]);
+
 
   React.useEffect(() => {
     if (classData) {
-      const nameParts = classData.name.split('-');
-      const groupeNumber = nameParts[2] ? parseInt(nameParts[2].replace('G', ''), 10) : 1;
-      
       form.reset({
         niveau: classData.niveau,
         filiere: classData.filiere,
-        groupe: isNaN(groupeNumber) ? 1 : groupeNumber,
+        groupe: classData.groupe,
         anneeScolaire: classData.anneeScolaire,
       });
     }
@@ -77,6 +106,20 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
 
   async function onSubmit(values: FormValues) {
      if (!className) return;
+
+    if (className !== classData.name) {
+        const classesRef = collection(firestore, 'classes');
+        const q = query(classesRef, where('name', '==', className));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            form.setError('groupe', {
+                type: 'manual',
+                message: 'Ce nom de classe existe déjà.',
+            });
+            return;
+        }
+    }
+
     await onClassUpdated({ name: className, ...values });
     setIsOpen(false);
   }
@@ -103,7 +146,7 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Niveau</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder="Sélectionner un niveau" />
@@ -125,7 +168,7 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Filière</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder="Sélectionner une filière" />

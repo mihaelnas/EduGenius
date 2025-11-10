@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -32,10 +32,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { PlusCircle } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { useFirestore } from '@/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { debounce } from 'lodash';
 
 const formSchema = z.object({
-  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']),
-  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']),
+  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2'], { required_error: "Le niveau est requis." }),
+  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC'], { required_error: "La filière est requise." }),
   groupe: z.coerce.number().min(1, { message: "Le groupe est requis."}),
   anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
 });
@@ -49,6 +52,7 @@ type AddClassDialogProps = {
 };
 
 export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDialogProps) {
+  const firestore = useFirestore();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -65,12 +69,46 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
     return '';
   }, [niveau, filiere, groupe]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const checkClassNameUniqueness = useCallback(
+    debounce(async (name: string) => {
+      if (!name) return;
+      const classesRef = collection(firestore, 'classes');
+      const q = query(classesRef, where('name', '==', name));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        form.setError('groupe', {
+          type: 'manual',
+          message: 'Ce nom de classe existe déjà.',
+        });
+      } else {
+        form.clearErrors('groupe');
+      }
+    }, 500),
+    [firestore, form]
+  );
+  
+  useEffect(() => {
+    if(className) {
+      checkClassNameUniqueness(className);
+    }
+  }, [className, checkClassNameUniqueness]);
+
   async function onSubmit(values: FormValues) {
-    if (!className) {
-        // This should theoretically not happen if form is valid
-        alert("Veuillez remplir tous les champs pour former le nom de la classe.");
+    if (!className) return;
+
+    const classesRef = collection(firestore, 'classes');
+    const q = query(classesRef, where('name', '==', className));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+        form.setError('groupe', {
+            type: 'manual',
+            message: 'Ce nom de classe existe déjà.',
+        });
         return;
     }
+
     await onClassAdded({ name: className, ...values });
     setIsOpen(false);
   }
