@@ -50,7 +50,7 @@ const studentValidationFlow = ai.defineFlow(
     try {
       const fetch = (await import('node-fetch')).default;
       console.log(`[Flow] Calling VeriGenius API for matricule: ${input.matricule}`);
-      const validationResponse = await fetch('https://veri-genius.vercel.app/', {
+      const validationResponse = await fetch('https://veri-genius.vercel.app/api/validate-student', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
