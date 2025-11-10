@@ -170,7 +170,7 @@ export default function RegisterPage() {
       // 6. Notify user and redirect
       toast({
         title: 'Inscription presque terminée !',
-        description: "Un e-mail de vérification a été envoyé. Une fois votre e-mail vérifié, votre compte sera validé automatiquement.",
+        description: "Un e-mail de vérification a été envoyé. Une fois votre e-mail vérifié, votre compte sera validé par un administrateur.",
         duration: 10000,
       });
 
@@ -276,5 +276,3 @@ export default function RegisterPage() {
     </Card>
   );
 }
-
-    
