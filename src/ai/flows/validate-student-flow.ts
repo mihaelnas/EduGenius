@@ -7,7 +7,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import {
   getFirestore,
   doc,
@@ -17,15 +17,23 @@ import {
   where,
   getDocs,
   limit,
-} from 'firebase-admin/firestore';
-import { initializeApp, getApps } from 'firebase-admin/app';
+  arrayUnion,
+} from 'firebase/firestore';
+import { initializeApp, getApps } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 
-// Initialize Firebase Admin SDK if not already initialized
+// This flow runs on the server, but we will use the client SDK for compatibility
+// with the existing app structure. We create a temporary app instance to interact with Firestore.
+let db: any;
 if (!getApps().length) {
-  initializeApp({ projectId: firebaseConfig.projectId });
+  const firebaseApp = initializeApp(firebaseConfig, 'genkit-flow-app');
+  db = getFirestore(firebaseApp);
+} else {
+  // Use the existing app instance if available, or the specific one for genkit
+  const firebaseApp = getApps().find(app => app.name === 'genkit-flow-app') || getApps()[0];
+  db = getFirestore(firebaseApp);
 }
-const db = getFirestore();
+
 
 // Define the input schema for our flow
 export const StudentValidationInputSchema = z.object({
@@ -99,7 +107,7 @@ const studentValidationFlow = ai.defineFlow(
     // 2. Validation was successful, find the corresponding class in Firestore.
     let classId: string | null = null;
     try {
-      const className = `${input.niveau} - ${input.filiere}`; // This assumes a naming convention
+      const className = `${input.niveau} - ${input.filiere}`;
       const classesRef = collection(db, 'classes');
       const q = query(
         classesRef,
@@ -116,13 +124,11 @@ const studentValidationFlow = ai.defineFlow(
       classId = classDoc.id;
       
       // 3. Assign student to the class by updating the class's studentIds array
-      const classStudentIds = classDoc.data().studentIds || [];
-      if (!classStudentIds.includes(input.userId)) {
-        await updateDoc(classDoc.ref, {
-          studentIds: [...classStudentIds, input.userId],
-        });
-         console.log(`User ${input.userId} successfully added to class ${classId}`);
-      }
+      await updateDoc(classDoc.ref, {
+        studentIds: arrayUnion(input.userId),
+      });
+      console.log(`User ${input.userId} successfully added to class ${classId}`);
+      
 
     } catch (error) {
        console.error('Error finding or updating class:', error);
