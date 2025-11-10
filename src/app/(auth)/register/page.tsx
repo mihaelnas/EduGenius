@@ -148,7 +148,7 @@ export default function RegisterPage() {
       // Step 4: Trigger the background validation flow and wait for it
       toastId = toast({
         title: 'Vérification des données...',
-        description: 'Nous vérifions vos informations auprès de l\'administration.',
+        description: 'Nous contactons l\'administration pour valider vos informations.',
         duration: Infinity
       }).id;
 
@@ -168,26 +168,32 @@ export default function RegisterPage() {
         // Step 5: Automation successful
         toast({ 
           title: 'Validation réussie !', 
-          description: 'Votre compte a été activé et assigné. Connexion en cours...',
+          description: 'Votre compte a été activé. Vous pouvez maintenant vous connecter.',
           duration: 5000 
         });
-        
-        // The user is already logged in, so we just need to redirect them.
-        router.push('/dashboard');
-
       } else {
-        // If validation fails, notify user and delete the created auth user.
-        throw new Error(validationResult.message);
+        // If API validation fails, notify user but keep account 'pending'
+        // The error message from the flow is now more descriptive
+        toast({
+          variant: 'destructive',
+          title: 'Échec de la validation automatique',
+          description: validationResult.message || 'La validation a échoué. Un administrateur examinera votre compte.',
+          duration: 8000
+        });
       }
+      
+      // In both cases (success or handled failure of validation), log out and redirect to login
+      await signOut(auth);
+      router.push('/login');
 
     } catch (error: any) {
       if (toastId) dismiss(toastId);
       
-      // Cleanup: if anything fails after user creation, delete the auth user
+      // Cleanup: if anything fails during the process, delete the auth user
+      // This is for unhandled errors like Firestore permission issues, network errors, etc.
       if (user) {
         await deleteUser(user).catch(deleteError => {
             console.error("Failed to clean up auth user:", deleteError);
-            // Notify about cleanup failure if it's critical
             toast({
                 variant: 'destructive',
                 title: 'Erreur de nettoyage',
@@ -200,6 +206,7 @@ export default function RegisterPage() {
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.';
       } else if (error.message) {
+        // Display the specific error message, which could come from the flow
         errorMessage = error.message;
       }
       
@@ -209,6 +216,8 @@ export default function RegisterPage() {
           description: errorMessage,
           duration: 8000
       });
+
+      // Do not redirect on unhandled error, let the user see the error and try again
     }
   }
 
