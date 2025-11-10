@@ -31,6 +31,7 @@ import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { validateAndAssignStudent } from '@/ai/flows/validate-student-flow';
 
 const formSchema = z.object({
   firstName: z
@@ -100,9 +101,11 @@ export default function RegisterPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      // 1. Create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
+      // 2. Create user profile object for Firestore
       const userProfile = {
         id: user.uid,
         firstName: values.firstName,
@@ -110,7 +113,7 @@ export default function RegisterPage() {
         email: values.email,
         username: values.username,
         role: 'student' as const,
-        status: 'pending' as const, // Changed from 'inactive' to 'pending'
+        status: 'pending' as const,
         createdAt: new Date().toISOString(),
         matricule: values.matricule,
         dateDeNaissance: values.dateDeNaissance,
@@ -129,30 +132,47 @@ export default function RegisterPage() {
         delete (userProfile as Partial<typeof userProfile>).telephone;
       }
 
+      // 3. Save user profile to Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
-      
-      // Use .catch() for non-blocking UI and specific permission error handling
-      setDoc(userDocRef, userProfile).catch(async (serverError) => {
+      await setDoc(userDocRef, userProfile).catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
           path: userDocRef.path,
           operation: 'create',
           requestResourceData: userProfile,
         });
         errorEmitter.emit('permission-error', permissionError);
+        // Re-throw to be caught by the outer catch block
+        throw permissionError;
       });
 
-      // --- Send verification email (Default Firebase behavior) ---
+      // 4. Send verification email (standard Firebase flow)
       await sendEmailVerification(user);
 
+      // 5. Trigger the background validation flow (non-blocking)
+      validateAndAssignStudent({
+        userId: user.uid,
+        matricule: values.matricule,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        niveau: values.niveau,
+        filiere: values.filiere,
+      }).catch(flowError => {
+        // Log the error for debugging, but don't bother the user with a toast.
+        // The user status will remain 'pending' for manual admin review.
+        console.error("Validation Flow Error:", flowError);
+      });
+
+      // 6. Notify user and redirect
       toast({
         title: 'Inscription presque terminée !',
-        description: "Un e-mail de vérification a été envoyé. Veuillez consulter votre boîte de réception pour valider votre adresse e-mail. Votre compte sera ensuite validé par un administrateur.",
+        description: "Un e-mail de vérification a été envoyé. Une fois votre e-mail vérifié, votre compte sera validé automatiquement.",
         duration: 10000,
       });
 
       router.push('/login');
 
     } catch (error: any) {
+      // Handle known errors first
       if (error.code === 'auth/email-already-in-use') {
         toast({
             variant: 'destructive',
@@ -160,11 +180,11 @@ export default function RegisterPage() {
             description: 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.',
         });
       } else {
-        // This will catch other auth errors, but not the Firestore permission error which is now handled separately.
+        // Generic error for other auth issues or Firestore permission errors re-thrown
         toast({
             variant: 'destructive',
             title: 'Échec de l\'inscription',
-            description: error.message || 'Une erreur d\'authentification est survenue.',
+            description: error.message || 'Une erreur est survenue.',
         });
       }
     }
@@ -210,7 +230,7 @@ export default function RegisterPage() {
                 
                 <hr className="my-2 border-border" />
                 
-                <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="E1234567" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="Ex: 1814 H-F" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FormField control={form.control} name="dateDeNaissance" render={({ field }) => ( <FormItem><FormLabel>Date de Naissance</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem> )} />
                     <FormField control={form.control} name="lieuDeNaissance" render={({ field }) => ( <FormItem><FormLabel>Lieu de Naissance</FormLabel><FormControl><Input placeholder="Dakar" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -242,5 +262,3 @@ export default function RegisterPage() {
     </Card>
   );
 }
-
-    
