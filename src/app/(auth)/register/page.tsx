@@ -136,7 +136,7 @@ export default function RegisterPage() {
 
       // 3. Save user profile to Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
-      await setDoc(userDocRef, userProfile).catch(async (serverError) => {
+      setDoc(userDocRef, userProfile).catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
           path: userDocRef.path,
           operation: 'create',
@@ -183,6 +183,10 @@ export default function RegisterPage() {
             title: 'Échec de l\'inscription',
             description: 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.',
         });
+      } else if (error instanceof FirestorePermissionError) {
+          // This is our custom error, it's already been thrown by the listener
+          // so we don't need to show a toast here.
+          console.error("Firestore Permission Error:", error.message);
       } else {
         // Generic error for other auth issues or Firestore permission errors re-thrown
         toast({
@@ -266,3 +270,5 @@ export default function RegisterPage() {
     </Card>
   );
 }
+
+    
