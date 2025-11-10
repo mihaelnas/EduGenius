@@ -3,13 +3,13 @@
  * @fileOverview Flow to validate a new student against an external API and assign them to a class.
  *
  * - validateAndAssignStudent - A function that handles the student validation and assignment process.
- * - StudentValidationInput - The input type for the flow.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { StudentValidationInput, StudentValidationInputSchema } from '@/lib/placeholder-data';
+import { z } from 'zod';
 
 // Initialize Firebase Admin SDK. It will automatically use the service account
 // credentials available in the App Hosting environment.
@@ -21,17 +21,6 @@ if (!getApps().length) {
 }
 const db = getFirestore(adminApp);
 
-
-// Define the input schema for our flow
-export const StudentValidationInputSchema = z.object({
-  userId: z.string().describe('The Firebase Auth UID of the new user.'),
-  matricule: z.string().describe("The student's registration ID."),
-  firstName: z.string().describe("The student's first name."),
-  lastName: z.string().describe("The student's last name."),
-  niveau: z.string().describe("The student's academic level (e.g., L3)."),
-  filiere: z.string().describe("The student's academic field (e.g., IG)."),
-});
-export type StudentValidationInput = z.infer<typeof StudentValidationInputSchema>;
 
 /**
  * Main exported function that triggers the student validation and assignment flow.
@@ -92,7 +81,7 @@ const studentValidationFlow = ai.defineFlow(
     // 2. Validation was successful, find the corresponding class in Firestore.
     let classId: string | null = null;
     try {
-      const className = `${input.niveau} ${input.filiere}`; // Corrected class name format
+      const className = `${input.niveau}-${input.filiere}-G1`; // Defaulting to G1 for now
       const classesRef = db.collection('classes');
       const q = classesRef
         .where('name', '==', className)
@@ -101,7 +90,7 @@ const studentValidationFlow = ai.defineFlow(
 
       if (querySnapshot.empty) {
         // If class is not found, we can't assign. We activate the user but flag this for an admin.
-        await db.collection('users').doc(input.userId).update({ status: 'active', classAssignmentStatus: 'failed' });
+        await db.collection('users').doc(input.userId).update({ status: 'active', classAssignmentStatus: 'failed_class_not_found' });
         console.warn(`[Flow] Class "${className}" not found for user ${input.userId}. User activated but needs manual assignment.`);
         return {
           status: 'warning',
@@ -122,7 +111,7 @@ const studentValidationFlow = ai.defineFlow(
     } catch (error) {
        console.error('[Flow] Error finding or updating class:', error);
        // This is a significant issue. We'll activate the user but flag that class assignment failed.
-       await db.collection('users').doc(input.userId).update({ status: 'active', classAssignmentStatus: 'failed' });
+       await db.collection('users').doc(input.userId).update({ status: 'active', classAssignmentStatus: 'failed_db_error' });
        return {
          status: 'warning',
          message: 'User activated, but automatic class assignment failed due to a database error.',

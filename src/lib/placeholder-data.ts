@@ -1,3 +1,4 @@
+import { z } from 'zod';
 
 export type User = {
   id: string;
@@ -88,6 +89,19 @@ export type ScheduleEvent = {
   status: 'planifié' | 'reporté' | 'annulé' | 'effectué';
   conferenceLink?: string;
 };
+
+
+// Define the input schema for our flow
+export const StudentValidationInputSchema = z.object({
+  userId: z.string().describe('The Firebase Auth UID of the new user.'),
+  matricule: z.string().describe("The student's registration ID."),
+  firstName: z.string().describe("The student's first name."),
+  lastName: z.string().describe("The student's last name."),
+  niveau: z.string().describe("The student's academic level (e.g., L3)."),
+  filiere: z.string().describe("The student's academic field (e.g., IG)."),
+});
+export type StudentValidationInput = z.infer<typeof StudentValidationInputSchema>;
+
 
 // Combine nom and prenom for display name
 export function getDisplayName(user: { firstName?: string, lastName?: string }): string {
