@@ -9,21 +9,17 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { StudentValidationInput } from '@/lib/placeholder-data';
+import { StudentValidationInputSchema, StudentValidationInput } from '@/lib/placeholder-data';
 import { z } from 'zod';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// Initialize Firebase Admin SDK
-// This ensures we have a single instance of the app.
+// Initialize Firebase Admin SDK. In a managed Google Cloud environment,
+// calling initializeApp() without arguments uses Application Default Credentials.
 if (!getApps().length) {
   initializeApp();
 }
 const adminFirestore = getFirestore();
-
-
-// Define the input schema for the flow, matching what the client will send.
-const FlowInputSchema = StudentValidationInputSchema;
 
 // Define the output schema for the flow
 const FlowOutputSchema = z.object({
@@ -35,11 +31,10 @@ type FlowOutput = z.infer<typeof FlowOutputSchema>;
 
 /**
  * Main exported function that triggers the student validation and assignment flow.
- * This is called from the registration page.
  * @param input The student's data for validation and assignment.
  * @returns The result of the flow execution.
  */
-export async function validateAndAssignStudent(input: z.infer<typeof FlowInputSchema>): Promise<FlowOutput> {
+export async function validateAndAssignStudent(input: StudentValidationInput): Promise<FlowOutput> {
   return studentValidationAndAssignmentFlow(input);
 }
 
@@ -47,7 +42,7 @@ export async function validateAndAssignStudent(input: z.infer<typeof FlowInputSc
 const studentValidationAndAssignmentFlow = ai.defineFlow(
   {
     name: 'studentValidationAndAssignmentFlow',
-    inputSchema: FlowInputSchema,
+    inputSchema: StudentValidationInputSchema,
     outputSchema: FlowOutputSchema,
   },
   async (input) => {
@@ -71,10 +66,9 @@ const studentValidationAndAssignmentFlow = ai.defineFlow(
       if (!validationResponse.ok) {
           const errorText = await validationResponse.text();
           console.error(`[Flow] API validation failed with status ${validationResponse.status}:`, errorText);
-          const errorMessage = `La validation externe a échoué (Status: ${validationResponse.status}).`;
           return {
             status: 'error',
-            message: errorMessage,
+            message: `La validation externe a échoué (Status: ${validationResponse.status}).`,
           };
       }
       
@@ -82,10 +76,9 @@ const studentValidationAndAssignmentFlow = ai.defineFlow(
       
       if (validationResult.isValid === false) {
           console.error(`[Flow] API validation returned isValid: false.`, validationResult);
-          const errorMessage = validationResult.message || 'Les données de l\'étudiant n\'ont pas pu être validées par le service externe.';
-           return {
+          return {
             status: 'error',
-            message: `Validation externe refusée : ${errorMessage}`,
+            message: `Validation externe refusée : ${validationResult.message || 'Les données de l\'étudiant n\'ont pas pu être validées.'}`,
           };
       }
 
@@ -135,10 +128,9 @@ const studentValidationAndAssignmentFlow = ai.defineFlow(
 
     } catch (error: any) {
       console.error('[Flow] An unexpected error occurred:', error);
-      const errorMessage = error.message || 'Une erreur inconnue est survenue durant le processus de validation et d\'assignation.';
       return {
         status: 'error',
-        message: errorMessage,
+        message: error.message || 'Une erreur inconnue est survenue durant le processus de validation et d\'assignation.',
       };
     }
   }
