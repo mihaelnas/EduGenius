@@ -27,7 +27,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, errorEmitter } from '@/firebase';
 import { createUserWithEmailAndPassword, signOut, deleteUser } from 'firebase/auth';
-import { doc, setDoc, writeBatch, collection, query, where, getDocs, arrayUnion, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -142,7 +142,7 @@ export default function RegisterPage() {
             operation: 'create',
             requestResourceData: userProfile,
          }));
-         throw error;
+         throw error; // Re-throw to be caught by the outer try-catch
       });
 
       // Step 4: Trigger the background validation flow and wait for it
@@ -152,22 +152,28 @@ export default function RegisterPage() {
         duration: Infinity
       }).id;
 
-      const validationInput: Omit<StudentValidationInput, 'userId' | 'niveau' | 'filiere'> = {
+      const validationInput: StudentValidationInput = {
+        userId: user.uid,
         matricule: values.matricule,
         firstName: values.firstName,
         lastName: values.lastName,
+        niveau: values.niveau,
+        filiere: values.filiere,
       };
       
       const validationResult = await validateAndAssignStudent(validationInput);
       if (toastId) dismiss(toastId);
 
       if (validationResult.status === 'success') {
-        // Step 5: API validation successful, now update user status on the client
-        toast({ title: 'Validation externe réussie', description: 'Votre compte est en attente d\'activation par un administrateur.' });
+        // Step 5: Automation successful
+        toast({ 
+          title: 'Validation réussie !', 
+          description: 'Votre compte a été activé et assigné. Connexion en cours...',
+          duration: 5000 
+        });
         
-        // Log out the user and redirect to login page
-        await signOut(auth);
-        router.push('/login');
+        // The user is already logged in, so we just need to redirect them.
+        router.push('/dashboard');
 
       } else {
         // If validation fails, notify user and delete the created auth user.
