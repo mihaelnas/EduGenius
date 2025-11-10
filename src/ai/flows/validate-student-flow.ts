@@ -134,7 +134,7 @@ const studentValidationFlow = ai.defineFlow(
        console.error('Error finding or updating class:', error);
        // We proceed to activate the user, but flag that class assignment failed.
        // Manual assignment will be required by an admin.
-       await updateDoc(doc(db, 'users', input.userId), { status: 'active' });
+       await updateDoc(doc(db, 'users', input.userId), { status: 'active', classAssignmentStatus: 'failed' });
        return {
          status: 'warning',
          message: 'User activated, but automatic class assignment failed.',
@@ -148,9 +148,11 @@ const studentValidationFlow = ai.defineFlow(
         console.log(`User ${input.userId} status updated to 'active'`);
     } catch(error) {
         console.error(`Failed to update user status for ${input.userId}:`, error);
+        // This is a critical failure, but the user is already in a class.
+        // We will return an error, but the user might be in an inconsistent state.
         return {
             status: 'error',
-            message: 'Failed to update user status after successful validation.'
+            message: 'Failed to update user status after successful validation and class assignment.'
         }
     }
 

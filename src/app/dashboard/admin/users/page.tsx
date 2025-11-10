@@ -85,12 +85,6 @@ export default function AdminUsersPage() {
       const userDocRef = doc(firestore, 'users', newUser.uid);
       batch.set(userDocRef, userProfile);
       
-      // If the new user is an admin, add them to the roles_admin collection
-      if (userProfile.role === 'admin') {
-          const adminRoleRef = doc(firestore, 'roles_admin', newUser.uid);
-          batch.set(adminRoleRef, { uid: newUser.uid });
-      }
-
       await batch.commit();
       
       toast({
@@ -129,13 +123,6 @@ export default function AdminUsersPage() {
     }
     
     batch.update(userDocRef, userData);
-
-    const adminRoleRef = doc(firestore, 'roles_admin', id);
-    if(userData.role === 'admin') {
-      batch.set(adminRoleRef, { uid: id });
-    } else {
-      batch.delete(adminRoleRef);
-    }
     
     await batch.commit();
 

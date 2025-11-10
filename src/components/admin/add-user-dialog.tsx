@@ -35,7 +35,7 @@ import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
 
 const baseSchema = z.object({
-  role: z.enum(['student', 'teacher']),
+  role: z.enum(['student', 'teacher', 'admin']),
   firstName: z.string().min(1, { message: 'Le prénom est requis.' }),
   lastName: z.string().min(1, { message: 'Le nom est requis.' }),
   username: z.string().min(2, { message: "Le nom d'utilisateur est requis." }).startsWith('@', { message: 'Doit commencer par @.' }),
@@ -66,7 +66,12 @@ const teacherSchema = baseSchema.extend({
   specialite: z.string().optional().or(z.literal('')),
 });
 
-const formSchema = z.discriminatedUnion('role', [studentSchema, teacherSchema])
+const adminSchema = baseSchema.extend({
+    role: z.literal('admin'),
+});
+
+
+const formSchema = z.discriminatedUnion('role', [studentSchema, teacherSchema, adminSchema])
   .refine((data) => data.password === data.confirmPassword, {
     message: "Les mots de passe ne correspondent pas.",
     path: ["confirmPassword"],
@@ -188,6 +193,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
                                     <SelectContent>
                                         <SelectItem value="student">Étudiant</SelectItem>
                                         <SelectItem value="teacher">Enseignant</SelectItem>
+                                        <SelectItem value="admin">Administrateur</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
