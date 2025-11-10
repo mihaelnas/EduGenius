@@ -18,11 +18,15 @@ export default function AuthLayout({
   const bgImage = placeholderImages.find(p => p.id === 'auth-background');
 
   useEffect(() => {
+    // Only redirect if the user is fully loaded and actually logged in.
+    // The registration flow briefly logs the user in, but they are logged out
+    // before redirection, so this check will prevent premature redirection.
     if (!isUserLoading && user) {
       redirect('/dashboard');
     }
   }, [user, isUserLoading]);
 
+  // Show a loading skeleton while we're checking auth state or if the user is logged in
   if (isUserLoading || user) {
     return (
        <div className="relative flex min-h-screen flex-col items-center justify-center bg-background">
@@ -34,7 +38,7 @@ export default function AuthLayout({
     )
   }
 
-
+  // If loading is finished and there's no user, show the auth pages (login/register)
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-background">
        {bgImage && (

@@ -104,19 +104,7 @@ export default function LoginPage() {
       
       const userProfile = userDoc.data() as AppUser;
 
-      // 2. Bypass email verification for admins
-      if (userProfile.role !== 'admin' && !user.emailVerified) {
-        toast({
-          variant: 'destructive',
-          title: 'E-mail non vérifié',
-          description: "Veuillez vérifier votre adresse e-mail avant de vous connecter. Consultez l'e-mail que nous vous avons envoyé.",
-          duration: 7000
-        });
-        await signOut(auth); // Déconnecter l'utilisateur
-        return;
-      }
-
-      // 3. Check user status in Firestore
+      // 2. Check user status in Firestore
       if (userProfile.status !== 'active') {
          toast({
             variant: 'destructive',

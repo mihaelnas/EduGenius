@@ -26,14 +26,14 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { validateAndAssignStudent } from '@/ai/flows/validate-student-flow';
-import { StudentValidationInput, StudentValidationInputSchema } from '@/lib/placeholder-data';
+import { StudentValidationInput } from '@/lib/placeholder-data';
 
 const formSchema = z.object({
   firstName: z
@@ -102,10 +102,11 @@ export default function RegisterPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    let user;
     try {
       // 1. Create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
+      user = userCredential.user;
 
       // 2. Create user profile object for Firestore
       const userProfile = {
@@ -115,7 +116,7 @@ export default function RegisterPage() {
         email: values.email,
         username: values.username,
         role: 'student' as const,
-        status: 'pending' as const, // Changed from inactive to pending
+        status: 'pending' as const,
         createdAt: new Date().toISOString(),
         matricule: values.matricule,
         dateDeNaissance: values.dateDeNaissance,
@@ -136,22 +137,9 @@ export default function RegisterPage() {
 
       // 3. Save user profile to Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
-      // Use a non-blocking write with contextual error handling
-      setDoc(userDocRef, userProfile).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: userDocRef.path,
-          operation: 'create',
-          requestResourceData: userProfile,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        // Re-throw to be caught by the outer catch block and show a toast
-        throw permissionError;
-      });
+      await setDoc(userDocRef, userProfile);
 
-      // 4. Send verification email (standard Firebase flow)
-      await sendEmailVerification(user);
-
-      // 5. Trigger the background validation flow (non-blocking)
+      // 4. Trigger the background validation flow (non-blocking)
       const validationInput: StudentValidationInput = {
         userId: user.uid,
         matricule: values.matricule,
@@ -160,23 +148,29 @@ export default function RegisterPage() {
         niveau: values.niveau,
         filiere: values.filiere,
       };
-
+      
       validateAndAssignStudent(validationInput).catch(flowError => {
-        // Log the error for debugging, but don't bother the user with a toast.
-        // The user status will remain 'pending' for manual admin review.
         console.error("Validation Flow Error:", flowError);
       });
 
+      // 5. Sign out user immediately after creation
+      await signOut(auth);
+
       // 6. Notify user and redirect
       toast({
-        title: 'Inscription presque terminée !',
-        description: "Un e-mail de vérification a été envoyé. Une fois votre e-mail vérifié, votre compte sera validé par un administrateur.",
+        title: 'Inscription réussie !',
+        description: "Votre compte a été créé et est maintenant en attente de validation par un administrateur.",
         duration: 10000,
       });
 
       router.push('/login');
 
     } catch (error: any) {
+      // If user was created in Auth but something failed after, sign them out.
+      if (user) {
+        await signOut(auth);
+      }
+      
       // Handle known errors first
       if (error.code === 'auth/email-already-in-use') {
         toast({
@@ -184,21 +178,12 @@ export default function RegisterPage() {
             title: 'Échec de l\'inscription',
             description: 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.',
         });
-      } else if (error instanceof FirestorePermissionError) {
-          // This is our custom error, it has already been thrown by the listener
-          // We can still show a toast to inform the user something went wrong with saving their profile.
-           toast({
-            variant: 'destructive',
-            title: 'Erreur de sauvegarde du profil',
-            description: 'Impossible de créer votre profil utilisateur. Veuillez contacter l\'administration.',
-          });
-          console.error("Firestore Permission Error:", error.message);
       } else {
-        // Generic error for other auth issues or re-thrown permission errors
+        // Generic error for other auth issues or firestore permission errors
         toast({
             variant: 'destructive',
             title: 'Échec de l\'inscription',
-            description: error.message || 'Une erreur est survenue.',
+            description: error.message || 'Une erreur est survenue. Vérifiez les informations et réessayez.',
         });
       }
     }
