@@ -9,14 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getDisplayName, AppUser, Class } from '@/lib/placeholder-data';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Search, ShieldAlert, KeyRound, Clock } from 'lucide-react';
+import { MoreHorizontal, Search, ShieldAlert, KeyRound, Clock, CheckCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AddUserDialog, AddUserFormValues } from '@/components/admin/add-user-dialog';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useAuth } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch, updateDoc, query, where } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch, updateDoc, query, where, arrayUnion } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
@@ -55,9 +55,14 @@ export default function AdminUsersPage() {
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: users, isLoading } = useCollection<AppUser>(usersCollectionRef);
 
+  const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
+  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
+
+
   const handleAdd = async (values: AddUserFormValues) => {
     const { password, confirmPassword, ...userData } = values;
     
+    // Create a temporary auth instance to avoid conflicts with the main app's auth state
     const tempAuthApp = initializeApp(firebaseConfig, `temp-app-${Date.now()}`);
     const tempAuth = getAuth(tempAuthApp);
 
@@ -68,7 +73,7 @@ export default function AdminUsersPage() {
       const userProfile: AppUser = {
         id: newUser.uid,
         ...userData,
-        status: 'active',
+        status: 'active', // Admins/Teachers created manually are active by default
         createdAt: new Date().toISOString(),
       } as AppUser;
       
@@ -76,13 +81,22 @@ export default function AdminUsersPage() {
         delete (userProfile as Partial<AppUser>).photo;
       }
       
+      const batch = writeBatch(firestore);
       const userDocRef = doc(firestore, 'users', newUser.uid);
+      batch.set(userDocRef, userProfile);
       
-      await setDoc(userDocRef, userProfile);
+      // If the new user is an admin, add them to the roles_admin collection
+      if (userProfile.role === 'admin') {
+          const adminRoleRef = doc(firestore, 'roles_admin', newUser.uid);
+          batch.set(adminRoleRef, { uid: newUser.uid });
+      }
+
+      await batch.commit();
       
       toast({
         title: `Utilisateur ${getDisplayName(values)} ajouté.`,
       });
+      setIsAddDialogOpen(false);
 
     } catch (error: any) {
       console.error("Erreur de création d'utilisateur:", error);
@@ -99,8 +113,7 @@ export default function AdminUsersPage() {
           description: error.message || "Une erreur inconnue est survenue.",
         });
       }
-      // Re-throw the error if you want to handle it further up the chain
-      throw error;
+      throw error; // Re-throw to prevent dialog from closing on error
     }
   };
 
@@ -108,12 +121,24 @@ export default function AdminUsersPage() {
   const handleUpdate = async (updatedUser: AppUser) => {
     const { id, ...userData } = updatedUser;
     
+    const batch = writeBatch(firestore);
     const userDocRef = doc(firestore, 'users', id);
+
     if (userData.photo === '') {
       delete (userData as Partial<AppUser>).photo;
     }
+    
+    batch.update(userDocRef, userData);
 
-    await updateDoc(userDocRef, userData);
+    const adminRoleRef = doc(firestore, 'roles_admin', id);
+    if(userData.role === 'admin') {
+      batch.set(adminRoleRef, { uid: id });
+    } else {
+      batch.delete(adminRoleRef);
+    }
+    
+    await batch.commit();
+
     toast({
       title: 'Utilisateur modifié',
       description: `L'utilisateur ${getDisplayName(updatedUser)} a été mis à jour.`,
@@ -129,6 +154,46 @@ export default function AdminUsersPage() {
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
   };
+
+  const handleActivateStudent = async (userToActivate: AppUser) => {
+    if (userToActivate.role !== 'student' || userToActivate.status !== 'pending' || !classes) return;
+
+    const student = userToActivate as any; // Cast to access student properties
+    const className = `${student.niveau} - ${student.filiere}`;
+    const targetClass = classes.find(c => c.name === className);
+
+    if (!targetClass) {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur d\'activation',
+            description: `La classe "${className}" n'a pas été trouvée. Impossible d'activer l'étudiant.`,
+        });
+        return;
+    }
+
+    try {
+        const batch = writeBatch(firestore);
+        const userDocRef = doc(firestore, 'users', student.id);
+        const classDocRef = doc(firestore, 'classes', targetClass.id);
+
+        batch.update(userDocRef, { status: 'active' });
+        batch.update(classDocRef, { studentIds: arrayUnion(student.id) });
+
+        await batch.commit();
+
+        toast({
+            title: 'Étudiant activé',
+            description: `${getDisplayName(student)} a été activé et assigné à la classe ${targetClass.name}.`,
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur',
+            description: error.message || "Une erreur est survenue lors de l'activation.",
+        });
+    }
+  };
+
 
   const confirmDelete = async () => {
     if (!selectedUser) return;
@@ -174,6 +239,11 @@ export default function AdminUsersPage() {
             snapshotSchedule.forEach(doc => batch.delete(doc.ref));
         }
 
+        if (selectedUser.role === 'admin') {
+            const adminRoleRef = doc(firestore, 'roles_admin', userId);
+            batch.delete(adminRoleRef);
+        }
+
         batch.delete(userDocRef);
         await batch.commit();
 
@@ -200,6 +270,8 @@ export default function AdminUsersPage() {
     getDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   ), [users, searchTerm]);
+
+  const isLoadingData = isLoading || isLoadingClasses;
 
   return (
     <>
@@ -250,7 +322,7 @@ export default function AdminUsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isLoadingData ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-10 w-40" /></TableCell>
@@ -295,6 +367,12 @@ export default function AdminUsersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          {user.role === 'student' && user.status === 'pending' && (
+                            <DropdownMenuItem onClick={() => handleActivateStudent(user)}>
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Activer et Assigner
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => handleEdit(user)}>Modifier</DropdownMenuItem>
                           <ViewDetailsButton userId={user.id} />
                           <DropdownMenuItem 
@@ -334,5 +412,3 @@ export default function AdminUsersPage() {
     </>
   );
 }
-
-    
