@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -29,11 +28,10 @@ import {
 import { Class } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: 'Le nom de la classe est requis.' }),
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']),
   filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']),
   anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
@@ -45,21 +43,39 @@ type EditClassDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     classData: Class;
-    onClassUpdated: (updatedClass: FormValues) => Promise<void>;
+    onClassUpdated: (updatedClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt'>) => Promise<void>;
 }
 
 export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }: EditClassDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: classData,
+    defaultValues: {
+      niveau: classData.niveau,
+      filiere: classData.filiere,
+      anneeScolaire: classData.anneeScolaire,
+    },
   });
 
+  const { niveau, filiere } = useWatch({ control: form.control });
+  const className = React.useMemo(() => {
+    if (niveau && filiere) {
+        return `${niveau} ${filiere}`;
+    }
+    return '';
+  }, [niveau, filiere]);
+
+
   React.useEffect(() => {
-    form.reset(classData);
+    form.reset({
+      niveau: classData.niveau,
+      filiere: classData.filiere,
+      anneeScolaire: classData.anneeScolaire,
+    });
   }, [classData, form]);
 
   async function onSubmit(values: FormValues) {
-    await onClassUpdated(values);
+     if (!className) return;
+    await onClassUpdated({ name: className, ...values });
     setIsOpen(false);
   }
   
@@ -81,19 +97,6 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom de la classe</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Licence 3 - IG" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
              <div className="grid grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
@@ -140,6 +143,12 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
                 )}
                 />
             </div>
+             <FormItem>
+                <FormLabel>Nom de la classe (généré)</FormLabel>
+                <FormControl>
+                    <Input value={className} disabled placeholder="Ex: L3 IG" />
+                </FormControl>
+             </FormItem>
              <FormField
               control={form.control}
               name="anneeScolaire"
@@ -155,7 +164,7 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" disabled={form.formState.isSubmitting || !className}>
                 {form.formState.isSubmitting ? "Sauvegarde..." : "Sauvegarder"}
               </Button>
             </DialogFooter>

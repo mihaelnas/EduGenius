@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -31,11 +30,10 @@ import {
 import { Class } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PlusCircle } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: 'Le nom de la classe est requis.' }),
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']),
   filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']),
   anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
@@ -46,22 +44,33 @@ type FormValues = z.infer<typeof formSchema>;
 type AddClassDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onClassAdded: (newClass: FormValues) => Promise<void>;
+    onClassAdded: (newClass: Omit<Class, 'id'| 'teacherIds' | 'studentIds' | 'createdAt'>) => Promise<void>;
 };
 
 export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
       anneeScolaire: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
     },
   });
 
+  const { niveau, filiere } = useWatch({ control: form.control });
+  const className = React.useMemo(() => {
+    if (niveau && filiere) {
+        return `${niveau} ${filiere}`;
+    }
+    return '';
+  }, [niveau, filiere]);
+
   async function onSubmit(values: FormValues) {
-    await onClassAdded(values);
+    if (!className) {
+        // This should theoretically not happen if form is valid
+        alert("Veuillez sélectionner un niveau et une filière.");
+        return;
+    }
+    await onClassAdded({ name: className, ...values });
     setIsOpen(false);
-    form.reset();
   }
   
   const handleOpenChange = (open: boolean) => {
@@ -88,19 +97,7 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom de la classe</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Licence 3 - IG" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            
              <div className="grid grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
@@ -111,7 +108,7 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                         <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner un niveau" />
+                            <SelectValue placeholder="Sélectionner..." />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -133,7 +130,7 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                         <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner une filière" />
+                            <SelectValue placeholder="Sélectionner..." />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -147,6 +144,12 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
                 )}
                 />
             </div>
+             <FormItem>
+                <FormLabel>Nom de la classe (généré)</FormLabel>
+                <FormControl>
+                    <Input value={className} disabled placeholder="Ex: L3 IG" />
+                </FormControl>
+             </FormItem>
              <FormField
               control={form.control}
               name="anneeScolaire"
@@ -162,7 +165,7 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
             />
             <DialogFooter>
                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" disabled={form.formState.isSubmitting || !className}>
                 {form.formState.isSubmitting ? "Création..." : "Créer la classe"}
               </Button>
             </DialogFooter>

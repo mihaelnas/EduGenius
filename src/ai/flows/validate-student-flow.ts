@@ -8,31 +8,18 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import {
-  getFirestore,
-  doc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  limit,
-  arrayUnion,
-} from 'firebase/firestore';
-import { initializeApp, getApps } from 'firebase/app';
-import { firebaseConfig } from '@/firebase/config';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-// This flow runs on the server, but we will use the client SDK for compatibility
-// with the existing app structure. We create a temporary app instance to interact with Firestore.
-let db: any;
+// Initialize Firebase Admin SDK. It will automatically use the service account
+// credentials available in the App Hosting environment.
+let adminApp: App;
 if (!getApps().length) {
-  const firebaseApp = initializeApp(firebaseConfig, 'genkit-flow-app');
-  db = getFirestore(firebaseApp);
+  adminApp = initializeApp();
 } else {
-  // Use the existing app instance if available, or the specific one for genkit
-  const firebaseApp = getApps().find(app => app.name === 'genkit-flow-app') || getApps()[0];
-  db = getFirestore(firebaseApp);
+  adminApp = getApps()[0];
 }
+const db = getFirestore(adminApp);
 
 
 // Define the input schema for our flow
@@ -68,7 +55,7 @@ const studentValidationFlow = ai.defineFlow(
     }),
   },
   async (input) => {
-    console.log(`Starting validation for user: ${input.userId}`);
+    console.log(`[Flow] Starting validation for user: ${input.userId}`);
 
     // 1. Call the external validation API (VeriGenius)
     try {
@@ -86,70 +73,69 @@ const studentValidationFlow = ai.defineFlow(
       });
 
       if (!validationResponse.ok) {
-        // If the API returns a non-2xx status, it means validation failed.
-        const errorBody = await validationResponse.text();
+        const errorBody = await validationResponse.json();
         throw new Error(
-          `Validation API failed with status ${validationResponse.status}: ${errorBody}`
+          `Validation API failed with status ${validationResponse.status}: ${errorBody.message || 'Unknown API error'}`
         );
       }
       
-      console.log(`API validation successful for user: ${input.userId}`);
+      console.log(`[Flow] API validation successful for user: ${input.userId}`);
 
     } catch (error) {
-      console.error('Error calling validation API:', error);
-      // Stop the flow if external validation fails. The user will remain 'pending'.
+      console.error('[Flow] Error calling validation API:', error);
       return {
         status: 'error',
-        message: 'External API validation failed.',
+        message: 'External API validation failed. User remains pending.',
       };
     }
 
     // 2. Validation was successful, find the corresponding class in Firestore.
     let classId: string | null = null;
     try {
-      const className = `${input.niveau} - ${input.filiere}`;
-      const classesRef = collection(db, 'classes');
-      const q = query(
-        classesRef,
-        where('name', '==', className),
-        limit(1)
-      );
-      const querySnapshot = await getDocs(q);
+      const className = `${input.niveau} ${input.filiere}`; // Corrected class name format
+      const classesRef = db.collection('classes');
+      const q = classesRef
+        .where('name', '==', className)
+        .limit(1);
+      const querySnapshot = await q.get();
 
       if (querySnapshot.empty) {
-        throw new Error(`Class "${className}" not found in Firestore.`);
+        // If class is not found, we can't assign. We activate the user but flag this for an admin.
+        await db.collection('users').doc(input.userId).update({ status: 'active', classAssignmentStatus: 'failed' });
+        console.warn(`[Flow] Class "${className}" not found for user ${input.userId}. User activated but needs manual assignment.`);
+        return {
+          status: 'warning',
+          message: `User activated, but class "${className}" was not found. Manual assignment needed.`,
+        };
       }
 
       const classDoc = querySnapshot.docs[0];
       classId = classDoc.id;
       
-      // 3. Assign student to the class by updating the class's studentIds array
-      await updateDoc(classDoc.ref, {
-        studentIds: arrayUnion(input.userId),
+      // 3. Assign student to the class using Admin SDK
+      await classDoc.ref.update({
+        studentIds: FieldValue.arrayUnion(input.userId),
       });
-      console.log(`User ${input.userId} successfully added to class ${classId}`);
+      console.log(`[Flow] User ${input.userId} successfully added to class ${classId}`);
       
 
     } catch (error) {
-       console.error('Error finding or updating class:', error);
-       // We proceed to activate the user, but flag that class assignment failed.
-       // Manual assignment will be required by an admin.
-       await updateDoc(doc(db, 'users', input.userId), { status: 'active', classAssignmentStatus: 'failed' });
+       console.error('[Flow] Error finding or updating class:', error);
+       // This is a significant issue. We'll activate the user but flag that class assignment failed.
+       await db.collection('users').doc(input.userId).update({ status: 'active', classAssignmentStatus: 'failed' });
        return {
          status: 'warning',
-         message: 'User activated, but automatic class assignment failed.',
+         message: 'User activated, but automatic class assignment failed due to a database error.',
        };
     }
 
-
-    // 4. Update the user's status to 'active' in Firestore
+    // 4. Update the user's status to 'active' in Firestore using Admin SDK
     try {
-        await updateDoc(doc(db, 'users', input.userId), { status: 'active' });
-        console.log(`User ${input.userId} status updated to 'active'`);
+        await db.collection('users').doc(input.userId).update({ status: 'active' });
+        console.log(`[Flow] User ${input.userId} status updated to 'active'`);
     } catch(error) {
-        console.error(`Failed to update user status for ${input.userId}:`, error);
-        // This is a critical failure, but the user is already in a class.
-        // We will return an error, but the user might be in an inconsistent state.
+        console.error(`[Flow] Failed to update user status for ${input.userId}:`, error);
+        // This is a critical failure. The user is already in a class, so we must report this.
         return {
             status: 'error',
             message: 'Failed to update user status after successful validation and class assignment.'
@@ -157,7 +143,7 @@ const studentValidationFlow = ai.defineFlow(
     }
 
 
-    console.log(`Validation and assignment complete for user: ${input.userId}`);
+    console.log(`[Flow] Validation and assignment complete for user: ${input.userId}`);
     return {
       status: 'success',
       message: 'Student validated and assigned to class successfully.',
