@@ -6,8 +6,20 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { StudentValidationInput, StudentValidationInputSchema } from '@/lib/placeholder-data';
+import { StudentValidationInput } from '@/lib/placeholder-data';
 import { z } from 'zod';
+import { StudentValidationInputSchema } from '@/lib/placeholder-data';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { firebaseConfig } from '@/firebase/config';
+
+// Ensure Firebase Admin is initialized only once
+function getAdminApp(): App {
+  if (getApps().length > 0) {
+    return getApps()[0];
+  }
+  return initializeApp({ projectId: firebaseConfig.projectId });
+}
 
 /**
  * Main exported function that triggers the student validation and assignment flow.
@@ -39,11 +51,9 @@ const studentValidationFlow = ai.defineFlow(
       console.log(`[Flow] Calling VeriGenius API for matricule: ${input.matricule}`);
       const validationResponse = await fetch('https://veri-genius.vercel.app/api/validate-student', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentId: input.matricule, // The API expects 'studentId' for matricule
+          studentId: input.matricule,
           firstName: input.firstName,
           lastName: input.lastName,
         }),
@@ -52,34 +62,58 @@ const studentValidationFlow = ai.defineFlow(
       if (!validationResponse.ok) {
         const errorBody = await validationResponse.json();
         console.error(`[Flow] API validation failed with status ${validationResponse.status}:`, errorBody);
-        // The flow fails, but the user is not notified directly. The user remains pending.
         return {
           status: 'error',
           message: `Validation API failed: ${errorBody.message || 'Unknown API error'}`,
-          classId: undefined
         };
       }
       
       const validationResult = await validationResponse.json();
       console.log(`[Flow] API validation successful for user: ${input.userId}`, validationResult);
 
-      // IMPORTANT: The flow now simply returns success. The front-end or another
-      // administrative action will be responsible for updating the user status and class.
-      // This flow's only job is to validate and return the result.
+      // 2. Perform Firestore updates using Admin SDK
+      const adminDb = getFirestore(getAdminApp());
+      const studentClassName = `${input.niveau}-${input.filiere}-G1`;
+      
+      console.log(`[Flow] Searching for class: ${studentClassName}`);
+      const classQuery = adminDb.collection('classes').where('name', '==', studentClassName).limit(1);
+      const classSnapshot = await classQuery.get();
+
+      if (classSnapshot.empty) {
+        console.error(`[Flow] Class "${studentClassName}" not found for user ${input.userId}.`);
+        return {
+          status: 'error',
+          message: `Class "${studentClassName}" not found. User remains pending.`,
+        };
+      }
+
+      const classDoc = classSnapshot.docs[0];
+      const classId = classDoc.id;
+      const userDocRef = adminDb.collection('users').doc(input.userId);
+
+      console.log(`[Flow] Found class ${classId}. Activating user ${input.userId} and assigning to class.`);
+      
+      // Use a transaction to ensure both updates succeed or fail together
+      await adminDb.runTransaction(async (transaction) => {
+        // Update user status to 'active'
+        transaction.update(userDocRef, { status: 'active' });
+        // Add student ID to the class's studentIds array
+        transaction.update(classDoc.ref, { studentIds: FieldValue.arrayUnion(input.userId) });
+      });
+
+      console.log(`[Flow] User ${input.userId} successfully activated and assigned to class ${classId}.`);
+
       return {
         status: 'success',
-        message: 'Student successfully validated by the external API.',
-        // We are not assigning a class here anymore.
-        classId: undefined
+        message: 'Student successfully validated and assigned to class.',
+        classId: classId,
       };
 
     } catch (error) {
-      console.error('[Flow] Error calling validation API:', error);
-      // The user remains pending, this is a silent failure for the user but logged for the admin.
+      console.error('[Flow] An unexpected error occurred:', error);
       return {
         status: 'error',
-        message: 'External API call failed. User remains pending.',
-        classId: undefined
+        message: error instanceof Error ? error.message : 'An unknown error occurred during the flow.',
       };
     }
   }
