@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, errorEmitter } from '@/firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
@@ -153,12 +153,9 @@ export default function RegisterPage() {
       }).id;
 
       const validationInput: StudentValidationInput = {
-        userId: user.uid,
         matricule: values.matricule,
         firstName: values.firstName,
         lastName: values.lastName,
-        niveau: values.niveau,
-        filiere: values.filiere,
       };
       
       const validationResult = await validateAndAssignStudent(validationInput);
@@ -167,14 +164,14 @@ export default function RegisterPage() {
 
       if (validationResult.status === 'success') {
         toast({
-          title: 'Validation réussie !',
-          description: "Votre compte a été activé. Connexion en cours...",
+          title: 'Inscription réussie !',
+          description: "Votre compte est en attente de validation par un administrateur.",
           variant: 'default',
-          duration: 5000,
+          duration: 8000,
         });
-        // Sign in the now-active user to redirect them to the dashboard
-        await signInWithEmailAndPassword(auth, values.email, values.password);
-        router.push('/dashboard');
+        // Sign out the user, they can't access the app yet
+        await signOut(auth);
+        router.push('/login?registered=true'); // go to login but prevent auto-redirect
       } else {
         // If validation fails, notify user and sign them out.
         toast({
@@ -184,7 +181,6 @@ export default function RegisterPage() {
           duration: 10000,
         });
         await signOut(auth);
-        router.push('/login?registered=true'); // go to login but prevent auto-redirect
       }
 
     } catch (error: any) {
@@ -277,3 +273,5 @@ export default function RegisterPage() {
     </Card>
   );
 }
+
+    
