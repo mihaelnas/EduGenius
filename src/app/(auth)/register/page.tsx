@@ -162,37 +162,13 @@ export default function RegisterPage() {
       if (toastId) dismiss(toastId);
 
       if (validationResult.status === 'success') {
-        // Step 5: API validation successful, now update user status and class on the client
-        toast({ title: 'Validation réussie', description: 'Activation de votre compte...' });
-
-        const batch = writeBatch(firestore);
+        // Step 5: API validation successful, now update user status on the client
+        toast({ title: 'Validation externe réussie', description: 'Votre compte est en attente d\'activation par un administrateur.' });
         
-        // Find the correct class for the student
-        const className = `${values.niveau}-${values.filiere}-G1`; // Assuming Group 1 by default for now
-        const classQuery = query(collection(firestore, 'classes'), where('name', '==', className), where('anneeScolaire', '==', `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`));
-        const classSnapshot = await getDocs(classQuery);
+        // Log out the user and redirect to login page
+        await signOut(auth);
+        router.push('/login');
 
-        if (classSnapshot.empty) {
-            throw new Error(`La classe correspondante (${className}) n'a pas été trouvée. L'activation a échoué.`);
-        }
-        const classDocRef = classSnapshot.docs[0].ref;
-
-        // Update user status to 'active'
-        batch.update(userDocRef, { status: 'active' });
-        // Add student to the class
-        batch.update(classDocRef, { studentIds: arrayUnion(user.uid) });
-        
-        await batch.commit();
-
-        toast({
-          title: 'Compte activé !',
-          description: "Connexion et redirection vers votre tableau de bord...",
-          variant: 'default',
-          duration: 5000,
-        });
-
-        // Redirect to dashboard, user is now fully active and logged in
-        router.push('/dashboard');
       } else {
         // If validation fails, notify user and delete the created auth user.
         throw new Error(validationResult.message);
