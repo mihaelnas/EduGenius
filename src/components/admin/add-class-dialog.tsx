@@ -36,6 +36,7 @@ import { z } from 'zod';
 const formSchema = z.object({
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']),
   filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']),
+  groupe: z.coerce.number().min(1, { message: "Le groupe est requis."}),
   anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
 });
 
@@ -51,22 +52,23 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      groupe: 1,
       anneeScolaire: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
     },
   });
 
-  const { niveau, filiere } = useWatch({ control: form.control });
+  const { niveau, filiere, groupe } = useWatch({ control: form.control });
   const className = React.useMemo(() => {
-    if (niveau && filiere) {
-        return `${niveau} ${filiere}`;
+    if (niveau && filiere && groupe > 0) {
+        return `${niveau}-${filiere}-G${groupe}`.toUpperCase();
     }
     return '';
-  }, [niveau, filiere]);
+  }, [niveau, filiere, groupe]);
 
   async function onSubmit(values: FormValues) {
     if (!className) {
         // This should theoretically not happen if form is valid
-        alert("Veuillez sélectionner un niveau et une filière.");
+        alert("Veuillez remplir tous les champs pour former le nom de la classe.");
         return;
     }
     await onClassAdded({ name: className, ...values });
@@ -88,7 +90,7 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
           Ajouter une classe
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Ajouter une nouvelle classe</DialogTitle>
           <DialogDescription>
@@ -144,10 +146,23 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
                 )}
                 />
             </div>
+             <FormField
+                control={form.control}
+                name="groupe"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Groupe</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="1" placeholder="Ex: 1" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
              <FormItem>
                 <FormLabel>Nom de la classe (généré)</FormLabel>
                 <FormControl>
-                    <Input value={className} disabled placeholder="Ex: L3 IG" />
+                    <Input value={className} disabled placeholder="Ex: L1-IG-G1" />
                 </FormControl>
              </FormItem>
              <FormField

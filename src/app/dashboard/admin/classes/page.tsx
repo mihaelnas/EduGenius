@@ -161,6 +161,7 @@ export default function AdminClassesPage() {
                 <TableHead>Nom de la classe</TableHead>
                 <TableHead>Niveau</TableHead>
                 <TableHead>Filière</TableHead>
+                <TableHead>Groupe</TableHead>
                 <TableHead>Enseignant(s)</TableHead>
                 <TableHead>Effectif</TableHead>
                 <TableHead>Année Scolaire</TableHead>
@@ -176,6 +177,7 @@ export default function AdminClassesPage() {
                     <TableCell><Skeleton className="h-6 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-10" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-10" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
@@ -187,6 +189,7 @@ export default function AdminClassesPage() {
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.niveau}</TableCell>
                   <TableCell>{c.filiere}</TableCell>
+                  <TableCell>{c.groupe}</TableCell>
                   <TableCell>
                      <div className="flex flex-wrap gap-1">
                       {c.teacherIds.length > 0 ? (

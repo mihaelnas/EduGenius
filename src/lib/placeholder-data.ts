@@ -40,6 +40,7 @@ export type Class = {
   name: string;
   niveau: 'L1' | 'L2' | 'L3' | 'M1' | 'M2';
   filiere: 'IG' | 'GB' | 'ASR' | 'GID' | 'OCC';
+  groupe: number;
   anneeScolaire: string; // e.g., "2023-2024"
   teacherIds: string[];
   studentIds: string[];
@@ -50,7 +51,7 @@ export type Subject = {
   id: string;
   name: string;
   credit: number;
-  semestre: 'S1' | 'S2';
+  semestre: 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7' | 'S8' | 'S9' | 'S10';
   photo?: string;
   teacherId?: string;
   classCount: number;
