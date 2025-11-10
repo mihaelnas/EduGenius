@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getDisplayName, AppUser, Class } from '@/lib/placeholder-data';
+import { getDisplayName, AppUser, Class, Student } from '@/lib/placeholder-data';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Search, ShieldAlert, KeyRound, Clock, CheckCircle } from 'lucide-react';
@@ -145,15 +145,15 @@ export default function AdminUsersPage() {
   const handleActivateStudent = async (userToActivate: AppUser) => {
     if (userToActivate.role !== 'student' || userToActivate.status !== 'pending' || !classes) return;
 
-    const student = userToActivate as any; // Cast to access student properties
-    const className = `${student.niveau} - ${student.filiere}`;
+    const student = userToActivate as Student;
+    const className = `${student.niveau}-${student.filiere}-G1`; // Assuming Group 1 for now
     const targetClass = classes.find(c => c.name === className);
 
     if (!targetClass) {
         toast({
             variant: 'destructive',
             title: 'Erreur d\'activation',
-            description: `La classe "${className}" n'a pas été trouvée. Impossible d'activer l'étudiant.`,
+            description: `La classe d'assignation "${className}" n'a pas été trouvée. Impossible d'activer l'étudiant.`,
         });
         return;
     }

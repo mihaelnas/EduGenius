@@ -1,25 +1,16 @@
 
 'use server';
 /**
- * @fileOverview Flow to validate a new student, activate their account, and assign them to a class.
- * This flow calls an external API for validation and then uses the Firebase Admin SDK
- * to modify the database upon success.
+ * @fileOverview Flow to validate a new student by calling an external API.
+ * This flow ONLY performs the external validation and returns the result.
+ * It does not interact with the Firestore database.
  *
- * - validateAndAssignStudent - The main function that handles the entire validation and assignment process.
+ * - validateAndAssignStudent - The main function that handles the validation process.
  */
 
 import { ai } from '@/ai/genkit';
 import { StudentValidationInputSchema, StudentValidationInput } from '@/lib/placeholder-data';
 import { z } from 'zod';
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
-// Initialize Firebase Admin SDK. In a managed Google Cloud environment,
-// calling initializeApp() without arguments uses Application Default Credentials.
-if (!getApps().length) {
-  initializeApp();
-}
-const adminFirestore = getFirestore();
 
 // Define the output schema for the flow
 const FlowOutputSchema = z.object({
@@ -30,27 +21,26 @@ type FlowOutput = z.infer<typeof FlowOutputSchema>;
 
 
 /**
- * Main exported function that triggers the student validation and assignment flow.
- * @param input The student's data for validation and assignment.
- * @returns The result of the flow execution.
+ * Main exported function that triggers the student validation flow.
+ * @param input The student's data for validation.
+ * @returns The result of the validation.
  */
 export async function validateAndAssignStudent(input: StudentValidationInput): Promise<FlowOutput> {
-  return studentValidationAndAssignmentFlow(input);
+  return studentExternalValidationFlow(input);
 }
 
-// Define the Genkit flow
-const studentValidationAndAssignmentFlow = ai.defineFlow(
+// Define the Genkit flow for external validation only
+const studentExternalValidationFlow = ai.defineFlow(
   {
-    name: 'studentValidationAndAssignmentFlow',
+    name: 'studentExternalValidationFlow',
     inputSchema: StudentValidationInputSchema,
     outputSchema: FlowOutputSchema,
   },
   async (input) => {
-    console.log(`[Flow] Starting validation for user ${input.userId}, matricule: ${input.matricule}`);
+    console.log(`[Flow] Starting external validation for matricule: ${input.matricule}`);
     
     try {
       // 1. Call the external validation API (VeriGenius)
-      console.log(`[Flow] Calling VeriGenius API for matricule: ${input.matricule}`);
       const fetch = (await import('node-fetch')).default;
       
       const validationResponse = await fetch('https://veri-genius.vercel.app/api/validate-student', {
@@ -78,59 +68,22 @@ const studentValidationAndAssignmentFlow = ai.defineFlow(
           console.error(`[Flow] API validation returned isValid: false.`, validationResult);
           return {
             status: 'error',
-            message: `Validation externe refusée : ${validationResult.message || 'Les données de l\'étudiant n\'ont pas pu être validées.'}`,
+            message: validationResult.message || 'Les données de l\'étudiant n\'ont pas pu être validées.',
           };
       }
 
       console.log(`[Flow] API validation successful for matricule: ${input.matricule}`);
 
-      // 2. Find the target class based on student's niveau and filiere
-      const className = `${input.niveau}-${input.filiere}-G1`; // Assuming Group 1 for now
-      console.log(`[Flow] Searching for class: ${className}`);
-      
-      const classesRef = adminFirestore.collection('classes');
-      const classQuery = classesRef.where('name', '==', className).limit(1);
-      const classSnapshot = await classQuery.get();
-
-      if (classSnapshot.empty) {
-        console.error(`[Flow] Class "${className}" not found in Firestore.`);
-        return {
-          status: 'error',
-          message: `La classe d'assignation (${className}) n'a pas été trouvée. Veuillez contacter un administrateur.`,
-        };
-      }
-      
-      const classDoc = classSnapshot.docs[0];
-      const classId = classDoc.id;
-      console.log(`[Flow] Found class "${className}" with ID: ${classId}`);
-
-      // 3. Use a transaction to activate user and assign to class
-      await adminFirestore.runTransaction(async (transaction) => {
-        const userDocRef = adminFirestore.collection('users').doc(input.userId);
-        const classDocRef = adminFirestore.collection('classes').doc(classId);
-
-        // Update user status to 'active'
-        transaction.update(userDocRef, { status: 'active' });
-        console.log(`[Flow] Transaction: Updating user ${input.userId} status to 'active'.`);
-
-        // Add student ID to the class's studentIds array
-        transaction.update(classDocRef, { 
-            studentIds: adminFirestore.FieldValue.arrayUnion(input.userId) 
-        });
-        console.log(`[Flow] Transaction: Adding user ${input.userId} to class ${classId}.`);
-      });
-
-      console.log(`[Flow] Successfully activated and assigned user ${input.userId}.`);
       return {
         status: 'success',
-        message: 'Student validated, activated, and assigned to class successfully.',
+        message: 'Student data validated successfully by external API.',
       };
 
     } catch (error: any) {
       console.error('[Flow] An unexpected error occurred:', error);
       return {
         status: 'error',
-        message: error.message || 'Une erreur inconnue est survenue durant le processus de validation et d\'assignation.',
+        message: error.message || 'Une erreur inconnue est survenue durant le processus de validation.',
       };
     }
   }

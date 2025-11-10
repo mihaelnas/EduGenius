@@ -168,18 +168,12 @@ export default function RegisterPage() {
         // Step 5: Automation successful
         toast({ 
           title: 'Validation réussie !', 
-          description: 'Votre compte a été activé. Vous pouvez maintenant vous connecter.',
-          duration: 5000 
+          description: 'Votre compte a été validé et est en attente d\'activation par un administrateur.',
+          duration: 8000 
         });
       } else {
-        // If API validation fails, notify user but keep account 'pending'
-        // The error message from the flow is now more descriptive
-        toast({
-          variant: 'destructive',
-          title: 'Échec de la validation automatique',
-          description: validationResult.message || 'La validation a échoué. Un administrateur examinera votre compte.',
-          duration: 8000
-        });
+        // If API validation fails, notify user and delete the created auth user
+        throw new Error(validationResult.message || 'La validation externe a échoué.');
       }
       
       // In both cases (success or handled failure of validation), log out and redirect to login
@@ -190,7 +184,7 @@ export default function RegisterPage() {
       if (toastId) dismiss(toastId);
       
       // Cleanup: if anything fails during the process, delete the auth user
-      // This is for unhandled errors like Firestore permission issues, network errors, etc.
+      // This is for unhandled errors like Firestore permission issues, network errors, or external API validation failure.
       if (user) {
         await deleteUser(user).catch(deleteError => {
             console.error("Failed to clean up auth user:", deleteError);
