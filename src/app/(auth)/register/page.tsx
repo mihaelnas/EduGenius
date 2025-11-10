@@ -136,14 +136,20 @@ export default function RegisterPage() {
 
       // Step 3: Save user profile to Firestore with 'pending' status
       const userDocRef = doc(firestore, 'users', user.uid);
-      await setDoc(userDocRef, userProfile).catch((error) => {
-         errorEmitter.emit('permission-error', new FirestorePermissionError({
+      try {
+        await setDoc(userDocRef, userProfile);
+      } catch (firestoreError) {
+        // This is the special error handling for Firestore permissions.
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: userDocRef.path,
             operation: 'create',
             requestResourceData: userProfile,
-         }));
-         throw error; // Re-throw to be caught by the outer try-catch
-      });
+        }));
+        // We throw a new, simple error to be caught by the outer catch block
+        // to ensure the cleanup logic (deleting auth user) still runs.
+        throw new Error("Erreur de base de données : impossible de créer le profil utilisateur.");
+      }
+
 
       // Step 4: Trigger the background validation flow and wait for it
       toastId = toast({
@@ -184,7 +190,6 @@ export default function RegisterPage() {
       if (toastId) dismiss(toastId);
       
       // Cleanup: if anything fails during the process, delete the auth user
-      // This is for unhandled errors like Firestore permission issues, network errors, or external API validation failure.
       if (user) {
         await deleteUser(user).catch(deleteError => {
             console.error("Failed to clean up auth user:", deleteError);
@@ -199,8 +204,8 @@ export default function RegisterPage() {
       let errorMessage = 'Une erreur est survenue. Vérifiez les informations et réessayez.';
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.';
-      } else if (error.message) {
-        // Display the specific error message, which could come from the flow
+      } else if (error.message && !error.message.includes("Erreur de base de données")) {
+        // Display the specific error message, unless it's our internal DB error.
         errorMessage = error.message;
       }
       
@@ -287,5 +292,3 @@ export default function RegisterPage() {
     </Card>
   );
 }
-
-    
