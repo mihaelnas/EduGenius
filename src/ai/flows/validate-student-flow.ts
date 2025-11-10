@@ -49,6 +49,7 @@ const studentValidationFlow = ai.defineFlow(
     // 1. Call the external validation API (VeriGenius)
     try {
       const fetch = (await import('node-fetch')).default;
+      console.log(`[Flow] Calling VeriGenius API for matricule: ${input.matricule}`);
       const validationResponse = await fetch('https://veri-genius.vercel.app/', {
         method: 'POST',
         headers: {
@@ -63,6 +64,7 @@ const studentValidationFlow = ai.defineFlow(
 
       if (!validationResponse.ok) {
         const errorBody = await validationResponse.json();
+        console.error(`[Flow] API validation failed with status ${validationResponse.status}:`, errorBody);
         throw new Error(
           `Validation API failed with status ${validationResponse.status}: ${errorBody.message || 'Unknown API error'}`
         );
@@ -72,6 +74,7 @@ const studentValidationFlow = ai.defineFlow(
 
     } catch (error) {
       console.error('[Flow] Error calling validation API:', error);
+      // The user remains pending, this is a silent failure for the user but logged for the admin.
       return {
         status: 'error',
         message: 'External API validation failed. User remains pending.',
@@ -82,6 +85,7 @@ const studentValidationFlow = ai.defineFlow(
     let classId: string | null = null;
     try {
       const className = `${input.niveau}-${input.filiere}-G1`; // Defaulting to G1 for now
+      console.log(`[Flow] Searching for class: "${className}" for user ${input.userId}`);
       const classesRef = db.collection('classes');
       const q = classesRef
         .where('name', '==', className)
@@ -90,8 +94,8 @@ const studentValidationFlow = ai.defineFlow(
 
       if (querySnapshot.empty) {
         // If class is not found, we can't assign. We activate the user but flag this for an admin.
+        console.warn(`[Flow] Class "${className}" not found for user ${input.userId}. Activating user but flagging for manual assignment.`);
         await db.collection('users').doc(input.userId).update({ status: 'active', classAssignmentStatus: 'failed_class_not_found' });
-        console.warn(`[Flow] Class "${className}" not found for user ${input.userId}. User activated but needs manual assignment.`);
         return {
           status: 'warning',
           message: `User activated, but class "${className}" was not found. Manual assignment needed.`,
@@ -102,6 +106,7 @@ const studentValidationFlow = ai.defineFlow(
       classId = classDoc.id;
       
       // 3. Assign student to the class using Admin SDK
+      console.log(`[Flow] Assigning user ${input.userId} to class ${classId}`);
       await classDoc.ref.update({
         studentIds: FieldValue.arrayUnion(input.userId),
       });
@@ -120,6 +125,7 @@ const studentValidationFlow = ai.defineFlow(
 
     // 4. Update the user's status to 'active' in Firestore using Admin SDK
     try {
+        console.log(`[Flow] Activating user ${input.userId}`);
         await db.collection('users').doc(input.userId).update({ status: 'active' });
         console.log(`[Flow] User ${input.userId} status updated to 'active'`);
     } catch(error) {
