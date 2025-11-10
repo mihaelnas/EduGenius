@@ -26,8 +26,8 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, errorEmitter } from '@/firebase';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signOut, deleteUser } from 'firebase/auth';
+import { doc, setDoc, writeBatch, collection, query, where, getDocs, arrayUnion, updateDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -107,11 +107,11 @@ export default function RegisterPage() {
     let toastId: string | undefined;
 
     try {
-      // 1. Create Firebase Auth user
+      // Step 1: Create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       user = userCredential.user;
 
-      // 2. Create user profile object for Firestore
+      // Step 2: Create user profile object for Firestore
       const userProfile = {
         id: user.uid,
         firstName: values.firstName,
@@ -134,7 +134,7 @@ export default function RegisterPage() {
       if (!userProfile.photo) { delete (userProfile as Partial<typeof userProfile>).photo; }
       if (!userProfile.telephone) { delete (userProfile as Partial<typeof userProfile>).telephone; }
 
-      // 3. Save user profile to Firestore
+      // Step 3: Save user profile to Firestore with 'pending' status
       const userDocRef = doc(firestore, 'users', user.uid);
       await setDoc(userDocRef, userProfile).catch((error) => {
          errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -145,62 +145,91 @@ export default function RegisterPage() {
          throw error;
       });
 
-      // 4. Trigger the background validation flow and wait for it
+      // Step 4: Trigger the background validation flow and wait for it
       toastId = toast({
         title: 'Vérification des données...',
         description: 'Nous vérifions vos informations auprès de l\'administration.',
         duration: Infinity
       }).id;
 
-      const validationInput: StudentValidationInput = {
+      const validationInput: Omit<StudentValidationInput, 'userId' | 'niveau' | 'filiere'> = {
         matricule: values.matricule,
         firstName: values.firstName,
         lastName: values.lastName,
       };
       
       const validationResult = await validateAndAssignStudent(validationInput);
-      
       if (toastId) dismiss(toastId);
 
       if (validationResult.status === 'success') {
+        // Step 5: API validation successful, now update user status and class on the client
+        toast({ title: 'Validation réussie', description: 'Activation de votre compte...' });
+
+        const batch = writeBatch(firestore);
+        
+        // Find the correct class for the student
+        const className = `${values.niveau}-${values.filiere}-G1`; // Assuming Group 1 by default for now
+        const classQuery = query(collection(firestore, 'classes'), where('name', '==', className), where('anneeScolaire', '==', `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`));
+        const classSnapshot = await getDocs(classQuery);
+
+        if (classSnapshot.empty) {
+            throw new Error(`La classe correspondante (${className}) n'a pas été trouvée. L'activation a échoué.`);
+        }
+        const classDocRef = classSnapshot.docs[0].ref;
+
+        // Update user status to 'active'
+        batch.update(userDocRef, { status: 'active' });
+        // Add student to the class
+        batch.update(classDocRef, { studentIds: arrayUnion(user.uid) });
+        
+        await batch.commit();
+
         toast({
-          title: 'Inscription réussie !',
-          description: "Votre compte est en attente de validation par un administrateur.",
+          title: 'Compte activé !',
+          description: "Connexion et redirection vers votre tableau de bord...",
           variant: 'default',
-          duration: 8000,
+          duration: 5000,
         });
-        // Sign out the user, they can't access the app yet
-        await signOut(auth);
-        router.push('/login?registered=true'); // go to login but prevent auto-redirect
+
+        // Redirect to dashboard, user is now fully active and logged in
+        router.push('/dashboard');
       } else {
-        // If validation fails, notify user and sign them out.
-        toast({
-          title: 'Échec de la validation',
-          description: validationResult.message,
-          variant: 'destructive',
-          duration: 10000,
-        });
-        await signOut(auth);
+        // If validation fails, notify user and delete the created auth user.
+        throw new Error(validationResult.message);
       }
 
     } catch (error: any) {
       if (toastId) dismiss(toastId);
       
-      if (error.code === 'auth/email-already-in-use') {
-        toast({
-            variant: 'destructive',
-            title: 'Échec de l\'inscription',
-            description: 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.',
-        });
-      } else {
-        toast({
-            variant: 'destructive',
-            title: 'Échec de l\'inscription',
-            description: error.message || 'Une erreur est survenue. Vérifiez les informations et réessayez.',
+      // Cleanup: if anything fails after user creation, delete the auth user
+      if (user) {
+        await deleteUser(user).catch(deleteError => {
+            console.error("Failed to clean up auth user:", deleteError);
+            // Notify about cleanup failure if it's critical
+            toast({
+                variant: 'destructive',
+                title: 'Erreur de nettoyage',
+                description: 'Impossible de supprimer l\'utilisateur temporaire. Veuillez contacter l\'assistance.',
+            });
         });
       }
+
+      let errorMessage = 'Une erreur est survenue. Vérifiez les informations et réessayez.';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+          variant: 'destructive',
+          title: 'Échec de l\'inscription',
+          description: errorMessage,
+          duration: 8000
+      });
     }
   }
+
 
   const handlePrenomBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -273,5 +302,3 @@ export default function RegisterPage() {
     </Card>
   );
 }
-
-    

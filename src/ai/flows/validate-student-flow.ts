@@ -9,8 +9,15 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { StudentValidationInput, StudentValidationInputSchema } from '@/lib/placeholder-data';
+import { StudentValidationInput } from '@/lib/placeholder-data';
 import { z } from 'zod';
+
+// We only need a subset of the full student validation input for the API call
+const ApiValidationSchema = z.object({
+  matricule: z.string().describe("The student's registration ID."),
+  firstName: z.string().describe("The student's first name."),
+  lastName: z.string().describe("The student's last name."),
+});
 
 // Define the output schema for the flow
 const FlowOutputSchema = z.object({
@@ -23,10 +30,10 @@ type FlowOutput = z.infer<typeof FlowOutputSchema>;
 /**
  * Main exported function that triggers the student validation flow.
  * This is called from the registration page.
- * @param input The student's data.
+ * @param input The student's data for API validation.
  * @returns The result of the flow execution.
  */
-export async function validateAndAssignStudent(input: Omit<StudentValidationInput, 'userId' | 'niveau' | 'filiere'>): Promise<FlowOutput> {
+export async function validateAndAssignStudent(input: z.infer<typeof ApiValidationSchema>): Promise<FlowOutput> {
   return studentValidationFlow(input);
 }
 
@@ -34,7 +41,7 @@ export async function validateAndAssignStudent(input: Omit<StudentValidationInpu
 const studentValidationFlow = ai.defineFlow(
   {
     name: 'studentValidationFlow',
-    inputSchema: StudentValidationInputSchema.omit({ userId: true, niveau: true, filiere: true }),
+    inputSchema: ApiValidationSchema,
     outputSchema: FlowOutputSchema,
   },
   async (input) => {
@@ -68,11 +75,12 @@ const studentValidationFlow = ai.defineFlow(
         };
       }
 
-      if (!validationResponse.ok) {
+      if (!validationResponse.ok || validationResult.isValid === false) {
         console.error(`[Flow] API validation failed with status ${validationResponse.status}:`, validationResult);
+        const errorMessage = validationResult.message || 'La validation des données avec le service externe a échoué.';
         return {
           status: 'error',
-          message: `Validation externe échouée : ${validationResult.message || 'Erreur API inconnue'}`,
+          message: `Validation externe échouée : ${errorMessage}`,
         };
       }
       
@@ -93,5 +101,3 @@ const studentValidationFlow = ai.defineFlow(
     }
   }
 );
-
-    
