@@ -25,8 +25,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { useAuth, useFirestore, errorEmitter } from '@/firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
@@ -34,6 +34,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { validateAndAssignStudent } from '@/ai/flows/validate-student-flow';
 import { StudentValidationInput } from '@/lib/placeholder-data';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const formSchema = z.object({
   firstName: z
@@ -103,6 +104,8 @@ export default function RegisterPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     let user;
+    let toastId: string | undefined;
+
     try {
       // 1. Create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
@@ -128,18 +131,27 @@ export default function RegisterPage() {
         photo: values.photo,
       };
       
-      if (!userProfile.photo) {
-        delete (userProfile as Partial<typeof userProfile>).photo;
-      }
-      if (!userProfile.telephone) {
-        delete (userProfile as Partial<typeof userProfile>).telephone;
-      }
+      if (!userProfile.photo) { delete (userProfile as Partial<typeof userProfile>).photo; }
+      if (!userProfile.telephone) { delete (userProfile as Partial<typeof userProfile>).telephone; }
 
       // 3. Save user profile to Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
-      await setDoc(userDocRef, userProfile);
+      await setDoc(userDocRef, userProfile).catch((error) => {
+         errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'create',
+            requestResourceData: userProfile,
+         }));
+         throw error;
+      });
 
-      // 4. Trigger the background validation flow (non-blocking)
+      // 4. Trigger the background validation flow and wait for it
+      toastId = toast({
+        title: 'Vérification des données...',
+        description: 'Nous vérifions vos informations auprès de l\'administration.',
+        duration: Infinity
+      }).id;
+
       const validationInput: StudentValidationInput = {
         userId: user.uid,
         matricule: values.matricule,
@@ -149,29 +161,35 @@ export default function RegisterPage() {
         filiere: values.filiere,
       };
       
-      validateAndAssignStudent(validationInput).catch(flowError => {
-        console.error("Validation Flow Error:", flowError);
-      });
+      const validationResult = await validateAndAssignStudent(validationInput);
+      
+      if (toastId) toast.dismiss(toastId);
 
-      // 5. Sign out user immediately after creation
-      await signOut(auth);
-
-      // 6. Notify user and redirect
-      toast({
-        title: 'Inscription réussie !',
-        description: "Votre compte a été créé et est maintenant en attente de validation par un administrateur.",
-        duration: 10000,
-      });
-
-      router.push('/login');
+      if (validationResult.status === 'success') {
+        toast({
+          title: 'Validation réussie !',
+          description: "Votre compte a été activé. Connexion en cours...",
+          variant: 'default',
+          duration: 5000,
+        });
+        // Sign in the now-active user to redirect them to the dashboard
+        await signInWithEmailAndPassword(auth, values.email, values.password);
+        router.push('/dashboard');
+      } else {
+        // If validation fails, notify user and sign them out.
+        toast({
+          title: 'Échec de la validation',
+          description: validationResult.message,
+          variant: 'destructive',
+          duration: 10000,
+        });
+        await auth.signOut();
+        router.push('/login?registered=true'); // go to login but prevent auto-redirect
+      }
 
     } catch (error: any) {
-      // If user was created in Auth but something failed after, sign them out.
-      if (user) {
-        await signOut(auth);
-      }
+      if (toastId) toast.dismiss(toastId);
       
-      // Handle known errors first
       if (error.code === 'auth/email-already-in-use') {
         toast({
             variant: 'destructive',
@@ -179,7 +197,6 @@ export default function RegisterPage() {
             description: 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.',
         });
       } else {
-        // Generic error for other auth issues or firestore permission errors
         toast({
             variant: 'destructive',
             title: 'Échec de l\'inscription',
@@ -192,8 +209,7 @@ export default function RegisterPage() {
   const handlePrenomBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value) {
-      const formattedValue =
-        value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+      const formattedValue = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
       form.setValue('firstName', formattedValue, { shouldValidate: true });
     }
   };

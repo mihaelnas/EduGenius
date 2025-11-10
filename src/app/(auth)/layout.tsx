@@ -8,6 +8,7 @@ import { useUser } from '@/firebase';
 import { redirect } from 'next/navigation';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams } from 'next/navigation';
 
 export default function AuthLayout({
   children,
@@ -16,18 +17,21 @@ export default function AuthLayout({
 }) {
   const { user, isUserLoading } = useUser();
   const bgImage = placeholderImages.find(p => p.id === 'auth-background');
+  const searchParams = useSearchParams();
+  const justRegistered = searchParams.get('registered');
 
   useEffect(() => {
-    // Only redirect if the user is fully loaded and actually logged in.
-    // The registration flow briefly logs the user in, but they are logged out
-    // before redirection, so this check will prevent premature redirection.
-    if (!isUserLoading && user) {
+    // Redirect if user is loaded, logged in, and didn't just come from the registration page.
+    // This prevents the immediate redirection to /dashboard for a newly created user
+    // who still needs to go through the validation flow on the client.
+    if (!isUserLoading && user && !justRegistered) {
       redirect('/dashboard');
     }
-  }, [user, isUserLoading]);
+  }, [user, isUserLoading, justRegistered]);
 
   // Show a loading skeleton while we're checking auth state or if the user is logged in
-  if (isUserLoading || user) {
+  // and we haven't determined if they just registered.
+  if (isUserLoading || (user && !justRegistered)) {
     return (
        <div className="relative flex min-h-screen flex-col items-center justify-center bg-background">
          <div className="mb-8">
@@ -38,7 +42,8 @@ export default function AuthLayout({
     )
   }
 
-  // If loading is finished and there's no user, show the auth pages (login/register)
+  // If loading is finished and there's no user (or they just registered and were logged out),
+  // show the auth pages (login/register).
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-background">
        {bgImage && (

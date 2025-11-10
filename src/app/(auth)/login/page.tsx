@@ -109,7 +109,7 @@ export default function LoginPage() {
          toast({
             variant: 'destructive',
             title: 'Compte en attente',
-            description: "Votre compte est en attente de validation par un administrateur.",
+            description: "Votre compte est en attente de validation par un administrateur. Vous serez notifié une fois activé.",
             duration: 7000
         });
         await signOut(auth);
