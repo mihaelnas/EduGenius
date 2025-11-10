@@ -22,10 +22,10 @@ type FlowOutput = z.infer<typeof FlowOutputSchema>;
 
 /**
  * Main exported function that triggers the student validation flow.
- * @param input The student's data for validation.
+ * @param input The student's data for validation, excluding userId.
  * @returns The result of the validation.
  */
-export async function validateAndAssignStudent(input: StudentValidationInput): Promise<FlowOutput> {
+export async function validateAndAssignStudent(input: Omit<StudentValidationInput, 'userId'>): Promise<FlowOutput> {
   return studentExternalValidationFlow(input);
 }
 
@@ -33,14 +33,14 @@ export async function validateAndAssignStudent(input: StudentValidationInput): P
 const studentExternalValidationFlow = ai.defineFlow(
   {
     name: 'studentExternalValidationFlow',
-    inputSchema: StudentValidationInputSchema,
+    inputSchema: StudentValidationInputSchema.omit({ userId: true }), // We don't need userId for external validation
     outputSchema: FlowOutputSchema,
   },
   async (input) => {
     console.log(`[Flow] Starting external validation for matricule: ${input.matricule}`);
     
     try {
-      // 1. Call the external validation API (VeriGenius)
+      // Call the external validation API (VeriGenius)
       const fetch = (await import('node-fetch')).default;
       
       const validationResponse = await fetch('https://veri-genius.vercel.app/api/validate-student', {
@@ -68,7 +68,7 @@ const studentExternalValidationFlow = ai.defineFlow(
           console.error(`[Flow] API validation returned isValid: false.`, validationResult);
           return {
             status: 'error',
-            message: validationResult.message || 'Les données de l\'étudiant n\'ont pas pu être validées.',
+            message: validationResult.message || 'Les données de l\'étudiant n\'ont pas pu être validées par l\'API.',
           };
       }
 
@@ -88,3 +88,5 @@ const studentExternalValidationFlow = ai.defineFlow(
     }
   }
 );
+
+    

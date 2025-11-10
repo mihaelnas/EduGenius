@@ -103,23 +103,50 @@ export default function RegisterPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    let user;
     let toastId: string | undefined;
+    let authUser;
 
     try {
-      // Step 1: Create Firebase Auth user
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      user = userCredential.user;
+      // Step 1: Trigger the validation flow FIRST
+      toastId = toast({
+        title: 'Vérification des données...',
+        description: 'Nous contactons l\'administration pour valider vos informations.',
+        duration: Infinity
+      }).id;
 
-      // Step 2: Create user profile object for Firestore
+      const validationInput: Omit<StudentValidationInput, 'userId'> = {
+        matricule: values.matricule,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        niveau: values.niveau,
+        filiere: values.filiere,
+      };
+      
+      const validationResult = await validateAndAssignStudent(validationInput);
+      
+      if (validationResult.status !== 'success') {
+        throw new Error(validationResult.message || 'La validation externe a échoué.');
+      }
+      
+      if (toastId) dismiss(toastId);
+      toast({ 
+        title: 'Validation externe réussie', 
+        description: 'Création de votre compte en cours...',
+      });
+
+      // Step 2: If validation is successful, create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      authUser = userCredential.user;
+
+      // Step 3: Create user profile object for Firestore
       const userProfile = {
-        id: user.uid,
+        id: authUser.uid,
         firstName: values.firstName,
         lastName: values.lastName,
         email: values.email,
         username: values.username,
         role: 'student' as const,
-        status: 'pending' as const,
+        status: 'pending' as const, // Always pending, admin must activate
         createdAt: new Date().toISOString(),
         matricule: values.matricule,
         dateDeNaissance: values.dateDeNaissance,
@@ -134,8 +161,8 @@ export default function RegisterPage() {
       if (!userProfile.photo) { delete (userProfile as Partial<typeof userProfile>).photo; }
       if (!userProfile.telephone) { delete (userProfile as Partial<typeof userProfile>).telephone; }
 
-      // Step 3: Save user profile to Firestore with 'pending' status
-      const userDocRef = doc(firestore, 'users', user.uid);
+      // Step 4: Save user profile to Firestore with 'pending' status
+      const userDocRef = doc(firestore, 'users', authUser.uid);
       try {
         await setDoc(userDocRef, userProfile);
       } catch (firestoreError) {
@@ -150,62 +177,31 @@ export default function RegisterPage() {
         throw new Error("Erreur de base de données : impossible de créer le profil utilisateur.");
       }
 
-
-      // Step 4: Trigger the background validation flow and wait for it
-      toastId = toast({
-        title: 'Vérification des données...',
-        description: 'Nous contactons l\'administration pour valider vos informations.',
-        duration: Infinity
-      }).id;
-
-      const validationInput: StudentValidationInput = {
-        userId: user.uid,
-        matricule: values.matricule,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        niveau: values.niveau,
-        filiere: values.filiere,
-      };
-      
-      const validationResult = await validateAndAssignStudent(validationInput);
-      if (toastId) dismiss(toastId);
-
-      if (validationResult.status === 'success') {
-        // Step 5: Automation successful
-        toast({ 
-          title: 'Validation réussie !', 
-          description: 'Votre compte a été validé et est en attente d\'activation par un administrateur.',
+      // Step 5: Success, log out and redirect
+      toast({ 
+          title: 'Inscription réussie !', 
+          description: 'Votre compte est en attente d\'activation par un administrateur.',
           duration: 8000 
-        });
-      } else {
-        // If API validation fails, notify user and delete the created auth user
-        throw new Error(validationResult.message || 'La validation externe a échoué.');
-      }
+      });
       
-      // In both cases (success or handled failure of validation), log out and redirect to login
       await signOut(auth);
       router.push('/login');
 
     } catch (error: any) {
       if (toastId) dismiss(toastId);
       
-      // Cleanup: if anything fails during the process, delete the auth user
-      if (user) {
-        await deleteUser(user).catch(deleteError => {
+      // Cleanup: if auth user was created but something failed after, delete the auth user
+      if (authUser) {
+        await deleteUser(authUser).catch(deleteError => {
             console.error("Failed to clean up auth user:", deleteError);
-            toast({
-                variant: 'destructive',
-                title: 'Erreur de nettoyage',
-                description: 'Impossible de supprimer l\'utilisateur temporaire. Veuillez contacter l\'assistance.',
-            });
         });
       }
 
       let errorMessage = 'Une erreur est survenue. Vérifiez les informations et réessayez.';
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.';
-      } else if (error.message && !error.message.includes("Erreur de base de données")) {
-        // Display the specific error message, unless it's our internal DB error.
+      } else if (error.message) {
+        // Display the specific error message from validation or other steps
         errorMessage = error.message;
       }
       
@@ -278,7 +274,7 @@ export default function RegisterPage() {
           </ScrollArea>
           <CardFooter className="flex flex-col gap-4 px-6 pb-6 pt-4">
             <Button className="w-full" type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Inscription en cours..." : "S'inscrire"}
+              {form.formState.isSubmitting ? "Vérification en cours..." : "S'inscrire"}
             </Button>
             <div className="text-center text-sm text-muted-foreground">
               Vous avez déjà un compte ?{' '}
@@ -292,3 +288,5 @@ export default function RegisterPage() {
     </Card>
   );
 }
+
+    
