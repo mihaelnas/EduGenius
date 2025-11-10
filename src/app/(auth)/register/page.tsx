@@ -33,7 +33,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { validateAndAssignStudent } from '@/ai/flows/validate-student-flow';
-import { StudentValidationInput } from '@/lib/placeholder-data';
+import { StudentValidationInput, StudentValidationInputSchema } from '@/lib/placeholder-data';
 
 const formSchema = z.object({
   firstName: z
@@ -136,6 +136,7 @@ export default function RegisterPage() {
 
       // 3. Save user profile to Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
+      // Use a non-blocking write with contextual error handling
       setDoc(userDocRef, userProfile).catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
           path: userDocRef.path,
@@ -143,7 +144,7 @@ export default function RegisterPage() {
           requestResourceData: userProfile,
         });
         errorEmitter.emit('permission-error', permissionError);
-        // Re-throw to be caught by the outer catch block
+        // Re-throw to be caught by the outer catch block and show a toast
         throw permissionError;
       });
 
@@ -184,11 +185,16 @@ export default function RegisterPage() {
             description: 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.',
         });
       } else if (error instanceof FirestorePermissionError) {
-          // This is our custom error, it's already been thrown by the listener
-          // so we don't need to show a toast here.
+          // This is our custom error, it has already been thrown by the listener
+          // We can still show a toast to inform the user something went wrong with saving their profile.
+           toast({
+            variant: 'destructive',
+            title: 'Erreur de sauvegarde du profil',
+            description: 'Impossible de créer votre profil utilisateur. Veuillez contacter l\'administration.',
+          });
           console.error("Firestore Permission Error:", error.message);
       } else {
-        // Generic error for other auth issues or Firestore permission errors re-thrown
+        // Generic error for other auth issues or re-thrown permission errors
         toast({
             variant: 'destructive',
             title: 'Échec de l\'inscription',
