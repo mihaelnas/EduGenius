@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, errorEmitter } from '@/firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
@@ -78,7 +78,7 @@ const formSchema = z.object({
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { toast, dismiss } = useToast();
   const auth = useAuth();
   const firestore = useFirestore();
   const [showPassword, setShowPassword] = React.useState(false);
@@ -163,7 +163,7 @@ export default function RegisterPage() {
       
       const validationResult = await validateAndAssignStudent(validationInput);
       
-      if (toastId) toast.dismiss(toastId);
+      if (toastId) dismiss(toastId);
 
       if (validationResult.status === 'success') {
         toast({
@@ -183,12 +183,12 @@ export default function RegisterPage() {
           variant: 'destructive',
           duration: 10000,
         });
-        await auth.signOut();
+        await signOut(auth);
         router.push('/login?registered=true'); // go to login but prevent auto-redirect
       }
 
     } catch (error: any) {
-      if (toastId) toast.dismiss(toastId);
+      if (toastId) dismiss(toastId);
       
       if (error.code === 'auth/email-already-in-use') {
         toast({
