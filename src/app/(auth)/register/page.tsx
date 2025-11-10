@@ -33,6 +33,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { validateAndAssignStudent } from '@/ai/flows/validate-student-flow';
+import { StudentValidationInput } from '@/lib/placeholder-data';
 
 const formSchema = z.object({
   firstName: z
@@ -150,14 +151,16 @@ export default function RegisterPage() {
       await sendEmailVerification(user);
 
       // 5. Trigger the background validation flow (non-blocking)
-      validateAndAssignStudent({
+      const validationInput: StudentValidationInput = {
         userId: user.uid,
         matricule: values.matricule,
         firstName: values.firstName,
         lastName: values.lastName,
         niveau: values.niveau,
         filiere: values.filiere,
-      }).catch(flowError => {
+      };
+
+      validateAndAssignStudent(validationInput).catch(flowError => {
         // Log the error for debugging, but don't bother the user with a toast.
         // The user status will remain 'pending' for manual admin review.
         console.error("Validation Flow Error:", flowError);
