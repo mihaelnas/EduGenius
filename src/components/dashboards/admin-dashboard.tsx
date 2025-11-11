@@ -103,15 +103,13 @@ export function AdminDashboard({ userName, users, classes, subjects }: AdminDash
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                       <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
-                            <ResponsiveContainer width="100%" height={250}>
-                                <BarChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
-                                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-                                    <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                       <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                            <BarChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
+                                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+                                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                            </BarChart>
                        </ChartContainer>
                     </CardContent>
                 </Card>
