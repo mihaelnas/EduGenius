@@ -35,29 +35,32 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
+    // Only admins (via server flow) can write. All admins can read/update/delete.
     match /pending_users/{pendingUserId} {
       allow read, update, delete: if isAdmin();
-      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow create: if false; // IMPORTANT: Prevent client-side creation
     }
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn(); // User can create their own profile upon registration
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
       allow delete: if isAdmin();
     }
     
+    // Admins (via server flow) can create. All signed-in users can read. Admins can update/delete.
     match /classes/{classId} {
       allow get, list: if isSignedIn();
-      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow create: if false; // IMPORTANT: Prevent client-side creation
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
+    // Admins (via server flow) can create. All signed-in users can read. Admins or assigned teachers can update/delete.
     match /subjects/{subjectId} {
       allow get, list: if isSignedIn();
-      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow create: if false; // IMPORTANT: Prevent client-side creation
       allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
       allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
     }
