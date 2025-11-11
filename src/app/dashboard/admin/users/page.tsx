@@ -55,7 +55,15 @@ export default function AdminUsersPage() {
   const pendingUsersCollectionRef = useMemoFirebase(() => collection(firestore, 'pending_users'), [firestore]);
   
   const handleUserAdded = (userProfile: Omit<AppUser, 'id'>) => {
-    addDoc(pendingUsersCollectionRef, userProfile).then(() => {
+    if (!currentUser) {
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté pour pré-inscrire un utilisateur.' });
+        return;
+    }
+    const finalUserProfile = {
+        ...userProfile,
+        creatorId: currentUser.uid,
+    }
+    addDoc(pendingUsersCollectionRef, finalUserProfile).then(() => {
         toast({
           title: 'Utilisateur pré-inscrit !',
           description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,

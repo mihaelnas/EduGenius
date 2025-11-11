@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { AssignTeacherDialog } from '@/components/admin/assign-teacher-dialog';
 import { ManageStudentsDialog } from '@/components/admin/manage-students-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -30,6 +30,7 @@ export default function AdminClassesPage() {
   const [selectedClass, setSelectedClass] = React.useState<Class | null>(null);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user: currentUser } = useUser();
 
   const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
@@ -41,11 +42,16 @@ export default function AdminClassesPage() {
   const allStudents = React.useMemo(() => (users || []).filter(u => u.role === 'student'), [users]);
 
   const handleAdd = async (newClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt'>) => {
+    if (!currentUser) {
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté pour créer une classe.' });
+        return;
+    }
     const newClassData = {
         ...newClass,
         teacherIds: [],
         studentIds: [],
         createdAt: new Date().toISOString(),
+        creatorId: currentUser.uid,
     };
     await addDoc(classesCollectionRef, newClassData);
     toast({

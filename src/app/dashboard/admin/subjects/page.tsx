@@ -15,7 +15,7 @@ import { EditSubjectDialog } from '@/components/admin/edit-subject-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { AssignSubjectTeacherDialog } from '@/components/admin/assign-subject-teacher-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -28,6 +28,7 @@ export default function AdminSubjectsPage() {
   const [selectedSubject, setSelectedSubject] = React.useState<Subject | null>(null);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user: currentUser } = useUser();
 
   const subjectsCollectionRef = useMemoFirebase(() => collection(firestore, 'subjects'), [firestore]);
   const { data: subjects, isLoading: isLoadingSubjects } = useCollection<Subject>(subjectsCollectionRef);
@@ -41,11 +42,16 @@ export default function AdminSubjectsPage() {
   const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
 
   const handleAdd = async (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt'>) => {
+      if (!currentUser) {
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté pour créer une matière.' });
+        return;
+      }
       const newSubjectData = {
           ...newSubject,
           teacherId: '', // Initialize with no teacher
           classCount: 0, // This will be calculated dynamically
           createdAt: new Date().toISOString(),
+          creatorId: currentUser.uid,
       };
       await addDoc(subjectsCollectionRef, newSubjectData);
       toast({
