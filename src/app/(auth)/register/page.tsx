@@ -73,19 +73,14 @@ export default function RegisterPage() {
 
     // Special case for admin registration
     if (values.email === 'rajo.harisoa7@gmail.com') {
-        let currentToast: { id: string } | undefined;
         try {
-            currentToast = toast({ title: 'Début du processus Admin...', description: 'Email reconnu.', duration: 9000 });
-            
             // Use a temporary auth instance to avoid automatic sign-in conflict
             const tempApp = initializeApp(firebaseConfig, `temp-auth-admin-${Date.now()}`);
             const tempAuth = getAuth(tempApp);
             
-            toast({ title: 'Étape 1/4', description: 'Création de l\'utilisateur dans le système d\'authentification...', duration: 9000 });
             const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, values.password);
             const newAuthUser = userCredential.user;
 
-            toast({ title: 'Étape 2/4', description: 'Authentification réussie. Préparation des données Firestore...', duration: 9000 });
             const newUserProfile: Admin = {
                 id: newAuthUser.uid,
                 firstName: values.firstName,
@@ -97,11 +92,10 @@ export default function RegisterPage() {
                 createdAt: new Date().toISOString(),
             };
 
-            toast({ title: 'Étape 3/4', description: 'Enregistrement du profil dans la base de données...', duration: 9000 });
             // Set the user document in Firestore with the admin role
             await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserProfile);
             
-            toast({ title: 'Étape 4/4 : Succès !', description: 'Compte administrateur créé. Vous pouvez maintenant vous connecter.', duration: 9000 });
+            toast({ title: 'Succès !', description: 'Compte administrateur créé. Vous pouvez maintenant vous connecter.', duration: 9000 });
             router.push('/login');
             return; // End execution here for the admin case
 
