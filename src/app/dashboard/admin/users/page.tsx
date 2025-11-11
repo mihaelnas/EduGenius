@@ -66,9 +66,10 @@ export default function AdminUsersPage() {
       if (userProfile.role === 'student') {
         const student = userProfile as Student;
         const className = `${student.niveau}-${student.filiere}-G${student.groupe}`.toUpperCase();
+        const anneeScolaire = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
         
         const classesRef = collection(firestore, 'classes');
-        const q = query(classesRef, where('name', '==', className), where("anneeScolaire", "==", "2024-2025"));
+        const q = query(classesRef, where('name', '==', className), where("anneeScolaire", "==", anneeScolaire));
         const classSnapshot = await getDocs(q);
 
         if (!classSnapshot.empty) {
@@ -81,7 +82,7 @@ export default function AdminUsersPage() {
             toast({
               variant: 'destructive',
               title: `Classe "${className}" introuvable`,
-              description: "L'étudiant a été pré-inscrit, mais n'a pas pu être assigné à une classe. Vérifiez que la classe existe.",
+              description: "L'étudiant a été pré-inscrit, mais n'a pas pu être assigné à une classe. Vérifiez que la classe existe pour l'année en cours.",
               duration: 8000,
             });
         }

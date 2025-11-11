@@ -23,6 +23,7 @@ export type Student = User & {
   lieuDeNaissance: string;
   niveau: 'L1' | 'L2' | 'L3' | 'M1' | 'M2';
   filiere: 'IG' | 'GB' | 'ASR' | 'GID' | 'OCC';
+  groupe: number;
 };
 
 export type Teacher = User & {
@@ -90,15 +91,6 @@ export type ScheduleEvent = {
   status: 'planifié' | 'reporté' | 'annulé' | 'effectué';
   conferenceLink?: string;
 };
-
-
-// Define the input schema for our flow
-export const StudentValidationInputSchema = z.object({
-  studentId: z.string().describe("The student's registration ID."),
-  firstName: z.string().describe("The student's first name."),
-  lastName: z.string().describe("The student's last name."),
-});
-export type StudentValidationInput = z.infer<typeof StudentValidationInputSchema>;
 
 
 // Combine nom and prenom for display name
