@@ -90,7 +90,6 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // 1. Fetch user profile from Firestore FIRST
       const userDocRef = doc(firestore, 'users', user.uid);
       
       try {
@@ -100,27 +99,25 @@ export default function LoginPage() {
            toast({
               variant: 'destructive',
               title: 'Échec de la connexion',
-              description: "Profil utilisateur non trouvé. Votre compte a peut-être été supprimé ou une erreur est survenue.",
+              description: "Profil utilisateur non trouvé. Votre compte a peut-être été supprimé.",
           });
-          await signOut(auth);
+          await signOut(auth); // Important: log out the user
           return;
         }
         
         const userProfile = userDoc.data() as AppUser;
 
-        // 2. Check user status in Firestore
         if (userProfile.status !== 'active') {
            toast({
               variant: 'destructive',
               title: 'Compte non activé',
-              description: "Votre compte est en attente de validation par un administrateur. Vous ne pouvez pas vous connecter pour le moment.",
+              description: "Votre compte est en attente ou inactif. Veuillez contacter un administrateur.",
               duration: 7000
           });
           await signOut(auth); // Log out the user because their account is not ready
           return;
         }
         
-        // If everything is good, proceed
         toast({
           title: 'Connexion réussie',
           description: 'Redirection vers votre tableau de bord...',
@@ -128,13 +125,11 @@ export default function LoginPage() {
         router.push('/dashboard');
 
       } catch (e) {
-          // This is where we catch the permission error when reading the user's profile
           const permissionError = new FirestorePermissionError({
             path: userDocRef.path,
             operation: 'get',
           });
           errorEmitter.emit('permission-error', permissionError);
-          // We throw the error to halt execution and let the global error handler display it.
           throw permissionError;
       }
 
@@ -146,7 +141,6 @@ export default function LoginPage() {
        } else if (error.code === 'auth/too-many-requests') {
           description = 'Accès temporairement désactivé en raison de trop nombreuses tentatives. Réessayez plus tard.';
        } else if (error instanceof FirestorePermissionError) {
-          // Do not show a toast for permission errors, they are handled globally.
           return;
        }
 

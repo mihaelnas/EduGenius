@@ -35,37 +35,24 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
-    // Collection pour les utilisateurs en attente
     match /pending_users/{pendingUserId} {
-      allow read: if true; // Tout le monde (y compris le script d'inscription non authentifié) peut lire pour valider.
-      allow create: if isSignedIn(); // Seuls les admins (qui sont connectés) peuvent pré-inscrire des utilisateurs.
-      allow delete: if true; // Le script d'inscription (qui sera authentifié) doit pouvoir supprimer.
-      allow update: if false; // Ne doit pas être mis à jour.
+      allow read: if true; 
+      allow create: if isAdmin();
+      allow delete: if true; 
+      allow update: if false; 
     }
 
     match /users/{userId} {
-      // Les utilisateurs peuvent lire leur propre profil. Les admins peuvent lire n'importe quel profil.
       allow get: if isOwner(userId) || isAdmin();
-      
-      // Seuls les admins peuvent lister les utilisateurs.
       allow list: if isAdmin();
-
-      // Autoriser la création d'utilisateur si l'ID utilisateur de la requête correspond à l'ID du document créé.
-      // Cela permet à un nouvel utilisateur de créer son propre profil.
       allow create: if isOwner(userId);
-
-      // Le propriétaire peut mettre à jour son profil, sauf son rôle.
-      // Un admin peut mettre à jour n'importe quel profil, y compris le rôle.
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
-      
-      // Les admins peuvent supprimer des utilisateurs
       allow delete: if isAdmin();
     }
     
     match /classes/{classId} {
       allow get, list: if isSignedIn();
       allow create: if isAdmin();
-      // Autoriser les mises à jour de classe (comme l'ajout d'un étudiant) par les admins
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
