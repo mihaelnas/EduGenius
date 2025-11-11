@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview User-related actions performed securely on the server.
@@ -59,6 +60,13 @@ export const activateAccount = ai.defineFlow(
       const inputFirstName = input.firstName.trim().toLowerCase();
       const inputLastName = input.lastName.trim().toLowerCase();
 
+      console.log('--- Début de la recherche ---');
+      console.log('Données du formulaire (normalisées):', {
+        matricule: inputMatricule,
+        firstName: inputFirstName,
+        lastName: inputLastName,
+      });
+
       // Find the matching document by iterating through the results
       const matchingDoc = querySnapshot.docs.find(doc => {
           const data = doc.data();
@@ -67,15 +75,26 @@ export const activateAccount = ai.defineFlow(
           const pendingFirstName = data.firstName?.trim().toLowerCase();
           const pendingLastName = data.lastName?.trim().toLowerCase();
 
-          return pendingMatricule === inputMatricule &&
-                 pendingFirstName === inputFirstName &&
-                 pendingLastName === inputLastName;
+          const matriculeMatch = pendingMatricule === inputMatricule;
+          const firstNameMatch = pendingFirstName === inputFirstName;
+          const lastNameMatch = pendingLastName === inputLastName;
+
+          console.log(`\nComparaison avec le document pending_user ID: ${doc.id}`);
+          console.log('  DB Data ->', { matricule: pendingMatricule, firstName: pendingFirstName, lastName: pendingLastName });
+          console.log('  Form Data ->', { matricule: inputMatricule, firstName: inputFirstName, lastName: inputLastName });
+          console.log('  Résultats de la comparaison:', { matriculeMatch, firstNameMatch, lastNameMatch });
+
+          return matriculeMatch && firstNameMatch && lastNameMatch;
       });
+      
+      console.log('--- Fin de la recherche ---');
 
       if (!matchingDoc) {
+          console.log('Aucun document correspondant trouvé après avoir parcouru tous les utilisateurs en attente.');
           throw new Error("Les informations saisies (matricule, nom, prénom) ne correspondent à aucun compte en attente. Veuillez vérifier et réessayer.");
       }
       
+      console.log(`Document correspondant trouvé ! ID: ${matchingDoc.id}`);
       const pendingUserData = matchingDoc.data();
 
       const batch = db.batch();
