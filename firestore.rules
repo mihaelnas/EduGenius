@@ -7,12 +7,13 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // NEW: Reliable way to check for admin role using custom claims
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     function isTeacherForCourse() {
@@ -37,13 +38,17 @@ service cloud.firestore {
 
     match /pending_users/{pendingUserId} {
       allow read: if true; 
-      allow create, update, delete: if isAdmin();
+      // Allow any authenticated user (admin via UI) to create a pending user.
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId);
+      // Allow a user to create their own profile document
+      allow create: if request.auth.uid == userId;
+      // Prevent users from changing their own role, but allow admins to change any role.
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
       allow delete: if isAdmin();
     }
