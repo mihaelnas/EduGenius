@@ -34,6 +34,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
 import { nanoid } from 'nanoid';
+import { AppUser } from '@/lib/placeholder-data';
 
 // Removed password fields as we are now pre-registering accounts without auth.
 const baseSchema = z.object({
@@ -79,7 +80,7 @@ export type AddUserFormValues = z.infer<typeof formSchema>;
 type AddUserDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onUserAdded: (newUser: any) => Promise<void>;
+    onUserAdded: (newUser: AppUser) => void;
 }
 
 const initialValues: Partial<AddUserFormValues> = {
@@ -125,9 +126,12 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
       userProfile.specialite = userProfile.specialite.toUpperCase();
     }
     
-    await onUserAdded(userProfile);
-    setIsOpen(false);
-    form.reset(initialValues as any);
+    // This is no longer async, so we don't need await
+    onUserAdded(userProfile as AppUser);
+    
+    // We expect the parent to handle closing and resetting.
+    // setIsOpen(false); 
+    // form.reset(initialValues as any);
   }
   
   const handleOpenChange = (open: boolean) => {

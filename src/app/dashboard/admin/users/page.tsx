@@ -54,26 +54,23 @@ export default function AdminUsersPage() {
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
 
 
-  const handleAdd = async (userProfile: AppUser) => {
-    try {
-      const userDocRef = doc(firestore, 'pending_users', userProfile.id);
-      await setDoc(userDocRef, userProfile);
-      
-      toast({
-        title: 'Opération réussie',
-        description: `L'utilisateur ${getDisplayName(userProfile)} a été pré-inscrit. Il pourra activer son compte en s'inscrivant.`,
-      });
-      setIsAddDialogOpen(false);
-
-    } catch (error: any) {
-      console.error("Erreur de pré-inscription:", error);
-      toast({
-          variant: 'destructive',
-          title: 'Échec de la pré-inscription',
-          description: error.message || "Une erreur inconnue est survenue.",
-      });
-      throw error;
-    }
+  const handleAdd = (userProfile: AppUser) => {
+    const userDocRef = doc(firestore, 'pending_users', userProfile.id);
+    
+    setDoc(userDocRef, userProfile).then(() => {
+        toast({
+          title: 'Opération réussie',
+          description: `L'utilisateur ${getDisplayName(userProfile)} a été pré-inscrit. Il pourra activer son compte en s'inscrivant.`,
+        });
+        setIsAddDialogOpen(false);
+    }).catch((error: any) => {
+        console.error("Erreur de pré-inscription:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Échec de la pré-inscription',
+            description: error.message || "Une erreur inconnue est survenue.",
+        });
+    });
   };
 
 
