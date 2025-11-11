@@ -42,6 +42,7 @@ export default function StudentCoursesPage() {
         return;
       }
       
+      // La clause 'in' ne peut pas être utilisée avec un tableau vide, d'où la vérification ci-dessus.
       const subjectsQuery = query(collection(firestore, 'subjects'), where('teacherId', 'in', teacherIds));
       const subjectsSnapshot = await getDocs(subjectsQuery);
       const subjectsData = subjectsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Subject));
