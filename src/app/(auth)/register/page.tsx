@@ -77,6 +77,7 @@ export default function RegisterPage() {
     if (values.email === 'rajo.harisoa7@gmail.com') {
         try {
             toastId = toast({ title: 'Création du compte admin...' }).id;
+            // Use a temporary auth instance to avoid automatic sign-in conflict
             const tempApp = initializeApp(firebaseConfig, `temp-auth-admin-${Date.now()}`);
             const tempAuth = getAuth(tempApp);
             
@@ -94,6 +95,7 @@ export default function RegisterPage() {
                 createdAt: new Date().toISOString(),
             };
 
+            // Set the user document in Firestore with the admin role
             await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserProfile);
             
             if (toastId) dismiss(toastId);
@@ -103,11 +105,11 @@ export default function RegisterPage() {
                 duration: 8000 
             });
             router.push('/login');
-            return; // End execution here
+            return; // End execution here for the admin case
 
         } catch (error: any) {
             if (toastId) dismiss(toastId);
-            let errorMessage = 'Une erreur est survenue.';
+            let errorMessage = 'Une erreur est survenue lors de la création du compte admin.';
             if (error.code === 'auth/email-already-in-use') {
               errorMessage = 'Cette adresse e-mail est déjà utilisée pour un compte admin actif. Veuillez vous connecter.';
             }
@@ -290,3 +292,5 @@ export default function RegisterPage() {
     </Card>
   );
 }
+
+    
