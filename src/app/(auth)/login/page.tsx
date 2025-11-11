@@ -33,6 +33,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { AppUser } from '@/lib/placeholder-data';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const formSchema = z.object({
@@ -90,38 +92,52 @@ export default function LoginPage() {
 
       // 1. Fetch user profile from Firestore FIRST
       const userDocRef = doc(firestore, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-         toast({
-            variant: 'destructive',
-            title: 'Échec de la connexion',
-            description: "Profil utilisateur non trouvé. Votre compte a peut-être été supprimé ou une erreur est survenue.",
-        });
-        await signOut(auth);
-        return;
-      }
       
-      const userProfile = userDoc.data() as AppUser;
+      try {
+        const userDoc = await getDoc(userDocRef);
 
-      // 2. Check user status in Firestore
-      if (userProfile.status !== 'active') {
-         toast({
-            variant: 'destructive',
-            title: 'Compte non activé',
-            description: "Votre compte est en attente de validation par un administrateur. Vous ne pouvez pas vous connecter pour le moment.",
-            duration: 7000
+        if (!userDoc.exists()) {
+           toast({
+              variant: 'destructive',
+              title: 'Échec de la connexion',
+              description: "Profil utilisateur non trouvé. Votre compte a peut-être été supprimé ou une erreur est survenue.",
+          });
+          await signOut(auth);
+          return;
+        }
+        
+        const userProfile = userDoc.data() as AppUser;
+
+        // 2. Check user status in Firestore
+        if (userProfile.status !== 'active') {
+           toast({
+              variant: 'destructive',
+              title: 'Compte non activé',
+              description: "Votre compte est en attente de validation par un administrateur. Vous ne pouvez pas vous connecter pour le moment.",
+              duration: 7000
+          });
+          await signOut(auth); // Log out the user because their account is not ready
+          return;
+        }
+        
+        // If everything is good, proceed
+        toast({
+          title: 'Connexion réussie',
+          description: 'Redirection vers votre tableau de bord...',
         });
-        await signOut(auth); // Log out the user because their account is not ready
-        return;
+        router.push('/dashboard');
+
+      } catch (e) {
+          // This is where we catch the permission error when reading the user's profile
+          const permissionError = new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'get',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          // We throw the error to halt execution and let the global error handler display it.
+          throw permissionError;
       }
-      
-      // If everything is good, proceed
-      toast({
-        title: 'Connexion réussie',
-        description: 'Redirection vers votre tableau de bord...',
-      });
-      router.push('/dashboard');
+
 
     } catch (error: any) {
        let description = 'Identifiants incorrects. Veuillez réessayer.';
@@ -129,7 +145,11 @@ export default function LoginPage() {
             description = 'Email ou mot de passe invalide. Veuillez vérifier vos informations.';
        } else if (error.code === 'auth/too-many-requests') {
           description = 'Accès temporairement désactivé en raison de trop nombreuses tentatives. Réessayez plus tard.';
+       } else if (error instanceof FirestorePermissionError) {
+          // Do not show a toast for permission errors, they are handled globally.
+          return;
        }
+
       toast({
         variant: 'destructive',
         title: 'Échec de la connexion',
