@@ -12,8 +12,6 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      // Un utilisateur est admin si son document utilisateur a le rôle 'admin'.
-      // La permission de lire ce document est gérée dans la règle `match /users/{userId}`.
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
@@ -39,11 +37,10 @@ service cloud.firestore {
 
     // Collection pour les utilisateurs en attente
     match /pending_users/{pendingUserId} {
-      allow get: if true; // Tout le monde peut vérifier un utilisateur en attente spécifique
-      allow list: if isSignedIn(); // Seuls les utilisateurs connectés (donc les admins) peuvent lister les utilisateurs en attente
-      allow create: if isAdmin(); // Seuls les admins peuvent pré-inscrire des utilisateurs
-      allow delete: if isSignedIn(); // Le processus d'inscription supprimera ceci
-      allow update: if false; // Ne doit pas être mis à jour
+      allow read: if true; // Tout le monde (y compris le script d'inscription non authentifié) peut lire pour valider.
+      allow create: if isAdmin(); // Seuls les admins peuvent pré-inscrire des utilisateurs.
+      allow delete: if true; // Le script d'inscription (qui sera authentifié) doit pouvoir supprimer.
+      allow update: if false; // Ne doit pas être mis à jour.
     }
 
     match /users/{userId} {

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getDisplayName, AppUser, Class, Student } from '@/lib/placeholder-data';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Search, ShieldAlert, KeyRound, Clock, CheckCircle } from 'lucide-react';
+import { MoreHorizontal, Search, ShieldAlert, KeyRound, CheckCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AddUserDialog, AddUserFormValues } from '@/components/admin/add-user-dialog';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
@@ -30,9 +30,9 @@ const roleNames: Record<AppUser['role'], string> = {
   student: 'Étudiant',
 };
 
-const statusMap: Record<Exclude<AppUser['status'], 'pending'>, { text: string, className: string, icon?: React.ReactNode }> = {
-    active: { text: 'Actif', className: 'bg-green-600' },
-    inactive: { text: 'Inactif (en attente)', className: 'bg-yellow-500', icon: <Clock className="mr-1 h-3 w-3" /> },
+const statusMap: Record<'active' | 'inactive', { text: string, className: string, icon?: React.ReactNode }> = {
+    active: { text: 'Actif', className: 'bg-green-600', icon: <CheckCircle className="mr-1 h-3 w-3" /> },
+    inactive: { text: 'Inactif (pré-inscrit)', className: 'bg-yellow-500' },
 };
 
 
@@ -50,9 +50,6 @@ export default function AdminUsersPage() {
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: users, isLoading } = useCollection<AppUser>(usersCollectionRef);
 
-  const pendingUsersCollectionRef = useMemoFirebase(() => collection(firestore, 'pending_users'), [firestore]);
-  const { data: pendingUsers, isLoading: isLoadingPending } = useCollection<AppUser>(pendingUsersCollectionRef);
-
   const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
 
@@ -67,29 +64,10 @@ export default function AdminUsersPage() {
 
       let successMessage = `Utilisateur ${getDisplayName(userProfile)} pré-inscrit.`;
 
-      // For students, try to assign them to a class
+      // For students, the assignment to class will happen upon account activation
       if (userProfile.role === 'student') {
         const student = userProfile as Student;
-        const className = `${student.niveau}-${student.filiere}-G${student.groupe}`.toUpperCase();
-        const anneeScolaire = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
-        
-        const classesRef = collection(firestore, 'classes');
-        const q = query(classesRef, where('name', '==', className), where("anneeScolaire", "==", anneeScolaire));
-        const classSnapshot = await getDocs(q);
-
-        if (!classSnapshot.empty) {
-          const classDoc = classSnapshot.docs[0];
-          // We can't update a class with a pending user's ID yet. 
-          // This must be done upon activation.
-          successMessage = `L'étudiant ${getDisplayName(userProfile)} a été pré-inscrit. Il sera assigné à la classe ${className} après activation.`;
-        } else {
-            toast({
-              variant: 'destructive',
-              title: `Classe "${className}" introuvable`,
-              description: "L'étudiant a été pré-inscrit, mais sa classe n'a pas été trouvée. L'assignation devra être manuelle après activation.",
-              duration: 8000,
-            });
-        }
+        successMessage = `L'étudiant ${getDisplayName(userProfile)} a été pré-inscrit. Il sera assigné à sa classe après activation de son compte.`;
       }
       
       await batch.commit();
@@ -146,59 +124,47 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
     
     const userId = selectedUser.id;
-    const isPending = selectedUser.status === 'inactive';
 
     try {
         const batch = writeBatch(firestore);
         
-        // Determine which collection the user is in
-        const userDocRef = isPending 
-            ? doc(firestore, 'pending_users', userId)
-            : doc(firestore, 'users', userId);
+        const userDocRef = doc(firestore, 'users', userId);
 
-        if (!isPending) {
-             if (selectedUser.role === 'student') {
-                const classesRef = collection(firestore, 'classes');
-                const q = query(classesRef, where('studentIds', 'array-contains', userId));
-                const snapshot = await getDocs(q);
-                snapshot.forEach(doc => {
-                    const data = doc.data() as Class;
-                    batch.update(doc.ref, { studentIds: data.studentIds.filter(id => id !== userId) });
-                });
-            }
-            
-            if (selectedUser.role === 'teacher') {
-                // Remove teacher from classes, subjects, courses, and schedule
-                const classesRef = collection(firestore, 'classes');
-                const qClasses = query(classesRef, where('teacherIds', 'array-contains', userId));
-                const snapshotClasses = await getDocs(qClasses);
-                snapshotClasses.forEach(doc => {
-                    const data = doc.data() as Class;
-                    batch.update(doc.ref, { teacherIds: data.teacherIds.filter(id => id !== userId) });
-                });
-
-                const subjectsRef = collection(firestore, 'subjects');
-                const qSubjects = query(subjectsRef, where('teacherId', '==', userId));
-                const snapshotSubjects = await getDocs(qSubjects);
-                snapshotSubjects.forEach(doc => batch.update(doc.ref, { teacherId: '' }));
-
-                const coursesRef = collection(firestore, 'courses');
-                const qCourses = query(coursesRef, where('teacherId', '==', userId));
-                const snapshotCourses = await getDocs(qCourses);
-                snapshotCourses.forEach(doc => batch.delete(doc.ref));
-
-                const scheduleRef = collection(firestore, 'schedule');
-                const qSchedule = query(scheduleRef, where('teacherId', '==', userId));
-                const snapshotSchedule = await getDocs(qSchedule);
-                snapshotSchedule.forEach(doc => batch.delete(doc.ref));
-            }
-
-            if (selectedUser.role === 'admin') {
-                const adminRoleRef = doc(firestore, 'roles_admin', userId);
-                batch.delete(adminRoleRef);
-            }
+        if (selectedUser.role === 'student') {
+            const classesRef = collection(firestore, 'classes');
+            const q = query(classesRef, where('studentIds', 'array-contains', userId));
+            const snapshot = await getDocs(q);
+            snapshot.forEach(doc => {
+                const data = doc.data() as Class;
+                batch.update(doc.ref, { studentIds: data.studentIds.filter(id => id !== userId) });
+            });
         }
-       
+        
+        if (selectedUser.role === 'teacher') {
+            const classesRef = collection(firestore, 'classes');
+            const qClasses = query(classesRef, where('teacherIds', 'array-contains', userId));
+            const snapshotClasses = await getDocs(qClasses);
+            snapshotClasses.forEach(doc => {
+                const data = doc.data() as Class;
+                batch.update(doc.ref, { teacherIds: data.teacherIds.filter(id => id !== userId) });
+            });
+
+            const subjectsRef = collection(firestore, 'subjects');
+            const qSubjects = query(subjectsRef, where('teacherId', '==', userId));
+            const snapshotSubjects = await getDocs(qSubjects);
+            snapshotSubjects.forEach(doc => batch.update(doc.ref, { teacherId: '' }));
+
+            const coursesRef = collection(firestore, 'courses');
+            const qCourses = query(coursesRef, where('teacherId', '==', userId));
+            const snapshotCourses = await getDocs(qCourses);
+            snapshotCourses.forEach(doc => batch.delete(doc.ref));
+
+            const scheduleRef = collection(firestore, 'schedule');
+            const qSchedule = query(scheduleRef, where('teacherId', '==', userId));
+            const snapshotSchedule = await getDocs(qSchedule);
+            snapshotSchedule.forEach(doc => batch.delete(doc.ref));
+        }
+
         batch.delete(userDocRef);
         await batch.commit();
 
@@ -221,19 +187,13 @@ export default function AdminUsersPage() {
     }
   };
   
-  const allSystemUsers = React.useMemo(() => {
-    const active = users || [];
-    const pending = (pendingUsers || []).map(u => ({...u, status: 'inactive' as const}));
-    return [...active, ...pending];
-  }, [users, pendingUsers]);
+  const filteredUsers = React.useMemo(() => (users || []).filter(user =>
+    user.status !== 'pending' &&
+    (getDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())))
+  ), [users, searchTerm]);
 
-
-  const filteredUsers = React.useMemo(() => (allSystemUsers).filter(user =>
-    getDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()))
-  ), [allSystemUsers, searchTerm]);
-
-  const isLoadingData = isLoading || isLoadingClasses || isLoadingPending;
+  const isLoadingData = isLoading || isLoadingClasses;
 
   return (
     <>
@@ -296,8 +256,8 @@ export default function AdminUsersPage() {
                   </TableRow>
                 ))
               ) : (
-                filteredUsers.filter(u => u.status !== 'pending').map((user) => {
-                  const statusInfo = statusMap[user.status as Exclude<AppUser['status'], 'pending'>];
+                filteredUsers.map((user) => {
+                  const statusInfo = statusMap[user.status as 'active' | 'inactive'];
                   return (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
@@ -315,9 +275,9 @@ export default function AdminUsersPage() {
                     <TableCell>{user.email}</TableCell>
                     <TableCell className="capitalize">{roleNames[user.role]}</TableCell>
                     <TableCell>
-                       <Badge variant={'outline'} className={statusInfo.className}>
-                          {statusInfo.icon}
-                          {statusInfo.text}
+                       <Badge variant={'outline'} className={statusInfo?.className}>
+                          {statusInfo?.icon}
+                          {statusInfo?.text}
                         </Badge>
                     </TableCell>
                     <TableCell>{format(new Date(user.createdAt), 'd MMMM yyyy', { locale: fr })}</TableCell>
@@ -331,8 +291,8 @@ export default function AdminUsersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          {user.status === 'active' && <DropdownMenuItem onClick={() => handleEdit(user)}>Modifier</DropdownMenuItem>}
-                          {user.status === 'active' && <ViewDetailsButton userId={user.id} />}
+                          <DropdownMenuItem onClick={() => handleEdit(user)}>Modifier</DropdownMenuItem>
+                          <ViewDetailsButton userId={user.id} />
                           <DropdownMenuItem 
                             className="text-destructive" 
                             onClick={() => handleDelete(user)}
