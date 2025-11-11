@@ -17,9 +17,9 @@ import { AssignTeacherDialog } from '@/components/admin/assign-teacher-dialog';
 import { ManageStudentsDialog } from '@/components/admin/manage-students-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { secureCreateDocument } from '@/ai/flows/admin-actions';
+import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/ai/flows/admin-actions';
 
 export default function AdminClassesPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -42,7 +42,7 @@ export default function AdminClassesPage() {
   const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
   const allStudents = React.useMemo(() => (users || []).filter(u => u.role === 'student'), [users]);
 
-  const handleAdd = async (newClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt'>) => {
+  const handleAdd = async (newClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt' | 'creatorId'>) => {
     if (!currentUser) {
         toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté pour créer une classe.' });
         return;
@@ -78,18 +78,37 @@ export default function AdminClassesPage() {
   };
 
   const handleUpdate = async (updatedClass: Class) => {
-    const classDocRef = doc(firestore, 'classes', updatedClass.id);
+     if (!currentUser) return;
     const { id, ...classData } = updatedClass;
-    await updateDoc(classDocRef, classData);
-    toast({
-      title: 'Classe modifiée',
-      description: `La classe ${updatedClass.name} a été mise à jour.`,
+    
+    const result = await secureUpdateDocument({
+        collection: 'classes',
+        docId: id,
+        data: classData,
+        userId: currentUser.uid
     });
+
+    if (result.success) {
+        toast({
+          title: 'Classe modifiée',
+          description: `La classe ${updatedClass.name} a été mise à jour.`,
+        });
+    } else {
+        toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
+    }
   };
   
   const handleUpdatePartial = async (classId: string, data: Partial<Omit<Class, 'id'>>) => {
-     const classDocRef = doc(firestore, 'classes', classId);
-     await updateDoc(classDocRef, data);
+     if (!currentUser) return;
+     const result = await secureUpdateDocument({
+        collection: 'classes',
+        docId: classId,
+        data: data,
+        userId: currentUser.uid
+     });
+     if (!result.success) {
+        toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
+     }
   };
 
   const handleEdit = (c: Class) => {
@@ -113,28 +132,33 @@ export default function AdminClassesPage() {
   };
 
   const confirmDelete = async () => {
-    if (selectedClass) {
+    if (selectedClass && currentUser) {
+        // We still need to batch delete related documents, but the primary deletion is secured.
         const batch = writeBatch(firestore);
 
-        // 1. Find and delete related schedule events
         const scheduleRef = collection(firestore, 'schedule');
         const scheduleQuery = query(scheduleRef, where('class', '==', selectedClass.name));
         const scheduleSnapshot = await getDocs(scheduleQuery);
         scheduleSnapshot.forEach(doc => {
             batch.delete(doc.ref);
         });
-
-        // 2. Delete the class itself
-        const classDocRef = doc(firestore, 'classes', selectedClass.id);
-        batch.delete(classDocRef);
-        
         await batch.commit();
 
-        toast({
-            variant: 'destructive',
-            title: 'Classe et données associées supprimées',
-            description: `La classe "${selectedClass.name}" ainsi que ses événements d'emploi du temps ont été supprimés.`,
+        const result = await secureDeleteDocument({
+            collection: 'classes',
+            docId: selectedClass.id,
+            userId: currentUser.uid
         });
+
+        if (result.success) {
+            toast({
+                variant: 'destructive',
+                title: 'Classe supprimée',
+                description: `La classe "${selectedClass.name}" et ses événements ont été supprimés.`,
+            });
+        } else {
+            toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
+        }
 
         setIsDeleteDialogOpen(false);
         setSelectedClass(null);
@@ -302,5 +326,3 @@ export default function AdminClassesPage() {
     </>
   );
 }
-
-    

@@ -3,22 +3,14 @@
  * @fileOverview Administrative actions performed securely on the server.
  *
  * - secureCreateDocument - A function to securely create documents in Firestore.
- * - SecureCreateDocumentInput - The input type for the secureCreateDocument function.
+ * - secureUpdateDocument - A function to securely update documents in Firestore.
+ * - secureDeleteDocument - A function to securely delete documents in Firestore.
  */
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
-import { User, Class, Subject } from '@/lib/placeholder-data';
 import { firebaseConfig } from '@/firebase/config';
-
-// Define schemas for input validation
-const SecureCreateDocumentInputSchema = z.object({
-  collection: z.enum(['pending_users', 'classes', 'subjects']),
-  data: z.any(),
-  userId: z.string(),
-});
-export type SecureCreateDocumentInput = z.infer<typeof SecureCreateDocumentInputSchema>;
 
 // Initialize Firebase Admin SDK
 let adminApp: App;
@@ -32,11 +24,23 @@ if (!getApps().length) {
 const db = getFirestore(adminApp);
 
 
-/**
- * A server-side flow to create a document after verifying admin privileges.
- * @param {SecureCreateDocumentInput} input - The collection name and data for the new document.
- * @returns {Promise<{success: boolean, id?: string, error?: string}>} - The result of the operation.
- */
+// Helper function to verify admin status
+async function isAdmin(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  const userDocRef = db.collection('users').doc(userId);
+  const userDoc = await userDocRef.get();
+  return userDoc.exists && userDoc.data()?.role === 'admin';
+}
+
+
+// Schema and Flow for Document Creation
+const SecureCreateDocumentInputSchema = z.object({
+  collection: z.enum(['pending_users', 'classes', 'subjects']),
+  data: z.any(),
+  userId: z.string(),
+});
+export type SecureCreateDocumentInput = z.infer<typeof SecureCreateDocumentInputSchema>;
+
 export const secureCreateDocument = ai.defineFlow(
   {
     name: 'secureCreateDocument',
@@ -49,27 +53,83 @@ export const secureCreateDocument = ai.defineFlow(
   },
   async (input) => {
     try {
-      // 1. Verify if the calling user is an admin
-      const userDocRef = db.collection('users').doc(input.userId);
-      const userDoc = await userDocRef.get();
-
-      if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
+      if (!(await isAdmin(input.userId))) {
         return { success: false, error: 'Permission denied: User is not an admin.' };
       }
-      
       const documentData = {
           ...input.data,
-          creatorId: input.userId, // Ensure creatorId is always set
+          creatorId: input.userId,
           createdAt: new Date().toISOString(),
-      }
-
-      // 2. If the user is an admin, create the document
+      };
       const docRef = await db.collection(input.collection).add(documentData);
-
       return { success: true, id: docRef.id };
-
     } catch (e: any) {
       console.error("secureCreateDocument flow error:", e);
+      return { success: false, error: e.message || 'An unknown server error occurred.' };
+    }
+  }
+);
+
+
+// Schema and Flow for Document Update
+const SecureUpdateDocumentInputSchema = z.object({
+  collection: z.enum(['users', 'classes', 'subjects']),
+  docId: z.string(),
+  data: z.any(),
+  userId: z.string(),
+});
+export type SecureUpdateDocumentInput = z.infer<typeof SecureUpdateDocumentInputSchema>;
+
+export const secureUpdateDocument = ai.defineFlow(
+  {
+    name: 'secureUpdateDocument',
+    inputSchema: SecureUpdateDocumentInputSchema,
+    outputSchema: z.object({
+      success: z.boolean(),
+      error: z.string().optional(),
+    }),
+  },
+  async (input) => {
+    try {
+      if (!(await isAdmin(input.userId))) {
+        return { success: false, error: 'Permission denied: User is not an admin.' };
+      }
+      await db.collection(input.collection).doc(input.docId).update(input.data);
+      return { success: true };
+    } catch (e: any) {
+      console.error("secureUpdateDocument flow error:", e);
+      return { success: false, error: e.message || 'An unknown server error occurred.' };
+    }
+  }
+);
+
+
+// Schema and Flow for Document Deletion
+const SecureDeleteDocumentInputSchema = z.object({
+  collection: z.enum(['users', 'classes', 'subjects']),
+  docId: z.string(),
+  userId: z.string(),
+});
+export type SecureDeleteDocumentInput = z.infer<typeof SecureDeleteDocumentInputSchema>;
+
+export const secureDeleteDocument = ai.defineFlow(
+  {
+    name: 'secureDeleteDocument',
+    inputSchema: SecureDeleteDocumentInputSchema,
+    outputSchema: z.object({
+      success: z.boolean(),
+      error: z.string().optional(),
+    }),
+  },
+  async (input) => {
+    try {
+      if (!(await isAdmin(input.userId))) {
+        return { success: false, error: 'Permission denied: User is not an admin.' };
+      }
+      await db.collection(input.collection).doc(input.docId).delete();
+      return { success: true };
+    } catch (e: any) {
+      console.error("secureDeleteDocument flow error:", e);
       return { success: false, error: e.message || 'An unknown server error occurred.' };
     }
   }

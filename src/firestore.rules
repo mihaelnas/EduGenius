@@ -7,12 +7,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     function isTeacherForCourse() {
@@ -35,34 +35,30 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
-    // Only admins (via server flow) can write. All admins can read/update/delete.
+    // Only admins (via server flow) can write. All admins can read.
     match /pending_users/{pendingUserId} {
-      allow read, update, delete: if isAdmin();
-      allow create: if false; // IMPORTANT: Prevent client-side creation
+      allow read: if isAdmin();
+      allow create, update, delete: if false; // IMPORTANT: Prevent client-side writes
     }
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn(); // User can create their own profile upon registration
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
-      allow delete: if isAdmin();
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role); // Owner can update, but not change role
+      allow delete: if false; // Only via secure flow
     }
     
-    // Admins (via server flow) can create. All signed-in users can read. Admins can update/delete.
+    // Admins (via server flow) can write. All signed-in users can read.
     match /classes/{classId} {
       allow get, list: if isSignedIn();
-      allow create: if false; // IMPORTANT: Prevent client-side creation
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create, update, delete: if false; // IMPORTANT: Prevent client-side writes
     }
 
-    // Admins (via server flow) can create. All signed-in users can read. Admins or assigned teachers can update/delete.
+    // Admins (via server flow) can create/delete. All signed-in users can read. Admins or assigned teachers can update.
     match /subjects/{subjectId} {
       allow get, list: if isSignedIn();
-      allow create: if false; // IMPORTANT: Prevent client-side creation
-      allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
-      allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
+      allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin(); // Teacher can be assigned by admin
+      allow create, delete: if false; // IMPORTANT: Prevent client-side writes
     }
     
     match /courses/{courseId} {
@@ -74,16 +70,12 @@ service cloud.firestore {
     
      match /class_students/{classStudentId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create, update, delete: if false;
     }
 
     match /class_teachers/{classTeacherId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create, update, delete: if false;
     }
 
     match /schedule/{eventId} {

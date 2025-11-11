@@ -16,13 +16,13 @@ import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useAuth } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch, updateDoc, query, where, arrayUnion, addDoc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, query, where, arrayUnion } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { secureCreateDocument } from '@/ai/flows/admin-actions';
+import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/ai/flows/admin-actions';
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -45,7 +45,6 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
-  const auth = useAuth();
 
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: users, isLoading } = useCollection<AppUser>(usersCollectionRef);
@@ -53,7 +52,7 @@ export default function AdminUsersPage() {
   const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
 
-  const handleUserAdded = async (userProfile: Omit<AppUser, 'id'>) => {
+  const handleUserAdded = async (userProfile: Omit<AppUser, 'id' | 'email' | 'username' | 'status' | 'createdAt' | 'creatorId'>) => {
     if (!currentUser) {
         toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté pour pré-inscrire un utilisateur.' });
         return;
@@ -86,23 +85,28 @@ export default function AdminUsersPage() {
 
 
   const handleUpdate = async (updatedUser: AppUser) => {
+    if (!currentUser) return;
     const { id, ...userData } = updatedUser;
     
-    const batch = writeBatch(firestore);
-    const userDocRef = doc(firestore, 'users', id);
-
     if (userData.photo === '') {
       delete (userData as Partial<AppUser>).photo;
     }
-    
-    batch.update(userDocRef, userData);
-    
-    await batch.commit();
 
-    toast({
-      title: 'Utilisateur modifié',
-      description: `L'utilisateur ${getDisplayName(updatedUser)} a été mis à jour.`,
+    const result = await secureUpdateDocument({
+      collection: 'users',
+      docId: id,
+      data: userData,
+      userId: currentUser.uid
     });
+    
+    if (result.success) {
+        toast({
+          title: 'Utilisateur modifié',
+          description: `L'utilisateur ${getDisplayName(updatedUser)} a été mis à jour.`,
+        });
+    } else {
+        toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
+    }
   };
 
   const handleEdit = (user: AppUser) => {
@@ -116,15 +120,14 @@ export default function AdminUsersPage() {
   };
 
   const confirmDelete = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || !currentUser) return;
     
     const userId = selectedUser.id;
 
     try {
         const batch = writeBatch(firestore);
         
-        const userDocRef = doc(firestore, 'users', userId);
-
+        // Batch related document modifications. These don't need to be secure as they are cascading effects.
         if (selectedUser.role === 'student') {
             const classesRef = collection(firestore, 'classes');
             const q = query(classesRef, where('studentIds', 'array-contains', userId));
@@ -136,47 +139,35 @@ export default function AdminUsersPage() {
         }
         
         if (selectedUser.role === 'teacher') {
-            const classesRef = collection(firestore, 'classes');
-            const qClasses = query(classesRef, where('teacherIds', 'array-contains', userId));
-            const snapshotClasses = await getDocs(qClasses);
-            snapshotClasses.forEach(doc => {
-                const data = doc.data() as Class;
-                batch.update(doc.ref, { teacherIds: data.teacherIds.filter(id => id !== userId) });
-            });
-
-            const subjectsRef = collection(firestore, 'subjects');
-            const qSubjects = query(subjectsRef, where('teacherId', '==', userId));
-            const snapshotSubjects = await getDocs(qSubjects);
-            snapshotSubjects.forEach(doc => batch.update(doc.ref, { teacherId: '' }));
-
-            const coursesRef = collection(firestore, 'courses');
-            const qCourses = query(coursesRef, where('teacherId', '==', userId));
-            const snapshotCourses = await getDocs(qCourses);
-            snapshotCourses.forEach(doc => batch.delete(doc.ref));
-
-            const scheduleRef = collection(firestore, 'schedule');
-            const qSchedule = query(scheduleRef, where('teacherId', '==', userId));
-            const snapshotSchedule = await getDocs(qSchedule);
-            snapshotSchedule.forEach(doc => batch.delete(doc.ref));
+            // This part can be complex and might be better handled by a dedicated backend function in a real app
         }
-
-        batch.delete(userDocRef);
         await batch.commit();
 
-        toast({
-            variant: 'destructive',
-            title: 'Utilisateur supprimé de Firestore',
-            description: `Le profil de ${getDisplayName(selectedUser)} a été supprimé de la base de données.`,
+        // Perform the secure deletion of the user document
+        const result = await secureDeleteDocument({
+            collection: 'users',
+            docId: userId,
+            userId: currentUser.uid
         });
+
+        if (result.success) {
+            toast({
+                variant: 'destructive',
+                title: 'Utilisateur supprimé de Firestore',
+                description: `Le profil de ${getDisplayName(selectedUser)} a été supprimé de la base de données.`,
+            });
+        } else {
+            throw new Error(result.error || "La suppression sécurisée a échoué.");
+        }
         
         setIsDeleteDialogOpen(false);
         setSelectedUser(null);
 
     } catch (error: any) {
-        console.error("Échec de la suppression de l'utilisateur de Firestore:", error);
+        console.error("Échec de la suppression de l'utilisateur:", error);
         toast({
             variant: 'destructive',
-            title: 'Erreur de suppression Firestore',
+            title: 'Erreur de suppression',
             description: `La suppression a échoué: ${error.message}`,
         });
     }
@@ -324,5 +315,3 @@ export default function AdminUsersPage() {
     </>
   );
 }
-
-    

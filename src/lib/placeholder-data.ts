@@ -10,6 +10,7 @@ export type User = {
   role: 'admin' | 'teacher' | 'student';
   status: 'active' | 'inactive' | 'pending';
   createdAt: string;
+  creatorId?: string; // Added for admin tracking
   photo?: string;
   genre?: 'Homme' | 'Femme';
   telephone?: string;
@@ -48,6 +49,7 @@ export type Class = {
   teacherIds: string[];
   studentIds: string[];
   createdAt: string;
+  creatorId?: string; // Added for admin tracking
 };
 
 export type Subject = {
@@ -59,6 +61,7 @@ export type Subject = {
   teacherId?: string;
   classCount: number;
   createdAt: string;
+  creatorId?: string; // Added for admin tracking
 };
 
 export type Resource = {
@@ -99,5 +102,3 @@ export function getDisplayName(user: { firstName?: string, lastName?: string }):
     const lastName = user.lastName || '';
     return `${firstName} ${lastName}`.trim();
 }
-
-    

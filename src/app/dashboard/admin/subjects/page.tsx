@@ -16,9 +16,9 @@ import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation
 import { AssignSubjectTeacherDialog } from '@/components/admin/assign-subject-teacher-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { secureCreateDocument } from '@/ai/flows/admin-actions';
+import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/ai/flows/admin-actions';
 
 export default function AdminSubjectsPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -42,7 +42,7 @@ export default function AdminSubjectsPage() {
   
   const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
 
-  const handleAdd = async (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt'>) => {
+  const handleAdd = async (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt' | 'creatorId' | 'teacherId'>) => {
       if (!currentUser) {
         toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté pour créer une matière.' });
         return;
@@ -50,7 +50,7 @@ export default function AdminSubjectsPage() {
       const newSubjectData = {
           ...newSubject,
           teacherId: '', // Initialize with no teacher
-          classCount: 0, // This will be calculated dynamically
+          classCount: 0,
       };
       
       try {
@@ -78,13 +78,22 @@ export default function AdminSubjectsPage() {
   };
 
   const handleUpdate = async (updatedSubject: Subject) => {
-    const subjectDocRef = doc(firestore, 'subjects', updatedSubject.id);
+    if (!currentUser) return;
     const { id, ...subjectData } = updatedSubject;
-    await updateDoc(subjectDocRef, subjectData);
-    toast({
-      title: 'Matière modifiée',
-      description: `La matière ${updatedSubject.name} a été mise à jour.`,
+    const result = await secureUpdateDocument({
+        collection: 'subjects',
+        docId: id,
+        data: subjectData,
+        userId: currentUser.uid,
     });
+    if (result.success) {
+        toast({
+          title: 'Matière modifiée',
+          description: `La matière ${updatedSubject.name} a été mise à jour.`,
+        });
+    } else {
+        toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
+    }
   };
 
   const handleEdit = (subject: Subject) => {
@@ -103,47 +112,56 @@ export default function AdminSubjectsPage() {
   };
   
   const handleAssignTeacherSave = async (subjectId: string, teacherId: string | undefined) => {
-    if (!selectedSubject) return;
-    const subjectDocRef = doc(firestore, 'subjects', subjectId);
-    await updateDoc(subjectDocRef, { teacherId });
-    toast({
-      title: 'Assignation réussie',
-      description: `L'enseignant a été mis à jour pour la matière ${selectedSubject.name}.`,
+    if (!selectedSubject || !currentUser) return;
+    const result = await secureUpdateDocument({
+        collection: 'subjects',
+        docId: subjectId,
+        data: { teacherId: teacherId || '' },
+        userId: currentUser.uid,
     });
-    setIsAssignTeacherDialogOpen(false);
+
+    if (result.success) {
+        toast({
+          title: 'Assignation réussie',
+          description: `L'enseignant a été mis à jour pour la matière ${selectedSubject.name}.`,
+        });
+        setIsAssignTeacherDialogOpen(false);
+    } else {
+        toast({ variant: 'destructive', title: 'Erreur d\'assignation', description: result.error });
+    }
   };
 
   const confirmDelete = async () => {
-    if (selectedSubject) {
+    if (selectedSubject && currentUser) {
         const batch = writeBatch(firestore);
 
-        // 1. Find and delete related courses
+        // Batch delete related documents that don't need secure deletion (or handle them differently)
         const coursesRef = collection(firestore, 'courses');
         const coursesQuery = query(coursesRef, where('subjectId', '==', selectedSubject.id));
         const coursesSnapshot = await getDocs(coursesQuery);
-        coursesSnapshot.forEach(doc => {
-            batch.delete(doc.ref);
-        });
+        coursesSnapshot.forEach(doc => batch.delete(doc.ref));
 
-        // 2. Find and delete related schedule events
         const scheduleRef = collection(firestore, 'schedule');
         const scheduleQuery = query(scheduleRef, where('subject', '==', selectedSubject.name));
         const scheduleSnapshot = await getDocs(scheduleQuery);
-        scheduleSnapshot.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-
-        // 3. Delete the subject itself
-        const subjectDocRef = doc(firestore, 'subjects', selectedSubject.id);
-        batch.delete(subjectDocRef);
-
+        scheduleSnapshot.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
 
-        toast({
-            variant: 'destructive',
-            title: 'Matière et données associées supprimées',
-            description: `La matière "${selectedSubject.name}" ainsi que ses cours et événements ont été supprimés.`,
+        const result = await secureDeleteDocument({
+            collection: 'subjects',
+            docId: selectedSubject.id,
+            userId: currentUser.uid
         });
+
+        if (result.success) {
+            toast({
+                variant: 'destructive',
+                title: 'Matière et données associées supprimées',
+                description: `La matière "${selectedSubject.name}" ainsi que ses cours et événements ont été supprimés.`,
+            });
+        } else {
+            toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
+        }
 
         setIsDeleteDialogOpen(false);
         setSelectedSubject(null);
@@ -287,5 +305,3 @@ export default function AdminSubjectsPage() {
     </>
   );
 }
-
-    
