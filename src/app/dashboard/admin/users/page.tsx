@@ -22,6 +22,8 @@ import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const roleNames: Record<AppUser['role'], string> = {
@@ -55,21 +57,20 @@ export default function AdminUsersPage() {
 
   const pendingUsersCollectionRef = useMemoFirebase(() => collection(firestore, 'pending_users'), [firestore]);
   
-  const handleUserAdded = async (userProfile: Omit<AppUser, 'id'>) => {
-    try {
-        await addDoc(pendingUsersCollectionRef, userProfile);
+  const handleUserAdded = (userProfile: Omit<AppUser, 'id'>) => {
+    addDoc(pendingUsersCollectionRef, userProfile).then(() => {
         toast({
           title: 'Utilisateur pré-inscrit !',
           description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
         });
-    } catch (error: any) {
-        console.error("Erreur de pré-inscription:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Échec de la pré-inscription',
-            description: error.message || "Une erreur inconnue est survenue.",
+    }).catch(error => {
+        const permissionError = new FirestorePermissionError({
+          path: 'pending_users',
+          operation: 'create',
+          requestResourceData: userProfile,
         });
-    }
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
 
