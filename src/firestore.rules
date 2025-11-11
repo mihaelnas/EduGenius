@@ -7,12 +7,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
     function isAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
     
     function isTeacherForCourse() {
@@ -36,7 +36,8 @@ service cloud.firestore {
     }
 
     match /pending_users/{pendingUserId} {
-      allow read, create, update, delete: if isAdmin();
+      allow read, update, delete: if isAdmin();
+      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     match /users/{userId} {
@@ -49,14 +50,13 @@ service cloud.firestore {
     
     match /classes/{classId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow update, delete: if isAdmin();
     }
 
     match /subjects/{subjectId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
+      allow create: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
       allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
     }
@@ -70,23 +70,19 @@ service cloud.firestore {
     
      match /class_students/{classStudentId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     match /class_teachers/{classTeacherId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     match /schedule/{eventId} {
       allow get, list: if isSignedIn();
       allow create: if isTeacherForEvent() || isAdmin();
-      update: if isExistingTeacherForEvent() || isAdmin();
-      delete: if isExistingTeacherForEvent() || isAdmin();
+      allow update: if isExistingTeacherForEvent() || isAdmin();
+      allow delete: if isExistingTeacherForEvent() || isAdmin();
     }
   }
 }
