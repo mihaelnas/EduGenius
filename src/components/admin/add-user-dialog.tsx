@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -35,6 +34,10 @@ import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
 import { nanoid } from 'nanoid';
 import { AppUser } from '@/lib/placeholder-data';
+import { useFirestore } from '@/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { getDisplayName } from '@/lib/placeholder-data';
 
 // Removed password fields as we are now pre-registering accounts without auth.
 const baseSchema = z.object({
@@ -80,7 +83,6 @@ export type AddUserFormValues = z.infer<typeof formSchema>;
 type AddUserDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onUserAdded: (newUser: AppUser) => void;
 }
 
 const initialValues: Partial<AddUserFormValues> = {
@@ -103,7 +105,10 @@ const initialValues: Partial<AddUserFormValues> = {
   specialite: '',
 };
 
-export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogProps) {
+export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialValues as any,
@@ -126,12 +131,23 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
       userProfile.specialite = userProfile.specialite.toUpperCase();
     }
     
-    // This is no longer async, so we don't need await
-    onUserAdded(userProfile as AppUser);
+    const userDocRef = doc(firestore, 'pending_users', userProfile.id);
     
-    // We expect the parent to handle closing and resetting.
-    // setIsOpen(false); 
-    // form.reset(initialValues as any);
+    try {
+        await setDoc(userDocRef, userProfile);
+        toast({
+          title: 'Opération réussie',
+          description: `L'utilisateur ${getDisplayName(userProfile)} a été pré-inscrit. Il pourra activer son compte en s'inscrivant.`,
+        });
+        setIsOpen(false);
+    } catch (error: any) {
+        console.error("Erreur de pré-inscription:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Échec de la pré-inscription',
+            description: error.message || "Une erreur inconnue est survenue.",
+        });
+    }
   }
   
   const handleOpenChange = (open: boolean) => {

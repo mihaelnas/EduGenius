@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Search, ShieldAlert, KeyRound, CheckCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AddUserDialog, AddUserFormValues } from '@/components/admin/add-user-dialog';
+import { AddUserDialog } from '@/components/admin/add-user-dialog';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -52,27 +52,6 @@ export default function AdminUsersPage() {
 
   const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
-
-
-  const handleAdd = (userProfile: AppUser) => {
-    const userDocRef = doc(firestore, 'pending_users', userProfile.id);
-    
-    setDoc(userDocRef, userProfile).then(() => {
-        toast({
-          title: 'Opération réussie',
-          description: `L'utilisateur ${getDisplayName(userProfile)} a été pré-inscrit. Il pourra activer son compte en s'inscrivant.`,
-        });
-        setIsAddDialogOpen(false);
-    }).catch((error: any) => {
-        console.error("Erreur de pré-inscription:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Échec de la pré-inscription',
-            description: error.message || "Une erreur inconnue est survenue.",
-        });
-    });
-  };
-
 
   const handleUpdate = async (updatedUser: AppUser) => {
     const { id, ...userData } = updatedUser;
@@ -207,7 +186,6 @@ export default function AdminUsersPage() {
                   <AddUserDialog 
                     isOpen={isAddDialogOpen}
                     setIsOpen={setIsAddDialogOpen}
-                    onUserAdded={handleAdd}
                   />
               </div>
           </div>
