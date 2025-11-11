@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -291,5 +290,3 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
     </Dialog>
   );
 }
-
-    
