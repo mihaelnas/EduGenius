@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -96,10 +95,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
 
   React.useEffect(() => {
     if (user && isOpen) {
-      const studentData = user.role === 'student' ? (user as Student) : {};
-      const teacherData = user.role === 'teacher' ? (user as Teacher) : {};
-
-      form.reset({
+      const defaultValues: Partial<FormValues> = {
         role: user.role,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
@@ -110,15 +106,23 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
         telephone: user.telephone || '',
         adresse: user.adresse || '',
         genre: user.genre || undefined,
-        matricule: studentData.matricule || '',
-        dateDeNaissance: studentData.dateDeNaissance || '',
-        lieuDeNaissance: studentData.lieuDeNaissance || '',
-        niveau: studentData.niveau || undefined,
-        filiere: studentData.filiere || undefined,
-        groupe: studentData.groupe || undefined,
-        emailPro: teacherData.emailPro || '',
-        specialite: teacherData.specialite || ''
-      });
+      };
+
+      if (user.role === 'student') {
+        const studentData = user as Student;
+        defaultValues.matricule = studentData.matricule || '';
+        defaultValues.dateDeNaissance = studentData.dateDeNaissance || '';
+        defaultValues.lieuDeNaissance = studentData.lieuDeNaissance || '';
+        defaultValues.niveau = studentData.niveau || undefined;
+        defaultValues.filiere = studentData.filiere || undefined;
+        defaultValues.groupe = studentData.groupe || undefined;
+      } else if (user.role === 'teacher') {
+        const teacherData = user as Teacher;
+        defaultValues.emailPro = teacherData.emailPro || '';
+        defaultValues.specialite = teacherData.specialite || '';
+      }
+
+      form.reset(defaultValues as FormValues);
     }
   }, [user, form, isOpen]);
 
