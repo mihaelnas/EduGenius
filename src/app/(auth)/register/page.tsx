@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -114,12 +115,9 @@ export default function RegisterPage() {
       }).id;
 
       const validationInput: StudentValidationInput = {
-        userId: '', // Not needed for validation-only step
         matricule: values.matricule,
         firstName: values.firstName,
         lastName: values.lastName,
-        niveau: values.niveau,
-        filiere: values.filiere,
       };
 
       console.log("Envoi de la requête vers l'API de validation...", validationInput);
