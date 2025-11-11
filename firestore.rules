@@ -40,13 +40,19 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
+    // Collection for pending users, readable by anyone for registration check
+    match /pending_users/{pendingUserId} {
+      allow list, get: if true; // Anyone can query this collection
+      allow create: if isAdmin(); // Only admins can pre-register users
+      allow delete: if isSignedIn(); // The registration process will delete this
+      allow update: if false; // Should not be updated
+    }
+
     match /users/{userId} {
-      // Allow anyone to read an inactive user profile (needed for registration check).
-      // Active profiles can only be read by signed-in users.
-      allow read: if (resource.data.status == 'inactive') || isSignedIn();
+      // Only signed-in users can read profiles.
+      allow read: if isSignedIn();
 
       // Allow user creation if the user ID of the request matches the document ID being created.
-      // This is crucial for the signup process.
       allow create: if request.auth.uid == userId;
       // Allow updates by owner or admin
       allow update: if isExistingOwner(userId) || isAdmin();

@@ -25,14 +25,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, errorEmitter } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, doc, setDoc, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, query, where, writeBatch, arrayUnion, getDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Student } from '@/lib/placeholder-data';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { Student, Class } from '@/lib/placeholder-data';
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
@@ -81,8 +80,8 @@ export default function RegisterPage() {
         duration: Infinity
       }).id;
 
-      // Step 1: Find a pre-registered, inactive account matching the info
-      const usersRef = collection(firestore, 'users');
+      // Step 1: Find a pre-registered, inactive account in `pending_users`
+      const usersRef = collection(firestore, 'pending_users');
       const q = query(usersRef, 
         where('matricule', '==', values.matricule),
         where('status', '==', 'inactive')
@@ -91,7 +90,7 @@ export default function RegisterPage() {
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        throw new Error("Aucun compte inactif correspondant à ce matricule n'a été trouvé. Veuillez contacter l'administration.");
+        throw new Error("Aucun compte en attente correspondant à ce matricule n'a été trouvé. Veuillez contacter l'administration.");
       }
       
       const matchingDocs = querySnapshot.docs.filter(doc => {
@@ -103,7 +102,7 @@ export default function RegisterPage() {
       if (matchingDocs.length === 0) {
           throw new Error("Les nom et prénom ne correspondent pas au compte pré-inscrit pour ce matricule.");
       }
-
+      
       if (toastId) dismiss(toastId);
       toastId = toast({
         title: 'Informations validées !',
@@ -111,8 +110,8 @@ export default function RegisterPage() {
         duration: Infinity
       }).id;
 
-      const userDoc = matchingDocs[0];
-      const preRegisteredUser = userDoc.data() as Student;
+      const pendingUserDoc = matchingDocs[0];
+      const pendingUserData = pendingUserDoc.data() as Student;
 
       // Step 2: Create Firebase Auth user without signing in
       const tempApp = initializeApp(firebaseConfig, `temp-auth-${Date.now()}`);
@@ -121,27 +120,44 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, values.password);
       const newAuthUser = userCredential.user;
 
-      // Step 3: Update the existing Firestore document with the new Auth UID and activate it
+      // Step 3: Create the final user document in 'users' collection and delete the pending one
       const batch = writeBatch(firestore);
       
-      const oldDocRef = doc(firestore, 'users', userDoc.id);
-      const newDocRef = doc(firestore, 'users', newAuthUser.uid);
+      const pendingDocRef = doc(firestore, 'pending_users', pendingUserDoc.id);
+      const newUserDocRef = doc(firestore, 'users', newAuthUser.uid);
       
-      const updatedProfile = {
-        ...preRegisteredUser,
+      const newUserProfile = {
+        ...pendingUserData,
         id: newAuthUser.uid, // Update the ID to the new Auth UID
         email: values.email, // Add the chosen email
         status: 'active' as const, // Automatically activate the account
         claimedAt: new Date().toISOString(),
       };
       
-      // Create the new document with the Auth UID and delete the old temporary one
-      batch.set(newDocRef, updatedProfile);
-      batch.delete(oldDocRef);
+      batch.set(newUserDocRef, newUserProfile);
+      batch.delete(pendingDocRef);
+
+      // Step 4 (Student only): Assign student to class
+      if (newUserProfile.role === 'student') {
+        const student = newUserProfile as Student;
+        const className = `${student.niveau}-${student.filiere}-G${student.groupe}`.toUpperCase();
+        const anneeScolaire = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+        
+        const classesRef = collection(firestore, 'classes');
+        const classQuery = query(classesRef, where('name', '==', className), where("anneeScolaire", "==", anneeScolaire));
+        const classSnapshot = await getDocs(classQuery);
+
+        if (!classSnapshot.empty) {
+          const classDoc = classSnapshot.docs[0];
+          batch.update(classDoc.ref, {
+            studentIds: arrayUnion(newUserProfile.id)
+          });
+        }
+      }
       
       await batch.commit();
       
-      // Step 4: Success, show notification and redirect to login
+      // Step 5: Success, show notification and redirect to login
       if (toastId) dismiss(toastId);
       toast({ 
           title: 'Compte activé avec succès !', 
@@ -157,13 +173,7 @@ export default function RegisterPage() {
       let errorMessage = 'Une erreur est survenue. Vérifiez vos informations et réessayez.';
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'Cette adresse e-mail est déjà utilisée pour un compte actif. Veuillez vous connecter ou utiliser une autre adresse.';
-      } else if (error instanceof FirestorePermissionError) {
-        errorMessage = "Une erreur de permission est survenue. Veuillez contacter le support.";
-        // Optionally re-throw for global error handling
-        throw error;
-      }
-      else if (error.message) {
-        // Use the custom error messages for validation failures
+      } else if (error.message) {
         errorMessage = error.message;
       }
       
