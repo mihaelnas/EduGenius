@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, errorEmitter } from '@/firebase';
-import { createUserWithEmailAndPassword, signOut, deleteUser } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, doc, setDoc, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
@@ -36,7 +36,7 @@ import { firebaseConfig } from '@/firebase/config';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 
-// Schema for the new "account claiming" registration process
+// Schema for the "account claiming" registration process
 const formSchema = z.object({
   firstName: z.string().min(1, { message: 'Le prénom est requis.' }),
   lastName: z.string().min(1, { message: 'Le nom est requis.' }),
@@ -121,7 +121,7 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, values.password);
       const newAuthUser = userCredential.user;
 
-      // Step 3: Update the existing Firestore document with the new Auth UID and activate it
+      // Step 3: Update the existing Firestore document with the new Auth UID and activate it automatically
       const batch = writeBatch(firestore);
       
       const oldDocRef = doc(firestore, 'users', userDoc.id);
@@ -131,7 +131,7 @@ export default function RegisterPage() {
         ...preRegisteredUser,
         id: newAuthUser.uid, // Update the ID to the new Auth UID
         email: values.email, // Add the chosen email
-        status: 'active' as const,
+        status: 'active' as const, // Automatically activate the account
         claimedAt: new Date().toISOString(),
       };
       

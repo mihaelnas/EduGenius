@@ -43,7 +43,7 @@ const baseSchema = z.object({
   username: z.string().min(2, { message: "Le nom d'utilisateur est requis." }).startsWith('@', { message: 'Doit commencer par @.' }),
   email: z.string().email({ message: 'Email invalide.' }),
   photo: z.string().url({ message: 'URL invalide.' }).optional().or(z.literal('')),
-  status: z.enum(['active', 'inactive', 'pending']),
+  status: z.enum(['active', 'inactive']),
 });
 
 const studentSchema = baseSchema.extend({
@@ -225,7 +225,6 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                                     <SelectContent>
                                         <SelectItem value="active">Actif</SelectItem>
                                         <SelectItem value="inactive">Inactif</SelectItem>
-                                        <SelectItem value="pending">En attente</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -263,7 +262,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                     </div>
                 </ScrollArea>
                 <DialogFooter className='pt-4 justify-between'>
-                    <Button type="button" variant="outline" onClick={handlePasswordReset}>
+                    <Button type="button" variant="outline" onClick={handlePasswordReset} disabled={user.status === 'inactive'}>
                         <KeyRound className="mr-2 h-4 w-4" />
                         Réinitialiser le mot de passe
                     </Button>

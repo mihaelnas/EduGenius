@@ -30,11 +30,10 @@ const roleNames: Record<AppUser['role'], string> = {
   student: 'Étudiant',
 };
 
-const statusMap: Record<AppUser['status'], { text: string, className: string, icon?: React.ReactNode }> = {
+const statusMap: Record<Exclude<AppUser['status'], 'pending'>, { text: string, className: string, icon?: React.ReactNode }> = {
     active: { text: 'Actif', className: 'bg-green-600' },
-    inactive: { text: 'Inactif', className: 'bg-gray-400', icon: <Clock className="mr-1 h-3 w-3" /> },
-    pending: { text: 'En attente', className: 'bg-yellow-500', icon: <Clock className="mr-1 h-3 w-3" /> }
-}
+    inactive: { text: 'Inactif (en attente)', className: 'bg-yellow-500', icon: <Clock className="mr-1 h-3 w-3" /> },
+};
 
 
 export default function AdminUsersPage() {
@@ -107,46 +106,6 @@ export default function AdminUsersPage() {
     setSelectedUser(user);
     setIsDeleteDialogOpen(true);
   };
-
-  const handleActivateStudent = async (userToActivate: AppUser) => {
-    if (userToActivate.role !== 'student' || userToActivate.status !== 'pending' || !classes) return;
-
-    const student = userToActivate as Student;
-    const className = `${student.niveau}-${student.filiere}-G1`; // Assuming Group 1 for now
-    const targetClass = classes.find(c => c.name === className);
-
-    if (!targetClass) {
-        toast({
-            variant: 'destructive',
-            title: 'Erreur d\'activation',
-            description: `La classe d'assignation "${className}" n'a pas été trouvée. Impossible d'activer l'étudiant.`,
-        });
-        return;
-    }
-
-    try {
-        const batch = writeBatch(firestore);
-        const userDocRef = doc(firestore, 'users', student.id);
-        const classDocRef = doc(firestore, 'classes', targetClass.id);
-
-        batch.update(userDocRef, { status: 'active' });
-        batch.update(classDocRef, { studentIds: arrayUnion(student.id) });
-
-        await batch.commit();
-
-        toast({
-            title: 'Étudiant activé',
-            description: `${getDisplayName(student)} a été activé et assigné à la classe ${targetClass.name}.`,
-        });
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Erreur',
-            description: error.message || "Une erreur est survenue lors de l'activation.",
-        });
-    }
-  };
-
 
   const confirmDelete = async () => {
     if (!selectedUser) return;
@@ -287,7 +246,9 @@ export default function AdminUsersPage() {
                   </TableRow>
                 ))
               ) : (
-                filteredUsers.map((user) => (
+                filteredUsers.filter(u => u.status !== 'pending').map((user) => {
+                  const statusInfo = statusMap[user.status as Exclude<AppUser['status'], 'pending'>];
+                  return (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-3">
@@ -304,9 +265,9 @@ export default function AdminUsersPage() {
                     <TableCell>{user.email}</TableCell>
                     <TableCell className="capitalize">{roleNames[user.role]}</TableCell>
                     <TableCell>
-                       <Badge variant={'outline'} className={statusMap[user.status].className}>
-                          {statusMap[user.status].icon}
-                          {statusMap[user.status].text}
+                       <Badge variant={'outline'} className={statusInfo.className}>
+                          {statusInfo.icon}
+                          {statusInfo.text}
                         </Badge>
                     </TableCell>
                     <TableCell>{format(new Date(user.createdAt), 'd MMMM yyyy', { locale: fr })}</TableCell>
@@ -320,12 +281,6 @@ export default function AdminUsersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          {user.role === 'student' && user.status === 'pending' && (
-                            <DropdownMenuItem onClick={() => handleActivateStudent(user)}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Activer et Assigner
-                            </DropdownMenuItem>
-                          )}
                           <DropdownMenuItem onClick={() => handleEdit(user)}>Modifier</DropdownMenuItem>
                           <ViewDetailsButton userId={user.id} />
                           <DropdownMenuItem 
@@ -339,7 +294,7 @@ export default function AdminUsersPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))
+                )})
               )}
             </TableBody>
           </Table>
