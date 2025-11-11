@@ -17,8 +17,9 @@ import { AssignTeacherDialog } from '@/components/admin/assign-teacher-dialog';
 import { ManageStudentsDialog } from '@/components/admin/manage-students-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { secureCreateDocument } from '@/ai/flows/admin-actions';
 
 export default function AdminClassesPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -50,14 +51,30 @@ export default function AdminClassesPage() {
         ...newClass,
         teacherIds: [],
         studentIds: [],
-        createdAt: new Date().toISOString(),
-        creatorId: currentUser.uid,
     };
-    await addDoc(classesCollectionRef, newClassData);
-    toast({
-      title: 'Classe ajoutée',
-      description: `La classe ${newClass.name} a été créée avec succès.`,
-    });
+    
+    try {
+        const result = await secureCreateDocument({
+            collection: 'classes',
+            userId: currentUser.uid,
+            data: newClassData
+        });
+
+        if (result.success) {
+            toast({
+              title: 'Classe ajoutée',
+              description: `La classe ${newClass.name} a été créée avec succès.`,
+            });
+        } else {
+            throw new Error(result.error || "La création de la classe a échoué.");
+        }
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Échec de la création',
+            description: error.message,
+        });
+    }
   };
 
   const handleUpdate = async (updatedClass: Class) => {
@@ -285,3 +302,5 @@ export default function AdminClassesPage() {
     </>
   );
 }
+
+    

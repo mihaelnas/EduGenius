@@ -22,6 +22,7 @@ import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { secureCreateDocument } from '@/ai/flows/admin-actions';
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -52,30 +53,35 @@ export default function AdminUsersPage() {
   const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
 
-  const pendingUsersCollectionRef = useMemoFirebase(() => collection(firestore, 'pending_users'), [firestore]);
-  
-  const handleUserAdded = (userProfile: Omit<AppUser, 'id'>) => {
+  const handleUserAdded = async (userProfile: Omit<AppUser, 'id'>) => {
     if (!currentUser) {
         toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté pour pré-inscrire un utilisateur.' });
         return;
     }
-    const finalUserProfile = {
-        ...userProfile,
-        creatorId: currentUser.uid,
-    }
-    addDoc(pendingUsersCollectionRef, finalUserProfile).then(() => {
-        toast({
-          title: 'Utilisateur pré-inscrit !',
-          description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
+    
+    try {
+        const result = await secureCreateDocument({
+            collection: 'pending_users',
+            userId: currentUser.uid,
+            data: userProfile
         });
-    }).catch(error => {
+
+        if (result.success) {
+            toast({
+              title: 'Utilisateur pré-inscrit !',
+              description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
+            });
+        } else {
+            throw new Error(result.error || "La création a échoué via le flow sécurisé.");
+        }
+    } catch (error: any) {
         toast({
             variant: 'destructive',
             title: "Échec de la pré-inscription",
             description: error.message || "Une erreur est survenue.",
             duration: 9000,
         });
-    });
+    }
   };
 
 
@@ -318,3 +324,5 @@ export default function AdminUsersPage() {
     </>
   );
 }
+
+    

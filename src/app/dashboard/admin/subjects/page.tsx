@@ -16,8 +16,9 @@ import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation
 import { AssignSubjectTeacherDialog } from '@/components/admin/assign-subject-teacher-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, addDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { secureCreateDocument } from '@/ai/flows/admin-actions';
 
 export default function AdminSubjectsPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -50,14 +51,30 @@ export default function AdminSubjectsPage() {
           ...newSubject,
           teacherId: '', // Initialize with no teacher
           classCount: 0, // This will be calculated dynamically
-          createdAt: new Date().toISOString(),
-          creatorId: currentUser.uid,
       };
-      await addDoc(subjectsCollectionRef, newSubjectData);
-      toast({
-        title: 'Matière ajoutée',
-        description: `La matière ${newSubject.name} a été créée avec succès.`,
-      });
+      
+      try {
+          const result = await secureCreateDocument({
+              collection: 'subjects',
+              userId: currentUser.uid,
+              data: newSubjectData,
+          });
+
+          if (result.success) {
+            toast({
+                title: 'Matière ajoutée',
+                description: `La matière ${newSubject.name} a été créée avec succès.`,
+            });
+          } else {
+              throw new Error(result.error || "La création de la matière a échoué.");
+          }
+      } catch (error: any) {
+          toast({
+              variant: 'destructive',
+              title: 'Échec de la création',
+              description: error.message
+          });
+      }
   };
 
   const handleUpdate = async (updatedSubject: Subject) => {
@@ -270,3 +287,5 @@ export default function AdminSubjectsPage() {
     </>
   );
 }
+
+    
