@@ -57,8 +57,12 @@ export const activateAccount = ai.defineFlow(
       
       const matchingDocs = querySnapshot.docs.filter(doc => {
           const data = doc.data();
-          return data.firstName.toLowerCase() === input.firstName.toLowerCase() &&
-                 data.lastName.toLowerCase() === input.lastName.toLowerCase();
+          const pendingFirstName = data.firstName?.trim().toLowerCase();
+          const inputFirstName = input.firstName.trim().toLowerCase();
+          const pendingLastName = data.lastName?.trim().toLowerCase();
+          const inputLastName = input.lastName.trim().toLowerCase();
+
+          return pendingFirstName === inputFirstName && pendingLastName === inputLastName;
       });
 
       if (matchingDocs.length === 0) {
