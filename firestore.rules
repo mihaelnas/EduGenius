@@ -7,9 +7,9 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // NEW: Reliable way to check for admin role using custom claims
+    // NOUVELLE FONCTION isAdmin() - Plus fiable car elle lit le rôle depuis Firestore
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isOwner(userId) {
@@ -38,17 +38,16 @@ service cloud.firestore {
 
     match /pending_users/{pendingUserId} {
       allow read: if true; 
-      // Allow any authenticated user (admin via UI) to create a pending user.
-      allow create: if isAdmin();
-      allow update, delete: if isAdmin();
+      // Seul un admin (via l'interface utilisateur) peut créer des utilisateurs en attente.
+      allow create, update, delete: if isAdmin();
     }
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      // Allow a user to create their own profile document
-      allow create: if request.auth.uid == userId;
-      // Prevent users from changing their own role, but allow admins to change any role.
+      // Un utilisateur peut créer son propre profil. La règle isAdmin() est pour le cas où un admin crée un autre admin.
+      allow create: if isOwner(userId) || isAdmin();
+      // Un utilisateur peut modifier son profil mais pas son rôle. Un admin peut tout modifier.
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
       allow delete: if isAdmin();
     }
