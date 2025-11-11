@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -128,13 +127,8 @@ export default function LoginPage() {
           return;
         }
         
-        toast({
-          title: 'Connexion réussie',
-          description: 'Redirection vers votre tableau de bord...',
-        });
-        
         // The layout will handle the redirection, removing the race condition.
-        router.push('/dashboard');
+        // The toast below was also removed to allow the debug toast to be visible.
 
       } catch (e) {
           const permissionError = new FirestorePermissionError({
