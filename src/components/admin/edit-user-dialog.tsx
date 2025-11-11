@@ -83,7 +83,7 @@ type EditUserDialogProps = {
     onUserUpdated: (updatedUser: AppUser) => void;
 }
 
-const initialFormValues: FormValues = {
+const initialFormValues: Omit<Student & Teacher, 'id' | 'createdAt'> = {
   role: 'student',
   firstName: '',
   lastName: '',
@@ -119,10 +119,11 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
 
   React.useEffect(() => {
     if (user && isOpen) {
-      // Merge the user data with the complete initial structure
-      // This ensures all fields are controlled from the start
-      const mergedValues = { ...initialFormValues, ...user };
-      form.reset(mergedValues);
+      // Merge the user data with the complete initial structure.
+      // This ensures that any fields not present in `user` (like `matricule` for a teacher)
+      // will fall back to their initial empty value from `initialFormValues`.
+      const valuesToSet = { ...initialFormValues, ...user };
+      form.reset(valuesToSet);
     }
   }, [user, form, isOpen]);
 
