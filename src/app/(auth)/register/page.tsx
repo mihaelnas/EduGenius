@@ -73,13 +73,22 @@ export default function RegisterPage() {
 
     // Special case for admin registration
     if (values.email === 'rajo.harisoa7@gmail.com') {
+        let adminToastId: string | undefined;
         try {
+            adminToastId = toast({ title: 'Étape 1/5 : Début de la création du compte admin...', duration: 20000 }).id;
+            
             // Use a temporary auth instance to avoid automatic sign-in conflict
             const tempApp = initializeApp(firebaseConfig, `temp-auth-admin-${Date.now()}`);
             const tempAuth = getAuth(tempApp);
             
+            if (adminToastId) dismiss(adminToastId);
+            adminToastId = toast({ title: 'Étape 2/5 : Création de l\'authentification...', description: 'Tentative de création de l\'utilisateur dans Firebase Auth.', duration: 20000 }).id;
+            
             const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, values.password);
             const newAuthUser = userCredential.user;
+
+            if (adminToastId) dismiss(adminToastId);
+            adminToastId = toast({ title: 'Étape 3/5 : Authentification réussie !', description: `UID: ${newAuthUser.uid}`, duration: 20000 }).id;
 
             const newUserProfile: Admin = {
                 id: newAuthUser.uid,
@@ -92,14 +101,19 @@ export default function RegisterPage() {
                 createdAt: new Date().toISOString(),
             };
 
+            if (adminToastId) dismiss(adminToastId);
+            adminToastId = toast({ title: 'Étape 4/5 : Écriture dans Firestore...', description: 'Tentative d\'écriture du profil dans la collection `users`.', duration: 20000 }).id;
+
             // Set the user document in Firestore with the admin role
             await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserProfile);
             
-            toast({ title: 'Succès !', description: 'Compte administrateur créé. Vous pouvez maintenant vous connecter.', duration: 9000 });
+            if (adminToastId) dismiss(adminToastId);
+            toast({ title: 'Étape 5/5 : Succès !', description: 'Compte administrateur créé. Vous pouvez maintenant vous connecter.', duration: 9000 });
             router.push('/login');
             return; // End execution here for the admin case
 
         } catch (error: any) {
+            if (adminToastId) dismiss(adminToastId);
             let errorMessage = 'Une erreur est survenue lors de la création du compte admin.';
             if (error.code === 'auth/email-already-in-use') {
               errorMessage = 'Cette adresse e-mail est déjà utilisée pour un compte admin actif. Veuillez vous connecter.';
