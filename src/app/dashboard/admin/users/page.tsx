@@ -188,7 +188,6 @@ export default function AdminUsersPage() {
   };
   
   const filteredUsers = React.useMemo(() => (users || []).filter(user =>
-    user.status !== 'pending' &&
     (getDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
     (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())))
   ), [users, searchTerm]);
