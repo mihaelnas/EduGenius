@@ -137,26 +137,58 @@ export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
   });
 
   async function onSubmit(values: AddUserFormValues) {
-    const userProfile: Omit<AppUser, 'id'> = {
-        ...values,
-        status: 'inactive' as const, 
-        createdAt: new Date().toISOString(),
-    };
-     
-    if (userProfile.role === 'teacher' && 'specialite' in userProfile && userProfile.specialite) {
-      userProfile.specialite = userProfile.specialite.toUpperCase();
-    }
+    let userProfile: Omit<AppUser, 'id'>;
 
-    if (userProfile.role === 'student') {
-        userProfile.filiere = userProfile.filiere.toUpperCase() as any;
-        userProfile.niveau = userProfile.niveau.toUpperCase() as any;
-        userProfile.matricule = userProfile.matricule.toUpperCase();
+    const baseProfile = {
+      firstName: values.firstName,
+      lastName: values.lastName,
+      username: values.username,
+      email: values.email,
+      photo: values.photo,
+      status: 'inactive' as const,
+      createdAt: new Date().toISOString(),
+    };
+
+    switch (values.role) {
+      case 'student':
+        userProfile = {
+          ...baseProfile,
+          role: 'student',
+          matricule: values.matricule.toUpperCase(),
+          dateDeNaissance: values.dateDeNaissance,
+          lieuDeNaissance: values.lieuDeNaissance,
+          genre: values.genre,
+          telephone: values.telephone,
+          adresse: values.adresse,
+          niveau: values.niveau.toUpperCase() as any,
+          filiere: values.filiere.toUpperCase() as any,
+          groupe: values.groupe,
+        };
+        break;
+      case 'teacher':
+        userProfile = {
+          ...baseProfile,
+          role: 'teacher',
+          emailPro: values.emailPro,
+          genre: values.genre,
+          telephone: values.telephone,
+          adresse: values.adresse,
+          specialite: values.specialite?.toUpperCase(),
+        };
+        break;
+      case 'admin':
+        userProfile = {
+          ...baseProfile,
+          role: 'admin',
+        };
+        break;
     }
     
     // Clean the object from undefined values before sending to Firestore
     Object.keys(userProfile).forEach(key => {
-        if (userProfile[key as keyof typeof userProfile] === undefined) {
-            delete userProfile[key as keyof typeof userProfile];
+        const typedKey = key as keyof typeof userProfile;
+        if (userProfile[typedKey] === undefined) {
+            delete userProfile[typedKey];
         }
     });
 
