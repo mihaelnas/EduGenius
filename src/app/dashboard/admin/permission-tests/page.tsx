@@ -38,6 +38,7 @@ export default function PermissionTestsPage() {
         variant: 'destructive',
         title: 'Échec de la lecture du profil',
         description: error.message,
+        duration: 9000
       });
     }
   };
