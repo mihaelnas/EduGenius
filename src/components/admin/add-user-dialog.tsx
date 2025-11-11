@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -32,7 +33,7 @@ import { PlusCircle } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
-import { AppUser } from '@/lib/placeholder-data';
+import { AppUser, Student, Teacher, Admin } from '@/lib/placeholder-data';
 import { useFirestore } from '@/firebase';
 import { addDoc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';

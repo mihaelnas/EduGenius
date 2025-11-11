@@ -83,7 +83,7 @@ export default function RegisterPage() {
       // Step 1: Find a pre-registered, inactive account in `pending_users`
       const usersRef = collection(firestore, 'pending_users');
       const q = query(usersRef, 
-        where('matricule', '==', values.matricule),
+        where('matricule', '==', values.matricule.toUpperCase()),
         where('status', '==', 'inactive')
       );
       
