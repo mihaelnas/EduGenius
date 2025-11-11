@@ -45,36 +45,42 @@ export const activateAccount = ai.defineFlow(
   async (input) => {
     try {
       const usersRef = db.collection('pending_users');
-      const q = usersRef
-        .where('matricule', '==', input.matricule.toUpperCase())
-        .where('status', '==', 'inactive');
+      // Query for all inactive users. The filtering will happen in server-side code.
+      const q = usersRef.where('status', '==', 'inactive');
       
       const querySnapshot = await q.get();
 
       if (querySnapshot.empty) {
-        throw new Error("Aucun compte en attente correspondant à ce matricule n'a été trouvé.");
+        throw new Error("Aucun compte en attente d'activation n'a été trouvé.");
       }
       
-      const matchingDocs = querySnapshot.docs.filter(doc => {
-          const data = doc.data();
-          const pendingFirstName = data.firstName?.trim().toLowerCase();
-          const inputFirstName = input.firstName.trim().toLowerCase();
-          const pendingLastName = data.lastName?.trim().toLowerCase();
-          const inputLastName = input.lastName.trim().toLowerCase();
+      // Normalize input from the form for robust comparison
+      const inputMatricule = input.matricule.trim().toUpperCase();
+      const inputFirstName = input.firstName.trim().toLowerCase();
+      const inputLastName = input.lastName.trim().toLowerCase();
 
-          return pendingFirstName === inputFirstName && pendingLastName === inputLastName;
+      // Find the matching document by iterating through the results
+      const matchingDoc = querySnapshot.docs.find(doc => {
+          const data = doc.data();
+          // Normalize data from Firestore for robust comparison
+          const pendingMatricule = data.matricule?.trim().toUpperCase();
+          const pendingFirstName = data.firstName?.trim().toLowerCase();
+          const pendingLastName = data.lastName?.trim().toLowerCase();
+
+          return pendingMatricule === inputMatricule &&
+                 pendingFirstName === inputFirstName &&
+                 pendingLastName === inputLastName;
       });
 
-      if (matchingDocs.length === 0) {
-          throw new Error("Les nom et prénom ne correspondent pas au compte pré-inscrit pour ce matricule.");
+      if (!matchingDoc) {
+          throw new Error("Les informations saisies (matricule, nom, prénom) ne correspondent à aucun compte en attente. Veuillez vérifier et réessayer.");
       }
       
-      const pendingUserDoc = matchingDocs[0];
-      const pendingUserData = pendingUserDoc.data();
+      const pendingUserData = matchingDoc.data();
 
       const batch = db.batch();
       
-      const pendingDocRef = db.collection('pending_users').doc(pendingUserDoc.id);
+      const pendingDocRef = db.collection('pending_users').doc(matchingDoc.id);
       const newUserDocRef = db.collection('users').doc(input.newAuthUserId);
       
       const newUserProfile = {
@@ -90,18 +96,20 @@ export const activateAccount = ai.defineFlow(
 
       if (newUserProfile.role === 'student') {
         const student = newUserProfile as Student;
-        const className = `${student.niveau}-${student.filiere}-G${student.groupe}`.toUpperCase();
-        const anneeScolaire = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
-        
-        const classesRef = db.collection('classes');
-        const classQuery = classesRef.where('name', '==', className).where("anneeScolaire", "==", anneeScolaire);
-        const classSnapshot = await classQuery.get();
+        if (student.niveau && student.filiere && student.groupe) {
+          const className = `${student.niveau}-${student.filiere}-G${student.groupe}`.toUpperCase();
+          const anneeScolaire = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+          
+          const classesRef = db.collection('classes');
+          const classQuery = classesRef.where('name', '==', className).where("anneeScolaire", "==", anneeScolaire);
+          const classSnapshot = await classQuery.get();
 
-        if (!classSnapshot.empty) {
-          const classDoc = classSnapshot.docs[0];
-          batch.update(classDoc.ref, {
-            studentIds: adminApp.firestore.FieldValue.arrayUnion(newUserProfile.id)
-          });
+          if (!classSnapshot.empty) {
+            const classDoc = classSnapshot.docs[0];
+            batch.update(classDoc.ref, {
+              studentIds: adminApp.firestore.FieldValue.arrayUnion(newUserProfile.id)
+            });
+          }
         }
       }
       
