@@ -59,12 +59,12 @@ export default function PermissionTestsPage() {
         creatorId: user.uid,
       });
       toast({ title: 'Succès (Test 3)', description: 'Création dans pending_users réussie.' });
-    } catch (e: any) => {
+    } catch (e: any) {
       toast({ variant: 'destructive', title: 'Échec (Test 3)', description: e.message });
     }
   };
-  
-    const handleCreateClass = async () => {
+
+  const handleCreateClass = async () => {
     if (!user) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Vous n\'êtes pas connecté.' });
       return;
