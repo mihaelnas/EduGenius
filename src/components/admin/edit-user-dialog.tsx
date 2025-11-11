@@ -100,19 +100,24 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
       const teacherData = user.role === 'teacher' ? (user as Teacher) : {};
 
       form.reset({
-        ...(user as any),
-        photo: user.photo ?? '',
-        telephone: user.telephone ?? '',
-        adresse: user.adresse ?? '',
-        genre: user.genre,
-        matricule: studentData.matricule,
-        dateDeNaissance: studentData.dateDeNaissance,
-        lieuDeNaissance: studentData.lieuDeNaissance,
-        niveau: studentData.niveau,
-        filiere: studentData.filiere,
-        groupe: studentData.groupe,
-        emailPro: teacherData.emailPro,
-        specialite: teacherData.specialite
+        role: user.role,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        username: user.username || '',
+        email: user.email || '',
+        photo: user.photo || '',
+        status: user.status as 'active' | 'inactive',
+        telephone: user.telephone || '',
+        adresse: user.adresse || '',
+        genre: user.genre || undefined,
+        matricule: studentData.matricule || '',
+        dateDeNaissance: studentData.dateDeNaissance || '',
+        lieuDeNaissance: studentData.lieuDeNaissance || '',
+        niveau: studentData.niveau || undefined,
+        filiere: studentData.filiere || undefined,
+        groupe: studentData.groupe || undefined,
+        emailPro: teacherData.emailPro || '',
+        specialite: teacherData.specialite || ''
       });
     }
   }, [user, form, isOpen]);
@@ -286,3 +291,5 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
     </Dialog>
   );
 }
+
+    
