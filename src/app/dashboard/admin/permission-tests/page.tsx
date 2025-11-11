@@ -66,7 +66,7 @@ export default function PermissionTestsPage() {
         className: 'bg-green-100 dark:bg-green-900 border-green-400',
       });
     } catch (error: any) {
-      toast({
+       toast({
         variant: 'destructive',
         title: 'Échec de la création dans pending_users',
         description: error.message,

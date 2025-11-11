@@ -22,9 +22,6 @@ import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -64,12 +61,12 @@ export default function AdminUsersPage() {
           description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
         });
     }).catch(error => {
-        const permissionError = new FirestorePermissionError({
-          path: 'pending_users',
-          operation: 'create',
-          requestResourceData: userProfile,
+        toast({
+            variant: 'destructive',
+            title: "Échec de la pré-inscription",
+            description: error.message || "Une erreur est survenue.",
+            duration: 9000,
         });
-        errorEmitter.emit('permission-error', permissionError);
     });
   };
 
