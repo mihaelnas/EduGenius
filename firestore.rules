@@ -38,7 +38,7 @@ service cloud.firestore {
     // Collection pour les utilisateurs en attente
     match /pending_users/{pendingUserId} {
       allow read: if true; // Tout le monde (y compris le script d'inscription non authentifié) peut lire pour valider.
-      allow create: if isAdmin(); // Seuls les admins peuvent pré-inscrire des utilisateurs.
+      allow create: if isSignedIn(); // Seuls les admins (qui sont connectés) peuvent pré-inscrire des utilisateurs.
       allow delete: if true; // Le script d'inscription (qui sera authentifié) doit pouvoir supprimer.
       allow update: if false; // Ne doit pas être mis à jour.
     }
