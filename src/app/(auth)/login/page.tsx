@@ -106,16 +106,6 @@ export default function LoginPage() {
         
         const userProfile = userDoc.data() as AppUser;
 
-        if (userProfile.role === 'admin') {
-            toast({
-                title: '[DEBUG] Rôle Admin Confirmé',
-                description: 'Vous êtes bien connecté en tant qu\'administrateur.',
-                variant: 'default',
-                duration: 9000,
-            });
-        }
-
-
         if (userProfile.status !== 'active') {
            toast({
               variant: 'destructive',
@@ -128,7 +118,6 @@ export default function LoginPage() {
         }
         
         // The layout will handle the redirection, removing the race condition.
-        // The toast below was also removed to allow the debug toast to be visible.
 
       } catch (e) {
           const permissionError = new FirestorePermissionError({
