@@ -80,7 +80,7 @@ export default function PermissionTestsPage() {
         teacherIds: [],
         studentIds: [],
         createdAt: new Date().toISOString(),
-        creatorId: user.uid, // Ajout de l'ID du créateur
+        creatorId: user.uid,
       });
       toast({ title: 'Succès (Test 4)', description: 'Création de classe réussie.' });
     } catch (e: any) {
@@ -100,7 +100,7 @@ export default function PermissionTestsPage() {
         credit: 3,
         semestre: 'S1',
         createdAt: new Date().toISOString(),
-        creatorId: user.uid, // Ajout de l'ID du créateur
+        creatorId: user.uid,
       });
       toast({ title: 'Succès (Test 5)', description: 'Création de matière réussie.' });
     } catch (e: any) {
@@ -119,7 +119,6 @@ export default function PermissionTestsPage() {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Test 1 */}
         <div className="p-4 border rounded-lg">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Test 1: Lire son propre profil</h3>
@@ -131,7 +130,6 @@ export default function PermissionTestsPage() {
           </Button>
         </div>
 
-        {/* Test 2 */}
         <div className="p-4 border rounded-lg">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Test 2: Mettre à jour son profil</h3>
@@ -143,20 +141,18 @@ export default function PermissionTestsPage() {
           </Button>
         </div>
         
-        {/* Test 3 */}
         <div className="p-4 border rounded-lg bg-destructive/10 border-destructive">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Test 3: Créer un utilisateur en attente</h3>
           </div>
-          <p className="text-sm text-muted-foreground">Teste `create` sur `/pending_users/[docId]`.</p>
+          <p className="text-sm text-muted-foreground">Teste `create` sur `/pending_users/[docId]`. C'est l'opération qui échoue actuellement.</p>
           <Button onClick={handleCreatePendingUser} variant="destructive" className="mt-2">
             <AlertCircle className='mr-2'/>
             Exécuter le test de création
           </Button>
         </div>
         
-         {/* Test 4 */}
-        <div className="p-4 border rounded-lg bg-destructive/10 border-destructive">
+         <div className="p-4 border rounded-lg bg-destructive/10 border-destructive">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Test 4: Créer une classe</h3>
           </div>
@@ -167,7 +163,6 @@ export default function PermissionTestsPage() {
           </Button>
         </div>
         
-        {/* Test 5 */}
         <div className="p-4 border rounded-lg bg-destructive/10 border-destructive">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Test 5: Créer une matière</h3>

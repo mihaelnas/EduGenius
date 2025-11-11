@@ -37,7 +37,7 @@ service cloud.firestore {
 
     match /pending_users/{pendingUserId} {
       allow read, update, delete: if isAdmin();
-      allow create: if request.resource.data.creatorId == request.auth.uid && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow create: if request.resource.data.creatorId == request.auth.uid && isAdmin();
     }
 
     match /users/{userId} {
@@ -50,13 +50,13 @@ service cloud.firestore {
     
     match /classes/{classId} {
       allow get, list: if isSignedIn();
-      allow create: if request.resource.data.creatorId == request.auth.uid && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow create: if request.resource.data.creatorId == request.auth.uid && isAdmin();
       allow update, delete: if isAdmin();
     }
 
     match /subjects/{subjectId} {
       allow get, list: if isSignedIn();
-      allow create: if request.resource.data.creatorId == request.auth.uid && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow create: if request.resource.data.creatorId == request.auth.uid && isAdmin();
       allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
       allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
     }
