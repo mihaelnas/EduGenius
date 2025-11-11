@@ -40,7 +40,7 @@ service cloud.firestore {
     // Collection pour les utilisateurs en attente
     match /pending_users/{pendingUserId} {
       allow get: if true; // Tout le monde peut vérifier un utilisateur en attente spécifique
-      allow list: if isAdmin(); // Seuls les admins peuvent lister tous les utilisateurs en attente
+      allow list: if isSignedIn(); // Seuls les utilisateurs connectés (donc les admins) peuvent lister les utilisateurs en attente
       allow create: if isAdmin(); // Seuls les admins peuvent pré-inscrire des utilisateurs
       allow delete: if isSignedIn(); // Le processus d'inscription supprimera ceci
       allow update: if false; // Ne doit pas être mis à jour
