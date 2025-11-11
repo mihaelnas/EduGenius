@@ -44,6 +44,7 @@ const studentValidationFlow = ai.defineFlow(
     try {
       const fetch = (await import('node-fetch')).default;
       
+      // Correctly construct the request body as per the API's requirements
       const apiRequestBody = {
         studentId: input.matricule,
         firstName: input.firstName,
