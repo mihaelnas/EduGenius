@@ -56,25 +56,12 @@ export default function AdminUsersPage() {
 
   const handleAdd = async (userProfile: AppUser) => {
     try {
-      const batch = writeBatch(firestore);
-      // Create user in pending_users collection
       const userDocRef = doc(firestore, 'pending_users', userProfile.id);
-
-      batch.set(userDocRef, userProfile);
-
-      let successMessage = `Utilisateur ${getDisplayName(userProfile)} pré-inscrit.`;
-
-      // For students, the assignment to class will happen upon account activation
-      if (userProfile.role === 'student') {
-        const student = userProfile as Student;
-        successMessage = `L'étudiant ${getDisplayName(userProfile)} a été pré-inscrit. Il sera assigné à sa classe après activation de son compte.`;
-      }
-      
-      await batch.commit();
+      await setDoc(userDocRef, userProfile);
       
       toast({
         title: 'Opération réussie',
-        description: successMessage,
+        description: `L'utilisateur ${getDisplayName(userProfile)} a été pré-inscrit. Il pourra activer son compte en s'inscrivant.`,
       });
       setIsAddDialogOpen(false);
 
