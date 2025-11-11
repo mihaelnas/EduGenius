@@ -56,7 +56,6 @@ export default function PermissionTestsPage() {
       await addDoc(pendingUsersRef, {
         test: true,
         createdAt: Timestamp.now(),
-        creatorId: user.uid,
       });
       toast({ title: 'Succès (Test 3)', description: 'Création dans pending_users réussie.' });
     } catch (e: any) {
@@ -80,7 +79,6 @@ export default function PermissionTestsPage() {
         teacherIds: [],
         studentIds: [],
         createdAt: new Date().toISOString(),
-        creatorId: user.uid,
       });
       toast({ title: 'Succès (Test 4)', description: 'Création de classe réussie.' });
     } catch (e: any) {
@@ -100,7 +98,6 @@ export default function PermissionTestsPage() {
         credit: 3,
         semestre: 'S1',
         createdAt: new Date().toISOString(),
-        creatorId: user.uid,
       });
       toast({ title: 'Succès (Test 5)', description: 'Création de matière réussie.' });
     } catch (e: any) {
