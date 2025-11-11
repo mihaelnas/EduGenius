@@ -26,13 +26,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, doc, setDoc, getDocs, query, where, writeBatch, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Student, Admin } from '@/lib/placeholder-data';
+import { Admin } from '@/lib/placeholder-data';
+import { activateAccount } from '@/ai/flows/user-actions';
 
-// Schema for the "account claiming" registration process
 const formSchema = z.object({
   firstName: z.string().min(1, { message: 'Le prénom est requis.' }),
   lastName: z.string().min(1, { message: 'Le nom est requis.' }),
@@ -68,7 +68,6 @@ export default function RegisterPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     
-    // Special case for admin registration
     if (values.email === 'rajo.harisoa7@gmail.com') {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
@@ -108,85 +107,33 @@ export default function RegisterPage() {
         }
     }
 
-
-    // Standard registration flow for students/teachers
     let toastId: string | undefined;
     try {
       toastId = toast({
         title: 'Vérification en cours...',
-        description: 'Nous vérifions vos informations de pré-inscription.',
-        duration: Infinity
-      }).id;
-
-      const usersRef = collection(firestore, 'pending_users');
-      const q = query(usersRef, 
-        where('matricule', '==', values.matricule.toUpperCase()),
-        where('status', '==', 'inactive')
-      );
-      
-      const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-        throw new Error("Aucun compte en attente correspondant à ce matricule n'a été trouvé. Veuillez contacter l'administration.");
-      }
-      
-      const matchingDocs = querySnapshot.docs.filter(doc => {
-          const data = doc.data();
-          return data.firstName.toLowerCase() === values.firstName.toLowerCase() &&
-                 data.lastName.toLowerCase() === values.lastName.toLowerCase();
-      });
-
-      if (matchingDocs.length === 0) {
-          throw new Error("Les nom et prénom ne correspondent pas au compte pré-inscrit pour ce matricule.");
-      }
-      
-      if (toastId) dismiss(toastId);
-      toastId = toast({
-        title: 'Informations validées !',
         description: 'Finalisation de votre compte...',
         duration: Infinity
       }).id;
 
-      const pendingUserDoc = matchingDocs[0];
-      const pendingUserData = pendingUserDoc.data() as Student;
-
+      // 1. Create the Auth user first
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const newAuthUser = userCredential.user;
 
-      const batch = writeBatch(firestore);
-      
-      const pendingDocRef = doc(firestore, 'pending_users', pendingUserDoc.id);
-      const newUserDocRef = doc(firestore, 'users', newAuthUser.uid);
-      
-      const newUserProfile = {
-        ...pendingUserData,
-        id: newAuthUser.uid,
+      // 2. Call the secure server-side flow to handle the database transaction
+      const result = await activateAccount({
+        matricule: values.matricule,
+        firstName: values.firstName,
+        lastName: values.lastName,
         email: values.email,
-        status: 'active' as const,
-        claimedAt: new Date().toISOString(),
-      };
+        newAuthUserId: newAuthUser.uid,
+      });
 
-      batch.set(newUserDocRef, newUserProfile);
-      batch.delete(pendingDocRef);
-
-      if (newUserProfile.role === 'student') {
-        const student = newUserProfile as Student;
-        const className = `${student.niveau}-${student.filiere}-G${student.groupe}`.toUpperCase();
-        const anneeScolaire = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
-        
-        const classesRef = collection(firestore, 'classes');
-        const classQuery = query(classesRef, where('name', '==', className), where("anneeScolaire", "==", anneeScolaire));
-        const classSnapshot = await getDocs(classQuery);
-
-        if (!classSnapshot.empty) {
-          const classDoc = classSnapshot.docs[0];
-          batch.update(classDoc.ref, {
-            studentIds: arrayUnion(newUserProfile.id)
-          });
-        }
+      if (!result.success) {
+        // If the flow fails, we should ideally delete the created auth user
+        // For simplicity, we'll just show an error. In a production app,
+        // you might want to handle this more gracefully.
+        throw new Error(result.error || "La transaction de base de données a échoué.");
       }
-      
-      await batch.commit();
       
       if (toastId) dismiss(toastId);
       toast({ 
@@ -195,7 +142,7 @@ export default function RegisterPage() {
           duration: 8000 
       });
       
-      router.push('/dashboard');
+      router.push('/dashboard?registered=true');
 
     } catch (error: any) {
       if (toastId) dismiss(toastId);

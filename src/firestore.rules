@@ -7,12 +7,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
     function isAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
     
     function isTeacherForCourse() {
@@ -35,30 +35,27 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
-    // Only admins (via server flow) can write. All admins can read.
     match /pending_users/{pendingUserId} {
-      allow read: if isAdmin();
-      allow create, update, delete: if false; // IMPORTANT: Prevent client-side writes
+      allow read, create, update, delete: if false; // All operations must go through secure flows
     }
 
     match /users/{userId} {
       allow get, list: if isSignedIn();
-      allow create: if isSignedIn(); // User can create their own profile upon registration
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role); // Owner can update, but not change role
-      allow delete: if false; // Only via secure flow
+      // Allow creation only if the user is creating their own document.
+      allow create: if isOwner(userId);
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
+      allow delete: if false; // Deletion must go through a secure flow
     }
     
-    // Admins (via server flow) can write. All signed-in users can read.
     match /classes/{classId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if false; // IMPORTANT: Prevent client-side writes
+      allow create, update, delete: if false; // All write operations must go through secure flows
     }
 
-    // Admins (via server flow) can create/delete. All signed-in users can read. Admins or assigned teachers can update.
     match /subjects/{subjectId} {
       allow get, list: if isSignedIn();
-      allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin(); // Teacher can be assigned by admin
-      allow create, delete: if false; // IMPORTANT: Prevent client-side writes
+      allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
+      allow create, delete: if false; // All write operations must go through secure flows
     }
     
     match /courses/{courseId} {
