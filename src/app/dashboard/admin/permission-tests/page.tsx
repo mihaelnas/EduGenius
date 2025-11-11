@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, getDoc, setDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
-import { AlertCircle, CheckCircle, DatabaseZap, FileCheck, FilePlus, FileText } from 'lucide-react';
+import { AlertCircle, CheckCircle, DatabaseZap, FileCheck, FilePlus, FileText, School, BookOpen } from 'lucide-react';
 import { AppUser } from '@/lib/placeholder-data';
 
 export default function PermissionTestsPage() {
@@ -57,7 +57,6 @@ export default function PermissionTestsPage() {
       filiere: 'IG',
       groupe: 1,
     };
-    // Use addDoc for collections
     const pendingUsersCollectionRef = collection(firestore, 'pending_users');
     try {
       await addDoc(pendingUsersCollectionRef, newPendingUser);
@@ -101,6 +100,60 @@ export default function PermissionTestsPage() {
     }
   };
 
+  const handleCreateClass = async () => {
+    const newClass = {
+        name: `TEST-CLASS-${Date.now()}`,
+        niveau: 'L1',
+        filiere: 'IG',
+        groupe: 1,
+        anneeScolaire: '2023-2024',
+        teacherIds: [],
+        studentIds: [],
+        createdAt: new Date().toISOString(),
+    };
+    const classesCollectionRef = collection(firestore, 'classes');
+    try {
+        await addDoc(classesCollectionRef, newClass);
+        toast({
+            title: 'Succès de la création !',
+            description: 'Classe de test créée avec succès.',
+            className: 'bg-green-100 dark:bg-green-900 border-green-400',
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Échec de la création de la classe',
+            description: error.message,
+            duration: 9000,
+        });
+    }
+  };
+  
+  const handleCreateSubject = async () => {
+      const newSubject = {
+          name: `TEST-SUBJECT-${Date.now()}`,
+          credit: 3,
+          semestre: 'S1',
+          createdAt: new Date().toISOString(),
+      };
+      const subjectsCollectionRef = collection(firestore, 'subjects');
+      try {
+          await addDoc(subjectsCollectionRef, newSubject);
+          toast({
+              title: 'Succès de la création !',
+              description: 'Matière de test créée avec succès.',
+              className: 'bg-green-100 dark:bg-green-900 border-green-400',
+          });
+      } catch (error: any) {
+          toast({
+              variant: 'destructive',
+              title: 'Échec de la création de la matière',
+              description: error.message,
+              duration: 9000,
+          });
+      }
+  };
+
 
   return (
     <>
@@ -123,36 +176,61 @@ export default function PermissionTestsPage() {
                 <FileText className='text-primary'/>
                 <h3 className="font-semibold">Test 1: Lire son propre profil</h3>
             </div>
-            <p className="text-sm text-muted-foreground">Teste `get` sur `/users/[votreId]`. Nécessaire pour que `isAdmin()` fonctionne.</p>
+            <p className="text-sm text-muted-foreground">Teste `get` sur `/users/votreId`. Nécessaire pour que `isAdmin()` fonctionne.</p>
             <Button onClick={handleReadOwnProfile}>
                 <CheckCircle className='mr-2'/>
                 Exécuter le test de lecture
             </Button>
           </div>
           
-          <div className="flex flex-col gap-2 p-4 border rounded-lg">
+           <div className="flex flex-col gap-2 p-4 border rounded-lg">
             <div className='flex items-center gap-2'>
-                <FilePlus className='text-primary'/>
-                <h3 className="font-semibold">Test 2: Créer un utilisateur en attente</h3>
+                <FileCheck className='text-primary'/>
+                <h3 className="font-semibold">Test 2: Mettre à jour son profil</h3>
             </div>
-            <p className="text-sm text-muted-foreground">Teste `create` sur `/pending_users/[docId]`. C'est l'opération qui échoue actuellement.</p>
+            <p className="text-sm text-muted-foreground">Teste `update` sur `/users/votreId`.</p>
+            <Button onClick={handleUpdateOwnProfile}>
+                <DatabaseZap className='mr-2'/>
+                Exécuter le test de mise à jour
+            </Button>
+          </div>
+
+          <div className="flex flex-col gap-2 p-4 border rounded-lg bg-red-900/20 border-red-500/30">
+            <div className='flex items-center gap-2'>
+                <FilePlus className='text-destructive'/>
+                <h3 className="font-semibold">Test 3: Créer un utilisateur en attente</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">Teste `create` sur `/pending_users/docId`. C'est l'opération qui échoue actuellement.</p>
             <Button onClick={handleCreatePendingUser}>
                 <AlertCircle className='mr-2'/>
                 Exécuter le test de création
             </Button>
           </div>
           
-           <div className="flex flex-col gap-2 p-4 border rounded-lg">
+          <div className="flex flex-col gap-2 p-4 border rounded-lg">
             <div className='flex items-center gap-2'>
-                <FileCheck className='text-primary'/>
-                <h3 className="font-semibold">Test 3: Mettre à jour son profil</h3>
+                <School className='text-primary'/>
+                <h3 className="font-semibold">Test 4: Créer une classe</h3>
             </div>
-            <p className="text-sm text-muted-foreground">Teste `update` sur `/users/[votreId]`.</p>
-            <Button onClick={handleUpdateOwnProfile}>
-                <DatabaseZap className='mr-2'/>
-                Exécuter le test de mise à jour
+            <p className="text-sm text-muted-foreground">Teste `create` sur `/classes/docId`.</p>
+            <Button onClick={handleCreateClass}>
+                <CheckCircle className='mr-2'/>
+                Exécuter le test de création
             </Button>
           </div>
+          
+          <div className="flex flex-col gap-2 p-4 border rounded-lg">
+            <div className='flex items-center gap-2'>
+                <BookOpen className='text-primary'/>
+                <h3 className="font-semibold">Test 5: Créer une matière</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">Teste `create` sur `/subjects/docId`.</p>
+            <Button onClick={handleCreateSubject}>
+                <CheckCircle className='mr-2'/>
+                Exécuter le test de création
+            </Button>
+          </div>
+
 
         </CardContent>
       </Card>
