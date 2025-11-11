@@ -7,12 +7,8 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
-    }
-
     function isAdmin() {
-      return isSignedIn() && getUserRole(request.auth.uid) == 'admin';
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isOwner(userId) {
@@ -40,8 +36,7 @@ service cloud.firestore {
     }
 
     match /pending_users/{pendingUserId} {
-      allow read: if isAdmin(); 
-      allow create, update, delete: if isAdmin();
+      allow read, create, update, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     match /users/{userId} {
