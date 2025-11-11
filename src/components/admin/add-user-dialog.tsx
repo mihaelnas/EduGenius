@@ -43,8 +43,8 @@ const baseSchema = z.object({
 const studentSchema = baseSchema.extend({
   role: z.literal('student'),
   matricule: z.string().min(1, { message: 'Matricule requis.' }),
-  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']),
-  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']),
+  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2'], { required_error: 'Le niveau est requis.'}),
+  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC'], { required_error: 'La filière est requise.'}),
   groupe: z.coerce.number().min(1, "Le groupe est requis"),
 });
 
@@ -72,12 +72,17 @@ const initialValues: Partial<AddUserFormValues> = {
   role: 'student',
   firstName: '',
   lastName: '',
+  matricule: '',
+  niveau: 'L1',
+  filiere: 'IG',
+  groupe: 1,
+  specialite: '',
 };
 
 export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogProps) {
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialValues as any,
+    defaultValues: initialValues as AddUserFormValues,
   });
 
   const role = useWatch({
@@ -123,7 +128,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      form.reset(initialValues as any);
+      form.reset(initialValues as AddUserFormValues);
     }
   };
 
