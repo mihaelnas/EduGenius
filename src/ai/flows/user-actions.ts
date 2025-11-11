@@ -7,7 +7,7 @@
  */
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { firebaseConfig } from '@/firebase/config';
 import type { Student } from '@/lib/placeholder-data';
@@ -126,7 +126,7 @@ export const activateAccount = ai.defineFlow(
           if (!classSnapshot.empty) {
             const classDoc = classSnapshot.docs[0];
             batch.update(classDoc.ref, {
-              studentIds: adminApp.firestore.FieldValue.arrayUnion(newUserProfile.id)
+              studentIds: FieldValue.arrayUnion(newUserProfile.id)
             });
           }
         }
