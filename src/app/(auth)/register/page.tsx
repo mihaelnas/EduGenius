@@ -24,16 +24,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, doc, setDoc, getDocs, query, where, writeBatch, arrayUnion } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Student, Admin } from '@/lib/placeholder-data';
-import { firebaseConfig } from '@/firebase/config';
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
 
 // Schema for the "account claiming" registration process
 const formSchema = z.object({
@@ -52,6 +49,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const { toast, dismiss } = useToast();
   const firestore = useFirestore();
+  const auth = useAuth();
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
@@ -69,16 +67,11 @@ export default function RegisterPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    let toastId: string | undefined;
-
+    
     // Special case for admin registration
     if (values.email === 'rajo.harisoa7@gmail.com') {
         try {
-            // Use a temporary auth instance to avoid automatic sign-in conflict
-            const tempApp = initializeApp(firebaseConfig, `temp-auth-admin-${Date.now()}`);
-            const tempAuth = getAuth(tempApp);
-            
-            const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, values.password);
+            const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
             const newAuthUser = userCredential.user;
 
             const newUserProfile: Admin = {
@@ -91,18 +84,17 @@ export default function RegisterPage() {
                 status: 'active',
                 createdAt: new Date().toISOString(),
             };
-
-            // Set the user document in Firestore with the admin role
+            
             await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserProfile);
             
-            toast({ title: 'Succès !', description: 'Compte administrateur créé. Vous pouvez maintenant vous connecter.', duration: 9000 });
-            router.push('/login');
-            return; // End execution here for the admin case
+            toast({ title: 'Succès !', description: 'Compte administrateur créé. Redirection...', duration: 5000 });
+            router.push('/dashboard');
+            return;
 
         } catch (error: any) {
             let errorMessage = 'Une erreur est survenue lors de la création du compte admin.';
             if (error.code === 'auth/email-already-in-use') {
-              errorMessage = 'Cette adresse e-mail est déjà utilisée pour un compte admin actif. Veuillez vous connecter.';
+              errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.';
             } else {
               errorMessage = `Erreur: ${error.message} (code: ${error.code})`;
             }
@@ -118,6 +110,7 @@ export default function RegisterPage() {
 
 
     // Standard registration flow for students/teachers
+    let toastId: string | undefined;
     try {
       toastId = toast({
         title: 'Vérification en cours...',
@@ -157,10 +150,7 @@ export default function RegisterPage() {
       const pendingUserDoc = matchingDocs[0];
       const pendingUserData = pendingUserDoc.data() as Student;
 
-      const tempApp = initializeApp(firebaseConfig, `temp-auth-${Date.now()}`);
-      const tempAuth = getAuth(tempApp);
-      
-      const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, values.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const newAuthUser = userCredential.user;
 
       const batch = writeBatch(firestore);
@@ -201,11 +191,11 @@ export default function RegisterPage() {
       if (toastId) dismiss(toastId);
       toast({ 
           title: 'Compte activé avec succès !', 
-          description: 'Vous pouvez maintenant vous connecter avec vos nouveaux identifiants.',
+          description: 'Vous allez être redirigé vers le tableau de bord.',
           duration: 8000 
       });
       
-      router.push('/login');
+      router.push('/dashboard');
 
     } catch (error: any) {
       if (toastId) dismiss(toastId);

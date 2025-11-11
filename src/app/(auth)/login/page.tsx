@@ -130,7 +130,9 @@ export default function LoginPage() {
             operation: 'get',
           });
           errorEmitter.emit('permission-error', permissionError);
-          throw permissionError;
+          // We don't re-throw here, as the global listener will handle it.
+          // The error toast will be shown by the listener's fallback mechanism.
+          return;
       }
 
 
@@ -141,6 +143,7 @@ export default function LoginPage() {
        } else if (error.code === 'auth/too-many-requests') {
           description = 'Accès temporairement désactivé en raison de trop nombreuses tentatives. Réessayez plus tard.';
        } else if (error instanceof FirestorePermissionError) {
+          // This type of error is handled by the global error listener, so we don't show a toast here.
           return;
        }
 
