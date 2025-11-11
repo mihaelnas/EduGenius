@@ -57,6 +57,7 @@ const studentSchema = baseSchema.extend({
   adresse: z.string().optional().or(z.literal('')),
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']).optional(),
   filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']).optional(),
+  groupe: z.coerce.number().optional()
 });
 
 const teacherSchema = baseSchema.extend({
@@ -94,29 +95,27 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
   const isCurrentUserAdmin = currentUser?.uid === user.id && (user as any).role === 'admin';
 
   React.useEffect(() => {
-    if (user) {
-        const studentData = user.role === 'student' ? (user as Student) : {};
-        const teacherData = user.role === 'teacher' ? (user as Teacher) : {};
+    if (user && isOpen) {
+      const studentData = user.role === 'student' ? (user as Student) : {};
+      const teacherData = user.role === 'teacher' ? (user as Teacher) : {};
 
-        form.reset({
-            ...user,
-            // Ensure all optional fields have a default value of '' instead of undefined
-            photo: user.photo || '',
-            telephone: user.telephone || '',
-            adresse: user.adresse || '',
-            genre: user.genre || undefined,
-            // Student specific
-            matricule: studentData.matricule || '',
-            dateDeNaissance: studentData.dateDeNaissance || '',
-            lieuDeNaissance: studentData.lieuDeNaissance || '',
-            niveau: studentData.niveau || undefined,
-            filiere: studentData.filiere || undefined,
-            // Teacher specific
-            emailPro: teacherData.emailPro || '',
-            specialite: teacherData.specialite || '',
-        });
+      form.reset({
+        ...(user as any),
+        photo: user.photo ?? '',
+        telephone: user.telephone ?? '',
+        adresse: user.adresse ?? '',
+        genre: user.genre,
+        matricule: studentData.matricule,
+        dateDeNaissance: studentData.dateDeNaissance,
+        lieuDeNaissance: studentData.lieuDeNaissance,
+        niveau: studentData.niveau,
+        filiere: studentData.filiere,
+        groupe: studentData.groupe,
+        emailPro: teacherData.emailPro,
+        specialite: teacherData.specialite
+      });
     }
-  }, [user, form, isOpen]); // Rerun effect when dialog opens
+  }, [user, form, isOpen]);
 
   const role = useWatch({
     control: form.control,
@@ -158,7 +157,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
     if (!open) {
       form.reset();
     }
-  }
+  };
 
   const handlePrenomBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -254,6 +253,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                                 <div className="grid grid-cols-2 gap-4">
                                 <FormField control={form.control} name="niveau" render={({ field }) => ( <FormItem><FormLabel>Niveau</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['L1', 'L2', 'L3', 'M1', 'M2'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="filiere" render={({ field }) => ( <FormItem><FormLabel>Filière</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['IG', 'GB', 'ASR', 'GID', 'OCC'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="groupe" render={({ field }) => ( <FormItem><FormLabel>Groupe</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 </div>
                             </>
                         )}
