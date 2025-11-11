@@ -83,7 +83,7 @@ type EditUserDialogProps = {
     onUserUpdated: (updatedUser: AppUser) => void;
 }
 
-const initialFormValues: Omit<Student & Teacher, 'id' | 'createdAt'> = {
+const initialFormValues: Partial<FormValues> = {
   role: 'student',
   firstName: '',
   lastName: '',
@@ -91,7 +91,6 @@ const initialFormValues: Omit<Student & Teacher, 'id' | 'createdAt'> = {
   email: '',
   photo: '',
   status: 'inactive',
-  // Student fields
   matricule: '',
   dateDeNaissance: '',
   lieuDeNaissance: '',
@@ -101,7 +100,6 @@ const initialFormValues: Omit<Student & Teacher, 'id' | 'createdAt'> = {
   niveau: undefined,
   filiere: undefined,
   groupe: undefined,
-  // Teacher fields
   emailPro: '',
   specialite: '',
 };
@@ -119,11 +117,13 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
 
   React.useEffect(() => {
     if (user && isOpen) {
-      // Merge the user data with the complete initial structure.
-      // This ensures that any fields not present in `user` (like `matricule` for a teacher)
-      // will fall back to their initial empty value from `initialFormValues`.
-      const valuesToSet = { ...initialFormValues, ...user };
-      form.reset(valuesToSet);
+      // Create a full default object and merge the user data into it.
+      // This ensures all fields are controlled from the start.
+      const valuesToSet = {
+        ...initialFormValues,
+        ...user,
+      };
+      form.reset(valuesToSet as FormValues);
     }
   }, [user, form, isOpen]);
 
@@ -164,6 +164,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
   };
   
   const handleOpenChange = (open: boolean) => {
+    if(form.formState.isSubmitting) return;
     setIsOpen(open);
     if (!open) {
       form.reset(initialFormValues);
@@ -261,7 +262,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                                 <FormField control={form.control} name="genre" render={({ field }) => ( <FormItem><FormLabel>Genre</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="Homme">Homme</SelectItem><SelectItem value="Femme">Femme</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="telephone" render={({ field }) => ( <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="0123456789" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="adresse" render={({ field }) => ( <FormItem><FormLabel>Adresse</FormLabel><FormControl><Input placeholder="123 Rue de Paris" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                                 <FormField control={form.control} name="niveau" render={({ field }) => ( <FormItem><FormLabel>Niveau</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['L1', 'L2', 'L3', 'M1', 'M2'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="filiere" render={({ field }) => ( <FormItem><FormLabel>Filière</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['IG', 'GB', 'ASR', 'GID', 'OCC'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="groupe" render={({ field }) => ( <FormItem><FormLabel>Groupe</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -288,7 +289,9 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                     </Button>
                     <div className="flex gap-2">
                         <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Annuler</Button>
-                        <Button type="submit">Sauvegarder les modifications</Button>
+                        <Button type="submit" disabled={form.formState.isSubmitting}>
+                          {form.formState.isSubmitting ? "Sauvegarde..." : "Sauvegarder les modifications"}
+                        </Button>
                     </div>
                 </DialogFooter>
             </form>
@@ -297,3 +300,5 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
     </Dialog>
   );
 }
+
+    
