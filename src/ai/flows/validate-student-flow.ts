@@ -39,17 +39,14 @@ const studentValidationFlow = ai.defineFlow(
     outputSchema: FlowOutputSchema,
   },
   async (input) => {
-    console.log(`[Flow] Starting external validation for matricule: ${input.matricule}`);
+    // The input now directly matches the API's expected format.
+    console.log(`[Flow] Starting external validation for studentId: ${input.studentId}`);
     
     try {
       const fetch = (await import('node-fetch')).default;
       
-      // Correctly construct the request body as per the API's requirements
-      const apiRequestBody = {
-        studentId: input.matricule,
-        firstName: input.firstName,
-        lastName: input.lastName,
-      };
+      // The input object already has the correct shape.
+      const apiRequestBody = input;
 
       console.log('[Flow] Preparing to send request to external API with body:', JSON.stringify(apiRequestBody));
 

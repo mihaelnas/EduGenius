@@ -115,14 +115,14 @@ export default function RegisterPage() {
       }).id;
 
       const validationInput: StudentValidationInput = {
-        matricule: values.matricule,
+        studentId: values.matricule, // Use studentId as the key
         firstName: values.firstName,
         lastName: values.lastName,
       };
 
-      console.log("Envoi de la requête vers l'API de validation...", validationInput);
+      console.log("Envoi de la requête vers le flow de validation...", validationInput);
       const validationResult = await validateAndAssignStudent(validationInput);
-      console.log("Réponse de l'API de validation reçue :", validationResult);
+      console.log("Réponse du flow de validation reçue :", validationResult);
       
       if (validationResult.status !== 'success') {
         throw new Error(validationResult.message || 'La validation externe a échoué. Vos informations sont peut-être incorrectes.');

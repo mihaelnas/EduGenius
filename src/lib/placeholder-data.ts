@@ -94,7 +94,7 @@ export type ScheduleEvent = {
 
 // Define the input schema for our flow
 export const StudentValidationInputSchema = z.object({
-  matricule: z.string().describe("The student's registration ID."),
+  studentId: z.string().describe("The student's registration ID."),
   firstName: z.string().describe("The student's first name."),
   lastName: z.string().describe("The student's last name."),
 });
