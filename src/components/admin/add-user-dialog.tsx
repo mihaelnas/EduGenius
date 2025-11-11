@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -29,19 +28,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, PlusCircle } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
+import { nanoid } from 'nanoid';
 
+// Removed password fields as we are now pre-registering accounts without auth.
 const baseSchema = z.object({
   role: z.enum(['student', 'teacher', 'admin']),
   firstName: z.string().min(1, { message: 'Le prénom est requis.' }),
   lastName: z.string().min(1, { message: 'Le nom est requis.' }),
   username: z.string().min(2, { message: "Le nom d'utilisateur est requis." }).startsWith('@', { message: 'Doit commencer par @.' }),
-  email: z.string().email({ message: 'Email invalide.' }),
-  password: z.string().min(8, { message: 'Le mot de passe doit contenir au moins 8 caractères.' }),
-  confirmPassword: z.string(),
+  email: z.string().email({ message: 'Email invalide (utilisé pour la communication, pas la connexion).' }),
   photo: z.string().url({ message: 'URL invalide.' }).optional().or(z.literal('')),
 });
 
@@ -71,30 +70,23 @@ const adminSchema = baseSchema.extend({
 });
 
 
-const formSchema = z.discriminatedUnion('role', [studentSchema, teacherSchema, adminSchema])
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Les mots de passe ne correspondent pas.",
-    path: ["confirmPassword"],
-  });
+const formSchema = z.discriminatedUnion('role', [studentSchema, teacherSchema, adminSchema]);
 
 export type AddUserFormValues = z.infer<typeof formSchema>;
 
 type AddUserDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onUserAdded: (newUser: AddUserFormValues) => Promise<void>;
+    onUserAdded: (newUser: any) => Promise<void>;
 }
 
-const initialValues = {
-  role: 'student' as const,
+const initialValues: Partial<AddUserFormValues> = {
+  role: 'student',
   firstName: '',
   lastName: '',
   username: '@',
   email: '',
-  password: '',
-  confirmPassword: '',
   photo: '',
-  // Student fields
   matricule: '',
   dateDeNaissance: '',
   lieuDeNaissance: '',
@@ -103,18 +95,14 @@ const initialValues = {
   niveau: undefined,
   filiere: undefined,
   genre: undefined,
-  // Teacher fields
   emailPro: '',
   specialite: '',
 };
 
 export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogProps) {
-  const [showPassword, setShowPassword] = React.useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
-
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialValues,
+    defaultValues: initialValues as any,
   });
 
   const role = useWatch({
@@ -123,18 +111,26 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
   });
 
   async function onSubmit(values: AddUserFormValues) {
-     if (values.role === 'teacher' && values.specialite) {
-      values.specialite = values.specialite.toUpperCase();
+    const userProfile = {
+        ...values,
+        id: `user_${nanoid()}`, // Temporary unique ID for the pre-registered document
+        status: 'inactive' as const, // Always inactive on creation
+        createdAt: new Date().toISOString(),
+    };
+     
+    if (userProfile.role === 'teacher' && userProfile.specialite) {
+      userProfile.specialite = userProfile.specialite.toUpperCase();
     }
-    await onUserAdded(values);
+    
+    await onUserAdded(userProfile);
     setIsOpen(false);
-    form.reset(initialValues);
+    form.reset(initialValues as any);
   }
   
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      form.reset(initialValues);
+      form.reset(initialValues as any);
     }
   };
 
@@ -155,7 +151,9 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
   const handleSpecialiteBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value) {
-      form.setValue('specialite', value.toUpperCase(), { shouldValidate: true });
+        if (form.getValues('role') === 'teacher') {
+            form.setValue('specialite', value.toUpperCase(), { shouldValidate: true });
+        }
     }
   };
 
@@ -164,14 +162,14 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
       <DialogTrigger asChild>
         <Button onClick={() => setIsOpen(true)}>
           <PlusCircle className="mr-2 h-4 w-4" />
-          Ajouter un utilisateur
+          Pré-inscrire un utilisateur
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Ajouter un nouvel utilisateur</DialogTitle>
+          <DialogTitle>Pré-inscrire un nouvel utilisateur</DialogTitle>
           <DialogDescription>
-            Remplissez les informations pour créer un nouveau profil et un compte d'authentification.
+            Crée un compte utilisateur avec le statut 'Inactif'. L'utilisateur devra l'activer lui-même.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -207,44 +205,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
                         </div>
 
                         <FormField control={form.control} name="username" render={({ field }) => ( <FormItem><FormLabel>Nom d'utilisateur</FormLabel><FormControl><Input placeholder="@jeandupont" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        
-                        <FormField 
-                          control={form.control} 
-                          name="password" 
-                          render={({ field }) => ( 
-                            <FormItem>
-                              <FormLabel>Mot de passe</FormLabel>
-                              <div className="relative">
-                                <FormControl>
-                                  <Input placeholder="8+ caractères" type={showPassword ? 'text' : 'password'} {...field} />
-                                </FormControl>
-                                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" onClick={() => setShowPassword(prev => !prev)}>
-                                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                </Button>
-                              </div>
-                              <FormMessage />
-                            </FormItem> 
-                          )} 
-                        />
-                        <FormField 
-                          control={form.control} 
-                          name="confirmPassword" 
-                          render={({ field }) => ( 
-                            <FormItem>
-                              <FormLabel>Confirmer le mot de passe</FormLabel>
-                              <div className="relative">
-                                <FormControl>
-                                  <Input placeholder="Retapez le mot de passe" type={showConfirmPassword ? 'text' : 'password'} {...field} />
-                                </FormControl>
-                                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" onClick={() => setShowConfirmPassword(prev => !prev)}>
-                                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                </Button>
-                              </div>
-                              <FormMessage />
-                            </FormItem> 
-                          )} 
-                        />
+                        <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email (pour communication)</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         
                         {role === 'student' && (
                             <>

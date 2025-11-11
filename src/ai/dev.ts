@@ -1,2 +1,1 @@
-// Flows will be imported for their side effects in this file.
-import './flows/validate-student-flow';
+// This file is intentionally left blank as the flow has been removed.

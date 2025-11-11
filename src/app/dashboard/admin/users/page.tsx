@@ -21,10 +21,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { firebaseConfig } from '@/firebase/config';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
@@ -36,7 +32,7 @@ const roleNames: Record<AppUser['role'], string> = {
 
 const statusMap: Record<AppUser['status'], { text: string, className: string, icon?: React.ReactNode }> = {
     active: { text: 'Actif', className: 'bg-green-600' },
-    inactive: { text: 'Inactif', className: 'bg-gray-400' },
+    inactive: { text: 'Inactif', className: 'bg-gray-400', icon: <Clock className="mr-1 h-3 w-3" /> },
     pending: { text: 'En attente', className: 'bg-yellow-500', icon: <Clock className="mr-1 h-3 w-3" /> }
 }
 
@@ -59,54 +55,24 @@ export default function AdminUsersPage() {
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
 
 
-  const handleAdd = async (values: AddUserFormValues) => {
-    const { password, confirmPassword, ...userData } = values;
-    
-    // Create a temporary auth instance to avoid conflicts with the main app's auth state
-    const tempAuthApp = initializeApp(firebaseConfig, `temp-app-${Date.now()}`);
-    const tempAuth = getAuth(tempAuthApp);
-
+  const handleAdd = async (userProfile: AppUser) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, password);
-      const newUser = userCredential.user;
-
-      const userProfile: AppUser = {
-        id: newUser.uid,
-        ...userData,
-        status: 'active', // Admins/Teachers created manually are active by default
-        createdAt: new Date().toISOString(),
-      } as AppUser;
-      
-      if (!userProfile.photo) {
-        delete (userProfile as Partial<AppUser>).photo;
-      }
-      
-      const batch = writeBatch(firestore);
-      const userDocRef = doc(firestore, 'users', newUser.uid);
-      batch.set(userDocRef, userProfile);
-      
-      await batch.commit();
+      const userDocRef = doc(firestore, 'users', userProfile.id);
+      await setDoc(userDocRef, userProfile);
       
       toast({
-        title: `Utilisateur ${getDisplayName(values)} ajouté.`,
+        title: `Utilisateur ${getDisplayName(userProfile)} pré-inscrit.`,
+        description: "Le compte est maintenant inactif et en attente d'activation par l'utilisateur."
       });
       setIsAddDialogOpen(false);
 
     } catch (error: any) {
       console.error("Erreur de création d'utilisateur:", error);
-       if (error.code === 'auth/email-already-in-use') {
-        toast({
-            variant: 'destructive',
-            title: 'Échec de la création',
-            description: 'Cette adresse e-mail est déjà utilisée.',
-        });
-      } else {
-        toast({
+      toast({
           variant: 'destructive',
           title: 'Échec de la création',
           description: error.message || "Une erreur inconnue est survenue.",
-        });
-      }
+      });
       throw error; // Re-throw to prevent dialog from closing on error
     }
   };

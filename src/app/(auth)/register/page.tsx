@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -27,50 +26,24 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, errorEmitter } from '@/firebase';
 import { createUserWithEmailAndPassword, signOut, deleteUser } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { validateAndAssignStudent } from '@/ai/flows/validate-student-flow';
-import { StudentValidationInput } from '@/lib/placeholder-data';
+import { Student } from '@/lib/placeholder-data';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { firebaseConfig } from '@/firebase/config';
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 
+// Schema for the new "account claiming" registration process
 const formSchema = z.object({
-  firstName: z
-    .string()
-    .min(1, { message: 'Le prénom est requis.' })
-    .refine(
-      (val) => val.length === 0 || val.charAt(0) === val.charAt(0).toUpperCase(),
-      {
-        message: 'Le prénom doit commencer par une majuscule.',
-      }
-    ),
-  lastName: z
-    .string()
-    .min(1, { message: 'Le nom est requis.' })
-    .refine((val) => val.length === 0 || val === val.toUpperCase(), {
-      message: 'Le nom doit être en majuscules.',
-    }),
-  username: z
-    .string()
-    .min(2, {
-      message: "Le nom d'utilisateur est requis et doit commencer par @",
-    })
-    .startsWith('@', { message: "Le nom d'utilisateur doit commencer par @." }),
-  email: z.string().email({ message: 'Veuillez entrer un email valide.' }),
-  password: z
-    .string()
-    .min(8, { message: 'Le mot de passe doit contenir au moins 8 caractères.' }),
-  confirmPassword: z.string(),
+  firstName: z.string().min(1, { message: 'Le prénom est requis.' }),
+  lastName: z.string().min(1, { message: 'Le nom est requis.' }),
   matricule: z.string().min(1, { message: 'Le matricule est requis.' }),
-  dateDeNaissance: z.string().min(1, { message: 'La date de naissance est requise.' }),
-  lieuDeNaissance: z.string().min(1, { message: 'Le lieu de naissance est requis.' }),
-  genre: z.enum(['Homme', 'Femme'], { required_error: 'Le genre est requis.'}),
-  telephone: z.string().optional(),
-  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2'], { required_error: 'Le niveau est requis.'}),
-  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC'], { required_error: 'La filière est requise.'}),
-  photo: z.string().url({ message: 'Veuillez entrer une URL valide.' }).optional().or(z.literal('')),
+  email: z.string().email({ message: 'Veuillez entrer un email valide.' }),
+  password: z.string().min(8, { message: 'Le mot de passe doit contenir au moins 8 caractères.' }),
+  confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
   message: 'Les mots de passe ne correspondent pas.',
   path: ['confirmPassword'],
@@ -89,118 +62,103 @@ export default function RegisterPage() {
     defaultValues: {
       firstName: '',
       lastName: '',
-      username: '@',
+      matricule: '',
       email: '',
       password: '',
       confirmPassword: '',
-      matricule: '',
-      dateDeNaissance: '',
-      lieuDeNaissance: '',
-      telephone: '',
-      photo: '',
     },
     mode: 'onBlur',
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     let toastId: string | undefined;
-    let authUser;
 
     try {
-      // Step 1: External validation first
       toastId = toast({
         title: 'Vérification des informations...',
-        description: 'Nous contactons l\'administration pour valider vos informations.',
+        description: 'Nous vérifions si un compte pré-inscrit correspond à vos informations.',
         duration: Infinity
       }).id;
 
-      const validationInput: StudentValidationInput = {
-        studentId: values.matricule,
-        firstName: values.firstName,
-        lastName: values.lastName,
-      };
-
-      console.log("Envoi de la requête vers le flow de validation...", validationInput);
-      const validationResult = await validateAndAssignStudent(validationInput);
-      console.log("Réponse du flow de validation reçue :", validationResult);
+      // Step 1: Find a pre-registered, inactive account matching the info
+      const usersRef = collection(firestore, 'users');
+      const q = query(usersRef, 
+        where('matricule', '==', values.matricule),
+        where('status', '==', 'inactive')
+      );
       
-      if (validationResult.status !== 'success' || !validationResult.className) {
-        throw new Error(validationResult.message || 'La validation externe a échoué. Vos informations sont peut-être incorrectes.');
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        throw new Error("Aucun compte inactif correspondant à ce matricule n'a été trouvé. Veuillez contacter l'administration.");
       }
       
-      if (toastId) dismiss(toastId);
-      
-      // Notify about the received class name
-      toast({
-        title: 'Classe assignée reçue !',
-        description: `Classe retournée par l'API : ${validationResult.className}`,
-        duration: 5000,
+      const matchingDocs = querySnapshot.docs.filter(doc => {
+          const data = doc.data();
+          return data.firstName.toLowerCase() === values.firstName.toLowerCase() &&
+                 data.lastName.toLowerCase() === values.lastName.toLowerCase();
       });
 
+      if (matchingDocs.length === 0) {
+          throw new Error("Les nom et prénom ne correspondent pas au compte pré-inscrit pour ce matricule.");
+      }
+
+      const userDoc = matchingDocs[0];
+      const preRegisteredUser = userDoc.data() as Student;
+
+      // Step 2: Create Firebase Auth user
+      if (toastId) dismiss(toastId);
       toastId = toast({
-        title: 'Validation réussie ! Création du compte...',
-        description: 'Veuillez patienter.',
+        title: 'Informations validées !',
+        description: 'Création de votre compte de connexion...',
         duration: Infinity
       }).id;
-
-      // Step 2: Create Firebase Auth user only if validation passed
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      authUser = userCredential.user;
-
-      // Step 3: Create user profile in Firestore
-      const userProfile = {
-        id: authUser.uid,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        email: values.email,
-        username: values.username,
-        role: 'student' as const,
-        status: 'pending' as const, // Always start as pending
-        createdAt: new Date().toISOString(),
-        matricule: values.matricule,
-        dateDeNaissance: values.dateDeNaissance,
-        lieuDeNaissance: values.lieuDeNaissance,
-        genre: values.genre,
-        telephone: values.telephone,
-        niveau: values.niveau,
-        filiere: values.filiere,
-        photo: values.photo,
-      };
-
-      if (!userProfile.photo) { delete (userProfile as Partial<typeof userProfile>).photo; }
-      if (!userProfile.telephone) { delete (userProfile as Partial<typeof userProfile>).telephone; }
-
-      const userDocRef = doc(firestore, 'users', authUser.uid);
-      await setDoc(userDocRef, userProfile);
       
-      // Step 4: Success, log out and redirect
+      // Use a temporary auth instance to avoid automatic sign-in
+      const tempApp = initializeApp(firebaseConfig, `temp-auth-${Date.now()}`);
+      const tempAuth = getAuth(tempApp);
+      
+      const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, values.password);
+      const newAuthUser = userCredential.user;
+
+      // Step 3: Update the existing Firestore document with the new Auth UID and activate it
+      const batch = writeBatch(firestore);
+      
+      const oldDocRef = doc(firestore, 'users', userDoc.id);
+      const newDocRef = doc(firestore, 'users', newAuthUser.uid);
+      
+      const updatedProfile = {
+        ...preRegisteredUser,
+        id: newAuthUser.uid, // Update the ID to the new Auth UID
+        email: values.email, // Add the chosen email
+        status: 'active' as const,
+        claimedAt: new Date().toISOString(),
+      };
+      
+      // Since we are changing the document ID, we create a new one and delete the old one
+      batch.set(newDocRef, updatedProfile);
+      batch.delete(oldDocRef);
+      
+      await batch.commit();
+      
+      // Step 4: Success, redirect to login
       if (toastId) dismiss(toastId);
       toast({ 
-          title: 'Inscription réussie !', 
-          description: 'Votre compte a été créé et est en attente d\'activation par un administrateur. Vous serez redirigé.',
+          title: 'Compte activé avec succès !', 
+          description: 'Vous pouvez maintenant vous connecter avec vos nouveaux identifiants.',
           duration: 8000 
       });
       
-      await signOut(auth);
       router.push('/login');
 
     } catch (error: any) {
       if (toastId) dismiss(toastId);
       
-      // Cleanup: if auth user was created but Firestore write failed, delete the auth user
-      if (authUser) {
-        await deleteUser(authUser).catch(deleteError => {
-            console.error("Failed to clean up auth user during registration error:", deleteError);
-        });
-      }
-
       let errorMessage = 'Une erreur est survenue. Vérifiez vos informations et réessayez.';
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.';
+        errorMessage = 'Cette adresse e-mail est déjà utilisée pour un compte actif. Veuillez vous connecter ou utiliser une autre adresse.';
       } else if (error instanceof FirestorePermissionError) {
-        // This error is now for debugging, show a user-friendly message
-        errorMessage = "Une erreur de permission est survenue lors de la création de votre profil. Veuillez contacter le support.";
-        // The error is already thrown and will be caught by the global handler for debugging
+        errorMessage = "Une erreur de permission est survenue. Veuillez contacter le support.";
         throw error;
       }
       else if (error.message) {
@@ -209,15 +167,10 @@ export default function RegisterPage() {
       
       toast({
           variant: 'destructive',
-          title: 'Échec de l\'inscription',
+          title: 'Échec de l\'activation',
           description: errorMessage,
           duration: 8000
       });
-
-      // Ensure user is signed out on any failure
-      if (auth.currentUser) {
-        await signOut(auth).catch(() => {});
-      }
     }
   }
 
@@ -239,47 +192,34 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card className="w-full max-w-2xl shadow-2xl">
+    <Card className="w-full max-w-lg shadow-2xl">
       <CardHeader>
-        <CardTitle className="text-2xl font-headline">Créer un compte étudiant</CardTitle>
+        <CardTitle className="text-2xl font-headline">Activer votre compte étudiant</CardTitle>
         <CardDescription>
-          Rejoignez EduGenius aujourd'hui. L'inscription est soumise à validation.
+          Finalisez votre inscription pour activer votre compte pré-créé.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
-          <ScrollArea className="h-[60vh] lg:h-auto">
+          <ScrollArea className="h-auto">
             <CardContent className="grid gap-4 px-6">
+                <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="Ex: 1814 H-F" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="Jean" {...field} onBlur={handlePrenomBlur} /></FormControl><FormMessage /></FormItem> )} />
                     <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Nom</FormLabel><FormControl><Input placeholder="DUPONT" {...field} onBlur={handleNomBlur} /></FormControl><FormMessage /></FormItem> )} />
                 </div>
-                <FormField control={form.control} name="username" render={({ field }) => ( <FormItem><FormLabel>Nom d'utilisateur</FormLabel><FormControl><Input placeholder="@jeandupont" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Mot de passe</FormLabel><div className="relative"><FormControl><Input type={showPassword ? 'text' : 'password'} {...field} /></FormControl><Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" onClick={() => setShowPassword(prev => !prev)}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="confirmPassword" render={({ field }) => ( <FormItem><FormLabel>Confirmer le mot de passe</FormLabel><div className="relative"><FormControl><Input type={showConfirmPassword ? 'text' : 'password'} {...field} /></FormControl><Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" onClick={() => setShowConfirmPassword(prev => !prev)}>{showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div><FormMessage /></FormItem> )} />
                 
                 <hr className="my-2 border-border" />
                 
-                <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="Ex: 1814 H-F" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormField control={form.control} name="dateDeNaissance" render={({ field }) => ( <FormItem><FormLabel>Date de Naissance</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                    <FormField control={form.control} name="lieuDeNaissance" render={({ field }) => ( <FormItem><FormLabel>Lieu de Naissance</FormLabel><FormControl><Input placeholder="Dakar" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormField control={form.control} name="genre" render={({ field }) => ( <FormItem><FormLabel>Genre</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner le genre" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Homme">Homme</SelectItem><SelectItem value="Femme">Femme</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                    <FormField control={form.control} name="telephone" render={({ field }) => ( <FormItem><FormLabel>Téléphone <span className='text-xs text-muted-foreground'>(Optionnel)</span></FormLabel><FormControl><Input placeholder="77 123 45 67" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormField control={form.control} name="niveau" render={({ field }) => ( <FormItem><FormLabel>Niveau</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner le niveau" /></SelectTrigger></FormControl><SelectContent>{['L1', 'L2', 'L3', 'M1', 'M2'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                    <FormField control={form.control} name="filiere" render={({ field }) => ( <FormItem><FormLabel>Filière</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner la filière" /></SelectTrigger></FormControl><SelectContent>{['IG', 'GB', 'ASR', 'GID', 'OCC'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                </div>
-                 <FormField control={form.control} name="photo" render={({ field }) => ( <FormItem><FormLabel>URL de la photo <span className='text-xs text-muted-foreground'>(Optionnel)</span></FormLabel><FormControl><Input placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <p className='text-sm font-medium text-muted-foreground'>Choisissez vos identifiants de connexion :</p>
+                <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Votre Email</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Votre Mot de passe</FormLabel><div className="relative"><FormControl><Input type={showPassword ? 'text' : 'password'} {...field} /></FormControl><Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" onClick={() => setShowPassword(prev => !prev)}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="confirmPassword" render={({ field }) => ( <FormItem><FormLabel>Confirmer le mot de passe</FormLabel><div className="relative"><FormControl><Input type={showConfirmPassword ? 'text' : 'password'} {...field} /></FormControl><Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" onClick={() => setShowConfirmPassword(prev => !prev)}>{showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}</Button></div><FormMessage /></FormItem> )} />
             </CardContent>
           </ScrollArea>
           <CardFooter className="flex flex-col gap-4 px-6 pb-6 pt-4">
             <Button className="w-full" type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Vérification en cours..." : "S'inscrire"}
+              {form.formState.isSubmitting ? "Activation en cours..." : "Activer mon compte"}
             </Button>
             <div className="text-center text-sm text-muted-foreground">
               Vous avez déjà un compte ?{' '}
