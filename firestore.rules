@@ -40,9 +40,10 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
-    // Collection for pending users, readable by anyone for registration check
+    // Collection for pending users
     match /pending_users/{pendingUserId} {
-      allow list, get: if true; // Anyone can query this collection
+      allow get: if true; // Anyone can check for a specific pending user
+      allow list: if isAdmin(); // Only admins can list all pending users
       allow create: if isAdmin(); // Only admins can pre-register users
       allow delete: if isSignedIn(); // The registration process will delete this
       allow update: if false; // Should not be updated
