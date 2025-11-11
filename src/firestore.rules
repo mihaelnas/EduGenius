@@ -1,0 +1,95 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // NEW: Reliable way to check for admin role using custom claims
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isTeacherForCourse() {
+      return isSignedIn() && request.resource.data.teacherId == request.auth.uid;
+    }
+
+    function isExistingTeacherForCourse() {
+      return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
+    }
+    
+    function isTeacherForSubject(subjectId) {
+      return isSignedIn() && get(/databases/$(database)/documents/subjects/$(subjectId)).data.teacherId == request.auth.uid;
+    }
+
+    function isTeacherForEvent() {
+      return isSignedIn() && request.resource.data.teacherId == request.auth.uid;
+    }
+
+    function isExistingTeacherForEvent() {
+      return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
+    }
+
+    match /pending_users/{pendingUserId} {
+      allow read: if true; 
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId);
+      // Prevent users from changing their own role, but allow admins to change any role.
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    match /classes/{classId} {
+      allow get, list: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /subjects/{subjectId} {
+      allow get, list: if isSignedIn();
+      allow create: if (isSignedIn() && request.resource.data.teacherId == request.auth.uid) || isAdmin();
+      allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
+      allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
+    }
+    
+    match /courses/{courseId} {
+      allow get, list: if isSignedIn();
+      allow create: if (isTeacherForCourse() && isTeacherForSubject(request.resource.data.subjectId)) || isAdmin();
+      allow update: if isExistingTeacherForCourse() || isAdmin();
+      allow delete: if isExistingTeacherForCourse() || isAdmin();
+    }
+    
+     match /class_students/{classStudentId} {
+      allow get, list: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /class_teachers/{classTeacherId} {
+      allow get, list: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /schedule/{eventId} {
+      allow get, list: if isSignedIn();
+      allow create: if isTeacherForEvent() || isAdmin();
+      allow update: if isExistingTeacherForEvent() || isAdmin();
+      delete: if isExistingTeacherForEvent() || isAdmin();
+    }
+  }
+}

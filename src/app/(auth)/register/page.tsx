@@ -31,7 +31,7 @@ import { collection, doc, setDoc, getDocs, query, where, writeBatch, arrayUnion,
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Student, Class } from '@/lib/placeholder-data';
+import { Student, Class, Admin } from '@/lib/placeholder-data';
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
@@ -73,6 +73,56 @@ export default function RegisterPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     let toastId: string | undefined;
 
+    // Special case for admin registration
+    if (values.email === 'rajo.harisoa7@gmail.com') {
+        try {
+            toastId = toast({ title: 'Création du compte admin...' }).id;
+            const tempApp = initializeApp(firebaseConfig, `temp-auth-admin-${Date.now()}`);
+            const tempAuth = getAuth(tempApp);
+            
+            const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, values.password);
+            const newAuthUser = userCredential.user;
+
+            const newUserProfile: Admin = {
+                id: newAuthUser.uid,
+                firstName: values.firstName,
+                lastName: values.lastName,
+                email: values.email,
+                username: `@${values.firstName.toLowerCase()}`,
+                role: 'admin',
+                status: 'active',
+                createdAt: new Date().toISOString(),
+            };
+
+            await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserProfile);
+            
+            if (toastId) dismiss(toastId);
+            toast({ 
+                title: 'Compte administrateur créé !', 
+                description: 'Vous pouvez maintenant vous connecter avec vos identifiants.',
+                duration: 8000 
+            });
+            router.push('/login');
+            return; // End execution here
+
+        } catch (error: any) {
+            if (toastId) dismiss(toastId);
+            let errorMessage = 'Une erreur est survenue.';
+            if (error.code === 'auth/email-already-in-use') {
+              errorMessage = 'Cette adresse e-mail est déjà utilisée pour un compte admin actif. Veuillez vous connecter.';
+            }
+            toast({
+                variant: 'destructive',
+                title: 'Échec de la création du compte admin',
+                description: errorMessage,
+                duration: 8000
+            });
+            return;
+        }
+    }
+
+
+    // Standard registration flow for students/teachers
     try {
       toastId = toast({
         title: 'Vérification en cours...',
@@ -80,7 +130,6 @@ export default function RegisterPage() {
         duration: Infinity
       }).id;
 
-      // Step 1: Find a pre-registered, inactive account in `pending_users`
       const usersRef = collection(firestore, 'pending_users');
       const q = query(usersRef, 
         where('matricule', '==', values.matricule.toUpperCase()),
@@ -113,45 +162,28 @@ export default function RegisterPage() {
       const pendingUserDoc = matchingDocs[0];
       const pendingUserData = pendingUserDoc.data() as Student;
 
-      // Step 2: Create Firebase Auth user without signing in
       const tempApp = initializeApp(firebaseConfig, `temp-auth-${Date.now()}`);
       const tempAuth = getAuth(tempApp);
       
       const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, values.password);
       const newAuthUser = userCredential.user;
 
-      // Step 3: Create the final user document in 'users' collection and delete the pending one
       const batch = writeBatch(firestore);
       
       const pendingDocRef = doc(firestore, 'pending_users', pendingUserDoc.id);
       const newUserDocRef = doc(firestore, 'users', newAuthUser.uid);
       
-      // Determine the user's role. Assign 'admin' if the email matches.
-      const userRole = values.email === 'rajo.harisoa7@gmail.com' ? 'admin' : pendingUserData.role;
-      
       const newUserProfile = {
         ...pendingUserData,
-        id: newAuthUser.uid, // Update the ID to the new Auth UID
-        email: values.email, // Add the chosen email
-        status: 'active' as const, // Automatically activate the account
-        role: userRole, // Set the determined role
+        id: newAuthUser.uid,
+        email: values.email,
+        status: 'active' as const,
         claimedAt: new Date().toISOString(),
       };
-      
-      // If the user is now an admin, remove student-specific fields
-      if (userRole === 'admin') {
-        delete (newUserProfile as any).matricule;
-        delete (newUserProfile as any).niveau;
-        delete (newUserProfile as any).filiere;
-        delete (newUserProfile as any).groupe;
-        delete (newUserProfile as any).dateDeNaissance;
-        delete (newUserProfile as any).lieuDeNaissance;
-      }
 
       batch.set(newUserDocRef, newUserProfile);
       batch.delete(pendingDocRef);
 
-      // Step 4 (Student only): Assign student to class
       if (newUserProfile.role === 'student') {
         const student = newUserProfile as Student;
         const className = `${student.niveau}-${student.filiere}-G${student.groupe}`.toUpperCase();
@@ -171,7 +203,6 @@ export default function RegisterPage() {
       
       await batch.commit();
       
-      // Step 5: Success, show notification and redirect to login
       if (toastId) dismiss(toastId);
       toast({ 
           title: 'Compte activé avec succès !', 
