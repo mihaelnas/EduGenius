@@ -31,7 +31,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
-import { AppUser } from '@/lib/placeholder-data';
+import { AppUser, Student, Teacher } from '@/lib/placeholder-data';
 import { useAuth, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { KeyRound } from 'lucide-react';
@@ -95,23 +95,28 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
 
   React.useEffect(() => {
     if (user) {
-      const defaultValues: any = {
-        ...user,
-        photo: user.photo ?? '',
-        telephone: (user as any).telephone ?? '',
-        adresse: (user as any).adresse ?? '',
-        matricule: (user as any).matricule ?? '',
-        dateDeNaissance: (user as any).dateDeNaissance ?? '',
-        lieuDeNaissance: (user as any).lieuDeNaissance ?? '',
-        niveau: (user as any).niveau ?? undefined,
-        filiere: (user as any).filiere ?? undefined,
-        emailPro: (user as any).emailPro ?? '',
-        specialite: (user as any).specialite ?? '',
-        genre: (user as any).genre ?? undefined,
-      };
-      form.reset(defaultValues);
+        const studentData = user.role === 'student' ? (user as Student) : {};
+        const teacherData = user.role === 'teacher' ? (user as Teacher) : {};
+
+        form.reset({
+            ...user,
+            // Ensure all optional fields have a default value of '' instead of undefined
+            photo: user.photo || '',
+            telephone: user.telephone || '',
+            adresse: user.adresse || '',
+            genre: user.genre || undefined,
+            // Student specific
+            matricule: studentData.matricule || '',
+            dateDeNaissance: studentData.dateDeNaissance || '',
+            lieuDeNaissance: studentData.lieuDeNaissance || '',
+            niveau: studentData.niveau || undefined,
+            filiere: studentData.filiere || undefined,
+            // Teacher specific
+            emailPro: teacherData.emailPro || '',
+            specialite: teacherData.specialite || '',
+        });
     }
-  }, [user, form]);
+  }, [user, form, isOpen]); // Rerun effect when dialog opens
 
   const role = useWatch({
     control: form.control,
@@ -262,7 +267,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                                 <FormField control={form.control} name="specialite" render={({ field }) => ( <FormItem><FormLabel>Spécialité</FormLabel><FormControl><Input placeholder="Mathématiques" {...field} /></FormControl><FormMessage /></FormItem> )} />
                             </>
                         )}
-                        <FormField control={form.control} name="photo" render={({ field }) => ( <FormItem><FormLabel>URL de la photo (Optionnel)</FormLabel><FormControl><Input placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="photo" render={({ field }) => ( <FormItem><FormLabel>URL de la photo (Optionnel)</FormLabel><FormControl><Input placeholder="https://..." {...field} /></FormControl><FormMessage /></FormMessage> )} />
                     </div>
                 </ScrollArea>
                 <DialogFooter className='pt-4 justify-between'>
