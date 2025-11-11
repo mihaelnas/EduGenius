@@ -38,7 +38,9 @@ service cloud.firestore {
 
     match /pending_users/{pendingUserId} {
       allow read: if true; 
-      allow create, update, delete: if isAdmin();
+      // Allow any authenticated user (admin via UI) to create a pending user.
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     match /users/{userId} {
