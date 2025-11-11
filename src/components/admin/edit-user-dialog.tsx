@@ -83,7 +83,7 @@ type EditUserDialogProps = {
     onUserUpdated: (updatedUser: AppUser) => void;
 }
 
-const initialFormValues: Partial<FormValues> = {
+const initialFormValues: FormValues = {
   role: 'student',
   firstName: '',
   lastName: '',
@@ -91,15 +91,17 @@ const initialFormValues: Partial<FormValues> = {
   email: '',
   photo: '',
   status: 'inactive',
-  telephone: '',
-  adresse: '',
-  genre: undefined,
+  // Student fields
   matricule: '',
   dateDeNaissance: '',
   lieuDeNaissance: '',
+  genre: undefined,
+  telephone: '',
+  adresse: '',
   niveau: undefined,
   filiere: undefined,
   groupe: undefined,
+  // Teacher fields
   emailPro: '',
   specialite: '',
 };
@@ -110,21 +112,17 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
   const { toast } = useToast();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialFormValues as FormValues,
+    defaultValues: initialFormValues,
   });
 
   const isCurrentUserAdmin = currentUser?.uid === user.id && (user as any).role === 'admin';
 
   React.useEffect(() => {
     if (user && isOpen) {
-      // Create a complete object with all possible fields, ensuring no 'undefined' values are passed for controlled components
-      // unless they are truly optional and handled as such (e.g. select dropdowns)
-      const defaultValues = {
-        ...initialFormValues,
-        ...user,
-        groupe: user.role === 'student' ? (user as Student).groupe || undefined : undefined,
-      };
-      form.reset(defaultValues as FormValues);
+      // Merge the user data with the complete initial structure
+      // This ensures all fields are controlled from the start
+      const mergedValues = { ...initialFormValues, ...user };
+      form.reset(mergedValues);
     }
   }, [user, form, isOpen]);
 
@@ -167,7 +165,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      form.reset(initialFormValues as FormValues);
+      form.reset(initialFormValues);
     }
   };
 
@@ -204,7 +202,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Rôle</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled={currentUser?.uid !== user.id && role === 'admin'}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isCurrentUserAdmin}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Sélectionner un rôle" />
