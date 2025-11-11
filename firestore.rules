@@ -41,7 +41,10 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn();
+      // Allow anyone to read an inactive user profile (needed for registration check).
+      // Active profiles can only be read by signed-in users.
+      allow read: if (resource.data.status == 'inactive') || isSignedIn();
+
       // Allow user creation if the user ID of the request matches the document ID being created.
       // This is crucial for the signup process.
       allow create: if request.auth.uid == userId;
