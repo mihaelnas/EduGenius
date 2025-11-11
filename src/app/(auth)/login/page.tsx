@@ -108,7 +108,7 @@ export default function LoginPage() {
       if (userProfile.status !== 'active') {
          toast({
             variant: 'destructive',
-            title: 'Compte en attente',
+            title: 'Compte non activé',
             description: "Votre compte est en attente de validation par un administrateur. Vous ne pouvez pas vous connecter pour le moment.",
             duration: 7000
         });
@@ -127,6 +127,8 @@ export default function LoginPage() {
        let description = 'Identifiants incorrects. Veuillez réessayer.';
        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
             description = 'Email ou mot de passe invalide. Veuillez vérifier vos informations.';
+       } else if (error.code === 'auth/too-many-requests') {
+          description = 'Accès temporairement désactivé en raison de trop nombreuses tentatives. Réessayez plus tard.';
        }
       toast({
         variant: 'destructive',

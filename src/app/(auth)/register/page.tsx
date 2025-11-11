@@ -107,24 +107,39 @@ export default function RegisterPage() {
     let authUser;
 
     try {
-      // Step 1: Create Firebase Auth user
+      // Step 1: External validation first
       toastId = toast({
-        title: 'Création du compte...',
-        description: 'Veuillez patienter pendant la création de votre compte.',
+        title: 'Vérification des informations...',
+        description: 'Nous contactons l\'administration pour valider vos informations.',
         duration: Infinity
       }).id;
 
+      const validationInput: StudentValidationInput = {
+        userId: '', // Not needed for validation-only step
+        matricule: values.matricule,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        niveau: values.niveau,
+        filiere: values.filiere,
+      };
+
+      const validationResult = await validateAndAssignStudent(validationInput);
+      if (validationResult.status !== 'success') {
+        throw new Error(validationResult.message || 'La validation externe a échoué. Vos informations sont peut-être incorrectes.');
+      }
+      
+      if (toastId) dismiss(toastId);
+      toastId = toast({
+        title: 'Validation réussie ! Création du compte...',
+        description: 'Veuillez patienter.',
+        duration: Infinity
+      }).id;
+
+      // Step 2: Create Firebase Auth user only if validation passed
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       authUser = userCredential.user;
 
-      if (toastId) dismiss(toastId);
-      toastId = toast({
-        title: 'Validation des informations...',
-        description: 'Nous contactons l\'administration pour valider et activer votre compte.',
-        duration: Infinity
-      }).id;
-      
-      // Step 2: Create user profile object for Firestore
+      // Step 3: Create user profile in Firestore
       const userProfile = {
         id: authUser.uid,
         firstName: values.firstName,
@@ -132,7 +147,7 @@ export default function RegisterPage() {
         email: values.email,
         username: values.username,
         role: 'student' as const,
-        status: 'pending' as const, // Start as pending
+        status: 'pending' as const, // Always start as pending
         createdAt: new Date().toISOString(),
         matricule: values.matricule,
         dateDeNaissance: values.dateDeNaissance,
@@ -143,45 +158,18 @@ export default function RegisterPage() {
         filiere: values.filiere,
         photo: values.photo,
       };
-      
+
       if (!userProfile.photo) { delete (userProfile as Partial<typeof userProfile>).photo; }
       if (!userProfile.telephone) { delete (userProfile as Partial<typeof userProfile>).telephone; }
-      
-      // Step 3: Save user profile to Firestore first
+
       const userDocRef = doc(firestore, 'users', authUser.uid);
-      try {
-        // This 'setDoc' is now allowed by the new security rule.
-        await setDoc(userDocRef, userProfile);
-      } catch (firestoreError: any) {
-         errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: userDocRef.path,
-            operation: 'create',
-            requestResourceData: userProfile,
-        }));
-        throw new Error("Erreur de base de données : impossible de créer le profil utilisateur.");
-      }
+      await setDoc(userDocRef, userProfile);
       
-      // Step 4: Trigger the validation and assignment flow
-      const validationInput: StudentValidationInput = {
-        userId: authUser.uid,
-        matricule: values.matricule,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        niveau: values.niveau,
-        filiere: values.filiere,
-      };
-      
-      const validationResult = await validateAndAssignStudent(validationInput);
-      
-      if (validationResult.status !== 'success') {
-        throw new Error(validationResult.message || 'La validation externe a échoué. Votre compte reste en attente.');
-      }
-      
-      // Step 5: Success
+      // Step 4: Success, log out and redirect
       if (toastId) dismiss(toastId);
       toast({ 
-          title: 'Inscription et activation réussies !', 
-          description: 'Votre compte a été validé et activé. Vous allez être redirigé.',
+          title: 'Inscription réussie !', 
+          description: 'Votre compte a été créé et est en attente d\'activation par un administrateur. Vous serez redirigé.',
           duration: 8000 
       });
       
@@ -191,17 +179,23 @@ export default function RegisterPage() {
     } catch (error: any) {
       if (toastId) dismiss(toastId);
       
-      // Cleanup: if auth user was created but something failed after, delete the auth user
+      // Cleanup: if auth user was created but Firestore write failed, delete the auth user
       if (authUser) {
         await deleteUser(authUser).catch(deleteError => {
-            console.error("Failed to clean up auth user:", deleteError);
+            console.error("Failed to clean up auth user during registration error:", deleteError);
         });
       }
 
-      let errorMessage = 'Une erreur est survenue. Vérifiez les informations et réessayez.';
+      let errorMessage = 'Une erreur est survenue. Vérifiez vos informations et réessayez.';
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.';
-      } else if (error.message) {
+      } else if (error instanceof FirestorePermissionError) {
+        // This error is now for debugging, show a user-friendly message
+        errorMessage = "Une erreur de permission est survenue lors de la création de votre profil. Veuillez contacter le support.";
+        // The error is already thrown and will be caught by the global handler for debugging
+        throw error;
+      }
+      else if (error.message) {
         errorMessage = error.message;
       }
       
@@ -211,10 +205,9 @@ export default function RegisterPage() {
           description: errorMessage,
           duration: 8000
       });
-      
-      // After a failed registration attempt, log out any lingering session and redirect to login
+
+      // Ensure user is signed out on any failure
       await signOut(auth).catch(() => {});
-      router.push('/login');
     }
   }
 
@@ -240,7 +233,7 @@ export default function RegisterPage() {
       <CardHeader>
         <CardTitle className="text-2xl font-headline">Créer un compte étudiant</CardTitle>
         <CardDescription>
-          Rejoignez EduGenius aujourd'hui. C'est gratuit !
+          Rejoignez EduGenius aujourd'hui. L'inscription est soumise à validation.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
