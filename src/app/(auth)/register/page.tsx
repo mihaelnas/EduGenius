@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -123,7 +122,10 @@ export default function RegisterPage() {
         filiere: values.filiere,
       };
 
+      console.log("Envoi de la requête vers l'API de validation...", validationInput);
       const validationResult = await validateAndAssignStudent(validationInput);
+      console.log("Réponse de l'API de validation reçue :", validationResult);
+      
       if (validationResult.status !== 'success') {
         throw new Error(validationResult.message || 'La validation externe a échoué. Vos informations sont peut-être incorrectes.');
       }
@@ -207,7 +209,9 @@ export default function RegisterPage() {
       });
 
       // Ensure user is signed out on any failure
-      await signOut(auth).catch(() => {});
+      if (auth.currentUser) {
+        await signOut(auth).catch(() => {});
+      }
     }
   }
 
