@@ -89,12 +89,34 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
   const { toast } = useToast();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
+    // Set default values for all possible fields to prevent uncontrolled -> controlled error
+    defaultValues: {
+      role: 'student',
+      firstName: '',
+      lastName: '',
+      username: '',
+      email: '',
+      photo: '',
+      status: 'inactive',
+      telephone: '',
+      adresse: '',
+      genre: undefined,
+      matricule: '',
+      dateDeNaissance: '',
+      lieuDeNaissance: '',
+      niveau: undefined,
+      filiere: undefined,
+      groupe: undefined,
+      emailPro: '',
+      specialite: '',
+    },
   });
 
   const isCurrentUserAdmin = currentUser?.uid === user.id && (user as any).role === 'admin';
 
   React.useEffect(() => {
     if (user && isOpen) {
+      // Base values for all users
       let defaultValues: Partial<FormValues> = {
         role: user.role,
         firstName: user.firstName || '',
@@ -108,16 +130,17 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
         genre: user.genre || undefined,
       };
 
+      // Add role-specific values
       if (user.role === 'student') {
         const studentData = user as Student;
         defaultValues = {
-          ...defaultValues,
-          matricule: studentData.matricule || '',
-          dateDeNaissance: studentData.dateDeNaissance || '',
-          lieuDeNaissance: studentData.lieuDeNaissance || '',
-          niveau: studentData.niveau || undefined,
-          filiere: studentData.filiere || undefined,
-          groupe: studentData.groupe || undefined,
+            ...defaultValues,
+            matricule: studentData.matricule || '',
+            dateDeNaissance: studentData.dateDeNaissance || '',
+            lieuDeNaissance: studentData.lieuDeNaissance || '',
+            niveau: studentData.niveau || undefined,
+            filiere: studentData.filiere || undefined,
+            groupe: studentData.groupe || undefined,
         };
       } else if (user.role === 'teacher') {
         const teacherData = user as Teacher;
@@ -283,7 +306,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                                 <FormField control={form.control} name="specialite" render={({ field }) => ( <FormItem><FormLabel>Spécialité</FormLabel><FormControl><Input placeholder="Mathématiques" {...field} /></FormControl><FormMessage /></FormItem> )} />
                             </>
                         )}
-                        <FormField control={form.control} name="photo" render={({ field }) => ( <FormItem><FormLabel>URL de la photo (Optionnel)</FormLabel><FormControl><Input placeholder="https://..." {...field} /></FormControl><FormMessage /></FormMessage> )} />
+                        <FormField control={form.control} name="photo" render={({ field }) => ( <FormItem><FormLabel>URL de la photo (Optionnel)</FormLabel><FormControl><Input placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem> )} />
                     </div>
                 </ScrollArea>
                 <DialogFooter className='pt-4 justify-between'>
