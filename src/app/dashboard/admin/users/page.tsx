@@ -16,7 +16,7 @@ import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useAuth } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch, updateDoc, query, where, arrayUnion } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch, updateDoc, query, where, arrayUnion, addDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
@@ -52,6 +52,26 @@ export default function AdminUsersPage() {
 
   const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
+
+  const pendingUsersCollectionRef = useMemoFirebase(() => collection(firestore, 'pending_users'), [firestore]);
+  
+  const handleUserAdded = async (userProfile: Omit<AppUser, 'id'>) => {
+    try {
+        await addDoc(pendingUsersCollectionRef, userProfile);
+        toast({
+          title: 'Utilisateur pré-inscrit !',
+          description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
+        });
+    } catch (error: any) {
+        console.error("Erreur de pré-inscription:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Échec de la pré-inscription',
+            description: error.message || "Une erreur inconnue est survenue.",
+        });
+    }
+  };
+
 
   const handleUpdate = async (updatedUser: AppUser) => {
     const { id, ...userData } = updatedUser;
@@ -186,6 +206,7 @@ export default function AdminUsersPage() {
                   <AddUserDialog 
                     isOpen={isAddDialogOpen}
                     setIsOpen={setIsAddDialogOpen}
+                    onUserAdded={handleUserAdded}
                   />
               </div>
           </div>

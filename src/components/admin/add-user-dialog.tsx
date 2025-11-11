@@ -33,11 +33,10 @@ import { PlusCircle } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
-import { AppUser, Student, Teacher, Admin } from '@/lib/placeholder-data';
+import { AppUser, Student, Teacher, Admin, getDisplayName } from '@/lib/placeholder-data';
 import { useFirestore } from '@/firebase';
 import { addDoc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { getDisplayName } from '@/lib/placeholder-data';
 
 const baseSchema = z.object({
   role: z.enum(['student', 'teacher', 'admin']),
@@ -59,8 +58,6 @@ const studentSchema = baseSchema.extend({
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2'], { required_error: 'Le niveau est requis.'}),
   filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC'], { required_error: 'La filière est requise.'}),
   groupe: z.coerce.number().min(1, { message: "Le groupe est requis."}),
-  emailPro: z.string().optional(),
-  specialite: z.string().optional(),
 });
 
 const teacherSchema = baseSchema.extend({
@@ -70,27 +67,10 @@ const teacherSchema = baseSchema.extend({
   telephone: z.string().optional().or(z.literal('')),
   adresse: z.string().optional().or(z.literal('')),
   specialite: z.string().optional().or(z.literal('')),
-  matricule: z.string().optional(),
-  dateDeNaissance: z.string().optional(),
-  lieuDeNaissance: z.string().optional(),
-  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']).optional(),
-  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']).optional(),
-  groupe: z.coerce.number().optional(),
 });
 
 const adminSchema = baseSchema.extend({
     role: z.literal('admin'),
-    emailPro: z.string().optional(),
-    specialite: z.string().optional(),
-    matricule: z.string().optional(),
-    dateDeNaissance: z.string().optional(),
-    lieuDeNaissance: z.string().optional(),
-    niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']).optional(),
-    filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']).optional(),
-    groupe: z.coerce.number().optional(),
-    genre: z.enum(['Homme', 'Femme']).optional(),
-    telephone: z.string().optional(),
-    adresse: z.string().optional(),
 });
 
 
@@ -101,6 +81,7 @@ export type AddUserFormValues = z.infer<typeof formSchema>;
 type AddUserDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
+    onUserAdded: (userProfile: Omit<AppUser, 'id'>) => Promise<void>;
 }
 
 const initialValues: Partial<AddUserFormValues> = {
@@ -123,10 +104,7 @@ const initialValues: Partial<AddUserFormValues> = {
   specialite: '',
 };
 
-export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
-  const firestore = useFirestore();
-  const { toast } = useToast();
-
+export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogProps) {
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialValues as any,
@@ -193,23 +171,8 @@ export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
         }
     });
 
-    const pendingUsersCollectionRef = collection(firestore, 'pending_users');
-    
-    try {
-        await addDoc(pendingUsersCollectionRef, userProfile);
-        toast({
-          title: 'Utilisateur pré-inscrit !',
-          description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
-        });
-        setIsOpen(false);
-    } catch (error: any) {
-        console.error("Erreur de pré-inscription:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Échec de la pré-inscription',
-            description: error.message || "Une erreur inconnue est survenue.",
-        });
-    }
+    await onUserAdded(userProfile);
+    setIsOpen(false);
   }
   
   const handleOpenChange = (open: boolean) => {
