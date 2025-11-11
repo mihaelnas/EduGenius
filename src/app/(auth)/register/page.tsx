@@ -25,13 +25,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, doc, setDoc, getDocs, query, where, writeBatch, arrayUnion, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, query, where, writeBatch, arrayUnion } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Student, Class, Admin } from '@/lib/placeholder-data';
+import { Student, Admin } from '@/lib/placeholder-data';
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
@@ -52,7 +52,6 @@ const formSchema = z.object({
 export default function RegisterPage() {
   const router = useRouter();
   const { toast, dismiss } = useToast();
-  const auth = useAuth();
   const firestore = useFirestore();
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
@@ -292,7 +291,3 @@ export default function RegisterPage() {
     </Card>
   );
 }
-
-    
-
-    
