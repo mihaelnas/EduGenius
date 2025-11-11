@@ -96,7 +96,7 @@ export default function LoginPage() {
          toast({
             variant: 'destructive',
             title: 'Échec de la connexion',
-            description: "Profil utilisateur non trouvé. Veuillez contacter l'administration.",
+            description: "Profil utilisateur non trouvé. Votre compte a peut-être été supprimé ou une erreur est survenue.",
         });
         await signOut(auth);
         return;
@@ -109,7 +109,7 @@ export default function LoginPage() {
          toast({
             variant: 'destructive',
             title: 'Compte en attente',
-            description: "Votre compte est en attente de validation. Vous ne pouvez pas vous connecter pour le moment.",
+            description: "Votre compte est en attente de validation par un administrateur. Vous ne pouvez pas vous connecter pour le moment.",
             duration: 7000
         });
         await signOut(auth); // Log out the user because their account is not ready

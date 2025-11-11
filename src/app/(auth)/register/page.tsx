@@ -107,38 +107,24 @@ export default function RegisterPage() {
     let authUser;
 
     try {
-      // Step 1: Trigger the validation flow FIRST
+      // Step 1: Create Firebase Auth user
       toastId = toast({
-        title: 'Vérification des données...',
-        description: 'Nous contactons l\'administration pour valider vos informations.',
+        title: 'Création du compte...',
+        description: 'Veuillez patienter pendant la création de votre compte.',
         duration: Infinity
       }).id;
 
-      const validationInput: Omit<StudentValidationInput, 'userId'> = {
-        matricule: values.matricule,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        niveau: values.niveau,
-        filiere: values.filiere,
-      };
-      
-      const validationResult = await validateAndAssignStudent(validationInput);
-      
-      if (validationResult.status !== 'success') {
-        throw new Error(validationResult.message || 'La validation externe a échoué.');
-      }
-      
-      if (toastId) dismiss(toastId);
-      toast({ 
-        title: 'Validation externe réussie', 
-        description: 'Création de votre compte en cours...',
-      });
-
-      // Step 2: If validation is successful, create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       authUser = userCredential.user;
 
-      // Step 3: Create user profile object for Firestore
+      if (toastId) dismiss(toastId);
+      toastId = toast({
+        title: 'Validation des informations...',
+        description: 'Nous contactons l\'administration pour valider et activer votre compte.',
+        duration: Infinity
+      }).id;
+      
+      // Step 2: Create user profile object for Firestore
       const userProfile = {
         id: authUser.uid,
         firstName: values.firstName,
@@ -146,7 +132,7 @@ export default function RegisterPage() {
         email: values.email,
         username: values.username,
         role: 'student' as const,
-        status: 'pending' as const, // Always pending, admin must activate
+        status: 'pending' as const, // Start as pending
         createdAt: new Date().toISOString(),
         matricule: values.matricule,
         dateDeNaissance: values.dateDeNaissance,
@@ -160,27 +146,42 @@ export default function RegisterPage() {
       
       if (!userProfile.photo) { delete (userProfile as Partial<typeof userProfile>).photo; }
       if (!userProfile.telephone) { delete (userProfile as Partial<typeof userProfile>).telephone; }
-
-      // Step 4: Save user profile to Firestore with 'pending' status
+      
+      // Step 3: Save user profile to Firestore first
       const userDocRef = doc(firestore, 'users', authUser.uid);
       try {
+        // This 'setDoc' is now allowed by the new security rule.
         await setDoc(userDocRef, userProfile);
-      } catch (firestoreError) {
-        // This is the special error handling for Firestore permissions.
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
+      } catch (firestoreError: any) {
+         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: userDocRef.path,
             operation: 'create',
             requestResourceData: userProfile,
         }));
-        // We throw a new, simple error to be caught by the outer catch block
-        // to ensure the cleanup logic (deleting auth user) still runs.
         throw new Error("Erreur de base de données : impossible de créer le profil utilisateur.");
       }
-
-      // Step 5: Success, log out and redirect
+      
+      // Step 4: Trigger the validation and assignment flow
+      const validationInput: StudentValidationInput = {
+        userId: authUser.uid,
+        matricule: values.matricule,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        niveau: values.niveau,
+        filiere: values.filiere,
+      };
+      
+      const validationResult = await validateAndAssignStudent(validationInput);
+      
+      if (validationResult.status !== 'success') {
+        throw new Error(validationResult.message || 'La validation externe a échoué. Votre compte reste en attente.');
+      }
+      
+      // Step 5: Success
+      if (toastId) dismiss(toastId);
       toast({ 
-          title: 'Inscription réussie !', 
-          description: 'Votre compte est en attente d\'activation par un administrateur.',
+          title: 'Inscription et activation réussies !', 
+          description: 'Votre compte a été validé et activé. Vous allez être redirigé.',
           duration: 8000 
       });
       
@@ -201,7 +202,6 @@ export default function RegisterPage() {
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.';
       } else if (error.message) {
-        // Display the specific error message from validation or other steps
         errorMessage = error.message;
       }
       
@@ -211,8 +211,10 @@ export default function RegisterPage() {
           description: errorMessage,
           duration: 8000
       });
-
-      // Do not redirect on unhandled error, let the user see the error and try again
+      
+      // After a failed registration attempt, log out any lingering session and redirect to login
+      await signOut(auth).catch(() => {});
+      router.push('/login');
     }
   }
 
@@ -288,5 +290,3 @@ export default function RegisterPage() {
     </Card>
   );
 }
-
-    
