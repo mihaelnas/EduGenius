@@ -132,6 +132,8 @@ export default function LoginPage() {
           title: 'Connexion réussie',
           description: 'Redirection vers votre tableau de bord...',
         });
+        
+        // The layout will handle the redirection, removing the race condition.
         router.push('/dashboard');
 
       } catch (e) {
@@ -142,6 +144,7 @@ export default function LoginPage() {
           errorEmitter.emit('permission-error', permissionError);
           // We don't re-throw here, as the global listener will handle it.
           // The error toast will be shown by the listener's fallback mechanism.
+          await signOut(auth); // Log out the user to prevent being stuck in a broken state
           return;
       }
 
