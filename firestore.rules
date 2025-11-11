@@ -11,13 +11,9 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    // isAdmin now checks for existence in the dedicated roles_admin collection
+    // NEW: isAdmin now checks the role directly on the user's document
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     function isTeacherForCourse() {
@@ -50,31 +46,26 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Only signed-in users can read profiles.
-      allow read: if isSignedIn();
-
+      // Users can read their own profile. Admins can read any profile.
+      allow get: if isOwner(userId) || isAdmin();
+      // Only admins can list users.
+      allow list: if isAdmin();
       // Allow user creation if the user ID of the request matches the document ID being created.
-      allow create: if request.auth.uid == userId;
+      allow create: if isOwner(userId);
       // Allow updates by owner or admin
-      allow update: if isExistingOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      // Admins can delete users
       allow delete: if isAdmin();
     }
     
-    // New collection for admin roles
-    match /roles_admin/{userId} {
-       // Only other admins can see, create, or delete admin roles
-       allow get: if isAdmin();
-       allow list: if false; // Don't allow listing all admins
-       allow create, delete: if isAdmin();
-       allow update: if false; // Roles are either present or not
-    }
+    // REMOVED: /roles_admin collection is no longer needed.
 
     match /classes/{classId} {
       allow get, list: if isSignedIn();
       allow create: if isAdmin();
       // Allow class updates (like adding a student) by admins
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /subjects/{subjectId} {
@@ -94,15 +85,15 @@ service cloud.firestore {
      match /class_students/{classStudentId} {
       allow get, list: if isSignedIn();
       allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /class_teachers/{classTeacherId} {
       allow get, list: if isSignedIn();
       allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /schedule/{eventId} {
