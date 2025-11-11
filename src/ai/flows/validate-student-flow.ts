@@ -44,14 +44,18 @@ const studentValidationFlow = ai.defineFlow(
     try {
       const fetch = (await import('node-fetch')).default;
       
+      const apiRequestBody = {
+        studentId: input.matricule,
+        firstName: input.firstName,
+        lastName: input.lastName,
+      };
+
+      console.log('[Flow] Preparing to send request to external API with body:', JSON.stringify(apiRequestBody));
+
       const validationResponse = await fetch('https://veri-genius.vercel.app/api/validate-student', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: input.matricule,
-          firstName: input.firstName,
-          lastName: input.lastName,
-        }),
+        body: JSON.stringify(apiRequestBody),
       });
 
       if (!validationResponse.ok) {
@@ -65,6 +69,8 @@ const studentValidationFlow = ai.defineFlow(
       
       const validationResult = await validationResponse.json() as { isValid: boolean, className?: string, message?: string };
       
+      console.log('[Flow] Received response from external API:', validationResult);
+
       if (validationResult.isValid === false || !validationResult.className) {
           console.error(`[Flow] API validation returned invalid or missing className.`, validationResult);
           return {
