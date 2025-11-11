@@ -122,7 +122,7 @@ export default function PermissionTestsPage() {
                 <FileText className='text-primary'/>
                 <h3 className="font-semibold">Test 1: Lire son propre profil</h3>
             </div>
-            <p className="text-sm text-muted-foreground">Teste `get` sur `/users/votreId`. Nécessaire pour que `isAdmin()` fonctionne.</p>
+            <p className="text-sm text-muted-foreground">Teste `get` sur `/users/[votreId]`. Nécessaire pour que `isAdmin()` fonctionne.</p>
             <Button onClick={handleReadOwnProfile}>
                 <CheckCircle className='mr-2'/>
                 Exécuter le test de lecture
@@ -134,7 +134,7 @@ export default function PermissionTestsPage() {
                 <FilePlus className='text-primary'/>
                 <h3 className="font-semibold">Test 2: Créer un utilisateur en attente</h3>
             </div>
-            <p className="text-sm text-muted-foreground">Teste `create` sur `/pending_users/{docId}`. C'est l'opération qui échoue actuellement.</p>
+            <p className="text-sm text-muted-foreground">Teste `create` sur `/pending_users/[docId]`. C'est l'opération qui échoue actuellement.</p>
             <Button onClick={handleCreatePendingUser}>
                 <AlertCircle className='mr-2'/>
                 Exécuter le test de création
@@ -146,7 +146,7 @@ export default function PermissionTestsPage() {
                 <FileCheck className='text-primary'/>
                 <h3 className="font-semibold">Test 3: Mettre à jour son profil</h3>
             </div>
-            <p className="text-sm text-muted-foreground">Teste `update` sur `/users/{votreId}`.</p>
+            <p className="text-sm text-muted-foreground">Teste `update` sur `/users/[votreId]`.</p>
             <Button onClick={handleUpdateOwnProfile}>
                 <DatabaseZap className='mr-2'/>
                 Exécuter le test de mise à jour
