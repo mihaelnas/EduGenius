@@ -136,8 +136,8 @@ export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
     try {
         await setDoc(userDocRef, userProfile);
         toast({
-          title: 'Opération réussie',
-          description: `L'utilisateur ${getDisplayName(userProfile)} a été pré-inscrit. Il pourra activer son compte en s'inscrivant.`,
+          title: 'Utilisateur pré-inscrit avec succès !',
+          description: `Le profil pour ${getDisplayName(userProfile)} a été créé dans la liste d'attente.`,
         });
         setIsOpen(false);
     } catch (error: any) {
