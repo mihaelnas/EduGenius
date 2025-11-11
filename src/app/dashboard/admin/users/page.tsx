@@ -58,11 +58,16 @@ export default function AdminUsersPage() {
         return;
     }
     
+    const userProfileWithStatus = {
+      ...userProfile,
+      status: 'inactive' as const,
+    };
+    
     try {
         const result = await secureCreateDocument({
             collection: 'pending_users',
             userId: currentUser.uid,
-            data: userProfile
+            data: userProfileWithStatus
         });
 
         if (result.success) {
