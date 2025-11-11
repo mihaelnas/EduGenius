@@ -107,6 +107,16 @@ export default function LoginPage() {
         
         const userProfile = userDoc.data() as AppUser;
 
+        if (userProfile.role === 'admin') {
+            toast({
+                title: '[DEBUG] Rôle Admin Confirmé',
+                description: 'Vous êtes bien connecté en tant qu\'administrateur.',
+                variant: 'default',
+                duration: 9000,
+            });
+        }
+
+
         if (userProfile.status !== 'active') {
            toast({
               variant: 'destructive',
