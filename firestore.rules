@@ -7,12 +7,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Lit le rôle de l'utilisateur depuis son document dans la collection 'users'
     function getUserRole(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
 
-    // Vérifie si l'utilisateur connecté est un admin
     function isAdmin() {
       return isSignedIn() && getUserRole(request.auth.uid) == 'admin';
     }
@@ -43,17 +41,13 @@ service cloud.firestore {
 
     match /pending_users/{pendingUserId} {
       allow read: if true; 
-      // Seul un admin peut créer, mettre à jour ou supprimer des utilisateurs en attente.
       allow create, update, delete: if isAdmin();
     }
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      // Un utilisateur peut créer son propre profil. 
-      // La règle isAdmin() est pour le cas où un admin crée un autre admin.
       allow create: if isSignedIn();
-      // Un utilisateur peut modifier son profil mais pas son rôle. Un admin peut tout modifier.
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
       allow delete: if isAdmin();
     }
