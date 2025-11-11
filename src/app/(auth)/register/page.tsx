@@ -126,14 +126,28 @@ export default function RegisterPage() {
       const pendingDocRef = doc(firestore, 'pending_users', pendingUserDoc.id);
       const newUserDocRef = doc(firestore, 'users', newAuthUser.uid);
       
+      // Determine the user's role. Assign 'admin' if the email matches.
+      const userRole = values.email === 'rajo.harisoa7@gmail.com' ? 'admin' : pendingUserData.role;
+      
       const newUserProfile = {
         ...pendingUserData,
         id: newAuthUser.uid, // Update the ID to the new Auth UID
         email: values.email, // Add the chosen email
         status: 'active' as const, // Automatically activate the account
+        role: userRole, // Set the determined role
         claimedAt: new Date().toISOString(),
       };
       
+      // If the user is now an admin, remove student-specific fields
+      if (userRole === 'admin') {
+        delete (newUserProfile as any).matricule;
+        delete (newUserProfile as any).niveau;
+        delete (newUserProfile as any).filiere;
+        delete (newUserProfile as any).groupe;
+        delete (newUserProfile as any).dateDeNaissance;
+        delete (newUserProfile as any).lieuDeNaissance;
+      }
+
       batch.set(newUserDocRef, newUserProfile);
       batch.delete(pendingDocRef);
 
@@ -206,7 +220,7 @@ export default function RegisterPage() {
   return (
     <Card className="w-full max-w-lg shadow-2xl">
       <CardHeader>
-        <CardTitle className="text-2xl font-headline">Activer votre compte étudiant</CardTitle>
+        <CardTitle className="text-2xl font-headline">Activer votre compte</CardTitle>
         <CardDescription>
           Finalisez votre inscription pour activer votre compte pré-créé.
         </CardDescription>
