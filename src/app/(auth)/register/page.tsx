@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
@@ -129,20 +129,21 @@ export default function RegisterPage() {
       });
 
       if (!result.success) {
-        // If the flow fails, we should ideally delete the created auth user
-        // For simplicity, we'll just show an error. In a production app,
-        // you might want to handle this more gracefully.
         throw new Error(result.error || "La transaction de base de données a échoué.");
       }
       
+      // 3. Sign the user out immediately after activation
+      await signOut(auth);
+
       if (toastId) dismiss(toastId);
       toast({ 
           title: 'Compte activé avec succès !', 
-          description: 'Vous allez être redirigé vers le tableau de bord.',
+          description: 'Vous pouvez maintenant vous connecter avec vos identifiants.',
           duration: 8000 
       });
       
-      router.push('/dashboard?registered=true');
+      // 4. Redirect to the login page
+      router.push('/login');
 
     } catch (error: any) {
       if (toastId) dismiss(toastId);
