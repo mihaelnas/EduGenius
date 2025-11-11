@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -75,8 +76,8 @@ export default function RegisterPage() {
 
     try {
       toastId = toast({
-        title: 'Vérification des informations...',
-        description: 'Nous vérifions si un compte pré-inscrit correspond à vos informations.',
+        title: 'Vérification en cours...',
+        description: 'Nous vérifions vos informations de pré-inscription.',
         duration: Infinity
       }).id;
 
@@ -103,25 +104,24 @@ export default function RegisterPage() {
           throw new Error("Les nom et prénom ne correspondent pas au compte pré-inscrit pour ce matricule.");
       }
 
-      const userDoc = matchingDocs[0];
-      const preRegisteredUser = userDoc.data() as Student;
-
-      // Step 2: Create Firebase Auth user
       if (toastId) dismiss(toastId);
       toastId = toast({
         title: 'Informations validées !',
-        description: 'Création de votre compte de connexion...',
+        description: 'Finalisation de votre compte...',
         duration: Infinity
       }).id;
-      
-      // Use a temporary auth instance to avoid automatic sign-in
+
+      const userDoc = matchingDocs[0];
+      const preRegisteredUser = userDoc.data() as Student;
+
+      // Step 2: Create Firebase Auth user without signing in
       const tempApp = initializeApp(firebaseConfig, `temp-auth-${Date.now()}`);
       const tempAuth = getAuth(tempApp);
       
       const userCredential = await createUserWithEmailAndPassword(tempAuth, values.email, values.password);
       const newAuthUser = userCredential.user;
 
-      // Step 3: Update the existing Firestore document with the new Auth UID and activate it automatically
+      // Step 3: Update the existing Firestore document with the new Auth UID and activate it
       const batch = writeBatch(firestore);
       
       const oldDocRef = doc(firestore, 'users', userDoc.id);
@@ -135,13 +135,13 @@ export default function RegisterPage() {
         claimedAt: new Date().toISOString(),
       };
       
-      // Since we are changing the document ID, we create a new one and delete the old one
+      // Create the new document with the Auth UID and delete the old temporary one
       batch.set(newDocRef, updatedProfile);
       batch.delete(oldDocRef);
       
       await batch.commit();
       
-      // Step 4: Success, redirect to login
+      // Step 4: Success, show notification and redirect to login
       if (toastId) dismiss(toastId);
       toast({ 
           title: 'Compte activé avec succès !', 
@@ -159,9 +159,11 @@ export default function RegisterPage() {
         errorMessage = 'Cette adresse e-mail est déjà utilisée pour un compte actif. Veuillez vous connecter ou utiliser une autre adresse.';
       } else if (error instanceof FirestorePermissionError) {
         errorMessage = "Une erreur de permission est survenue. Veuillez contacter le support.";
+        // Optionally re-throw for global error handling
         throw error;
       }
       else if (error.message) {
+        // Use the custom error messages for validation failures
         errorMessage = error.message;
       }
       
