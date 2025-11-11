@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, School, Book, Calendar, User, BookOpen, FlaskConical } from 'lucide-react';
+import { LayoutDashboard, Users, School, Book, Calendar, User, BookOpen } from 'lucide-react';
 
 export type NavLink = {
   href: string;
@@ -13,7 +13,6 @@ export const adminNavLinks: NavLink[] = [
   { href: '/dashboard/admin/users', label: 'Utilisateurs', icon: Users },
   { href: '/dashboard/admin/classes', label: 'Classes', icon: School },
   { href: '/dashboard/admin/subjects', label: 'Matières', icon: Book },
-  { href: '/dashboard/admin/permission-tests', label: 'Tests de Droits', icon: FlaskConical },
 ];
 
 export const teacherNavLinks: NavLink[] = [
