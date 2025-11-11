@@ -40,12 +40,12 @@ service cloud.firestore {
     }
 
     match /pending_users/{pendingUserId} {
-      allow read: if true; 
+      allow read: if isAdmin(); 
       allow create, update, delete: if isAdmin();
     }
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
+      allow get: if isSignedIn() && request.auth.uid == userId;
       allow list: if isAdmin();
       allow create: if isSignedIn();
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
