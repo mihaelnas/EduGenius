@@ -56,12 +56,42 @@ export default function AdminUsersPage() {
 
   const handleAdd = async (userProfile: AppUser) => {
     try {
+      const batch = writeBatch(firestore);
       const userDocRef = doc(firestore, 'users', userProfile.id);
-      await setDoc(userDocRef, userProfile);
+
+      batch.set(userDocRef, userProfile);
+
+      let successMessage = `Utilisateur ${getDisplayName(userProfile)} pré-inscrit.`;
+
+      if (userProfile.role === 'student') {
+        const student = userProfile as Student;
+        const className = `${student.niveau}-${student.filiere}-G${student.groupe}`.toUpperCase();
+        
+        const classesRef = collection(firestore, 'classes');
+        const q = query(classesRef, where('name', '==', className), where("anneeScolaire", "==", "2024-2025"));
+        const classSnapshot = await getDocs(q);
+
+        if (!classSnapshot.empty) {
+          const classDoc = classSnapshot.docs[0];
+          batch.update(classDoc.ref, {
+            studentIds: arrayUnion(userProfile.id)
+          });
+          successMessage = `L'étudiant ${getDisplayName(userProfile)} a été pré-inscrit et ajouté à la classe ${className}.`;
+        } else {
+            toast({
+              variant: 'destructive',
+              title: `Classe "${className}" introuvable`,
+              description: "L'étudiant a été pré-inscrit, mais n'a pas pu être assigné à une classe. Vérifiez que la classe existe.",
+              duration: 8000,
+            });
+        }
+      }
+      
+      await batch.commit();
       
       toast({
-        title: `Utilisateur ${getDisplayName(userProfile)} pré-inscrit.`,
-        description: "Le compte est maintenant inactif et en attente d'activation par l'utilisateur."
+        title: 'Opération réussie',
+        description: successMessage,
       });
       setIsAddDialogOpen(false);
 
