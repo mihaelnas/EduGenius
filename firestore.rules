@@ -10,9 +10,10 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
-    // NEW: isAdmin now checks the role directly on the user's document
+    
     function isAdmin() {
+      // Un utilisateur est admin si son document utilisateur a le rôle 'admin'.
+      // La permission de lire ce document est gérée dans la règle `match /users/{userId}`.
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
@@ -36,34 +37,38 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
-    // Collection for pending users
+    // Collection pour les utilisateurs en attente
     match /pending_users/{pendingUserId} {
-      allow get: if true; // Anyone can check for a specific pending user
-      allow list: if isAdmin(); // Only admins can list all pending users
-      allow create: if isAdmin(); // Only admins can pre-register users
-      allow delete: if isSignedIn(); // The registration process will delete this
-      allow update: if false; // Should not be updated
+      allow get: if true; // Tout le monde peut vérifier un utilisateur en attente spécifique
+      allow list: if isAdmin(); // Seuls les admins peuvent lister tous les utilisateurs en attente
+      allow create: if isAdmin(); // Seuls les admins peuvent pré-inscrire des utilisateurs
+      allow delete: if isSignedIn(); // Le processus d'inscription supprimera ceci
+      allow update: if false; // Ne doit pas être mis à jour
     }
 
     match /users/{userId} {
-      // Users can read their own profile. Admins can read any profile.
+      // Les utilisateurs peuvent lire leur propre profil. Les admins peuvent lire n'importe quel profil.
       allow get: if isOwner(userId) || isAdmin();
-      // Only admins can list users.
+      
+      // Seuls les admins peuvent lister les utilisateurs.
       allow list: if isAdmin();
-      // Allow user creation if the user ID of the request matches the document ID being created.
+
+      // Autoriser la création d'utilisateur si l'ID utilisateur de la requête correspond à l'ID du document créé.
+      // Cela permet à un nouvel utilisateur de créer son propre profil.
       allow create: if isOwner(userId);
-      // Allow updates by owner or admin
-      allow update: if isOwner(userId) || isAdmin();
-      // Admins can delete users
+
+      // Le propriétaire peut mettre à jour son profil, sauf son rôle.
+      // Un admin peut mettre à jour n'importe quel profil, y compris le rôle.
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
+      
+      // Les admins peuvent supprimer des utilisateurs
       allow delete: if isAdmin();
     }
     
-    // REMOVED: /roles_admin collection is no longer needed.
-
     match /classes/{classId} {
       allow get, list: if isSignedIn();
       allow create: if isAdmin();
-      // Allow class updates (like adding a student) by admins
+      // Autoriser les mises à jour de classe (comme l'ajout d'un étudiant) par les admins
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }

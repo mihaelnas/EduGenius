@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -31,7 +32,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
 import { AppUser } from '@/lib/placeholder-data';
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { KeyRound } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -84,10 +85,13 @@ type EditUserDialogProps = {
 
 export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditUserDialogProps) {
   const auth = useAuth();
+  const { user: currentUser } = useUser();
   const { toast } = useToast();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
+
+  const isCurrentUserAdmin = currentUser?.uid === user.id && (user as any).role === 'admin';
 
   React.useEffect(() => {
     if (user) {
@@ -184,7 +188,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Rôle</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={currentUser?.uid !== user.id && role === 'admin'}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Sélectionner un rôle" />
