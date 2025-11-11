@@ -83,76 +83,47 @@ type EditUserDialogProps = {
     onUserUpdated: (updatedUser: AppUser) => void;
 }
 
+const initialFormValues: Partial<FormValues> = {
+  role: 'student',
+  firstName: '',
+  lastName: '',
+  username: '',
+  email: '',
+  photo: '',
+  status: 'inactive',
+  telephone: '',
+  adresse: '',
+  genre: undefined,
+  matricule: '',
+  dateDeNaissance: '',
+  lieuDeNaissance: '',
+  niveau: undefined,
+  filiere: undefined,
+  groupe: undefined,
+  emailPro: '',
+  specialite: '',
+};
+
 export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditUserDialogProps) {
   const auth = useAuth();
   const { user: currentUser } = useUser();
   const { toast } = useToast();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    // Set default values for all possible fields to prevent uncontrolled -> controlled error
-    defaultValues: {
-      role: 'student',
-      firstName: '',
-      lastName: '',
-      username: '',
-      email: '',
-      photo: '',
-      status: 'inactive',
-      telephone: '',
-      adresse: '',
-      genre: undefined,
-      matricule: '',
-      dateDeNaissance: '',
-      lieuDeNaissance: '',
-      niveau: undefined,
-      filiere: undefined,
-      groupe: undefined,
-      emailPro: '',
-      specialite: '',
-    },
+    defaultValues: initialFormValues as FormValues,
   });
 
   const isCurrentUserAdmin = currentUser?.uid === user.id && (user as any).role === 'admin';
 
   React.useEffect(() => {
     if (user && isOpen) {
-      let defaultValues: Partial<FormValues> = {
-        // Common fields
-        role: user.role,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        username: user.username || '',
-        email: user.email || '',
-        photo: user.photo || '',
-        status: user.status as 'active' | 'inactive',
-        telephone: user.telephone || '',
-        adresse: user.adresse || '',
-        genre: user.genre || undefined,
-        // Initialize all role-specific fields to empty strings or undefined
-        matricule: '',
-        dateDeNaissance: '',
-        lieuDeNaissance: '',
-        niveau: undefined,
-        filiere: undefined,
-        groupe: undefined,
-        emailPro: '',
-        specialite: '',
+      // Create a complete object with all possible fields, ensuring no 'undefined' values are passed for controlled components
+      // unless they are truly optional and handled as such (e.g. select dropdowns)
+      const defaultValues = {
+        ...initialFormValues,
+        ...user,
+        groupe: user.role === 'student' ? (user as Student).groupe || undefined : undefined,
       };
-
-      if (user.role === 'student') {
-        const studentData = user as Student;
-        defaultValues.matricule = studentData.matricule || '';
-        defaultValues.dateDeNaissance = studentData.dateDeNaissance || '';
-        defaultValues.lieuDeNaissance = studentData.lieuDeNaissance || '';
-        defaultValues.niveau = studentData.niveau || undefined;
-        defaultValues.filiere = studentData.filiere || undefined;
-        defaultValues.groupe = studentData.groupe || undefined;
-      } else if (user.role === 'teacher') {
-        const teacherData = user as Teacher;
-        defaultValues.emailPro = teacherData.emailPro || '';
-        defaultValues.specialite = teacherData.specialite || '';
-      }
-      
       form.reset(defaultValues as FormValues);
     }
   }, [user, form, isOpen]);
@@ -196,7 +167,7 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      form.reset();
+      form.reset(initialFormValues as FormValues);
     }
   };
 
