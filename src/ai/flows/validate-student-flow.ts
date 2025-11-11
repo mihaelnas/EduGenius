@@ -89,6 +89,7 @@ const studentValidationFlow = ai.defineFlow(
       const userRef = db.collection('users').doc(input.userId);
       const classQuery = db.collection('classes').where('name', '==', validationResult.className).limit(1);
 
+      console.log('[Flow] Starting Firestore transaction.');
       return db.runTransaction(async (transaction) => {
           const classSnapshot = await transaction.get(classQuery);
 
@@ -99,16 +100,19 @@ const studentValidationFlow = ai.defineFlow(
           }
 
           const classRef = classSnapshot.docs[0].ref;
+          console.log(`[Flow] Found class document with ID: ${classRef.id}`);
 
           // Update user status to 'active'
           transaction.update(userRef, { status: 'active' });
+          console.log(`[Flow] Transaction: Updating user ${input.userId} status to 'active'.`);
           
           // Add user to the class's studentIds array
           transaction.update(classRef, { studentIds: admin.firestore.FieldValue.arrayUnion(input.userId) });
+          console.log(`[Flow] Transaction: Adding user ${input.userId} to class ${validationResult.className}.`);
           
-          console.log(`[Flow] Successfully activated user ${input.userId} and assigned to class ${validationResult.className}`);
           return; // Transactions return void on success
       }).then(() => {
+          console.log(`[Flow] Firestore transaction successful for user ${input.userId}.`);
           return {
             status: 'success' as const,
             message: 'Student validated, activated, and assigned to class successfully.',
