@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -147,6 +146,12 @@ export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
     if (userProfile.role === 'teacher' && 'specialite' in userProfile && userProfile.specialite) {
       userProfile.specialite = userProfile.specialite.toUpperCase();
     }
+
+    if (userProfile.role === 'student') {
+        userProfile.filiere = userProfile.filiere.toUpperCase() as any;
+        userProfile.niveau = userProfile.niveau.toUpperCase() as any;
+        userProfile.matricule = userProfile.matricule.toUpperCase();
+    }
     
     // Clean the object from undefined values before sending to Firestore
     Object.keys(userProfile).forEach(key => {
@@ -192,6 +197,13 @@ export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
     const value = e.target.value;
     if (value) {
       form.setValue('lastName', value.toUpperCase(), { shouldValidate: true });
+    }
+  };
+  
+  const handleMatriculeBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value && 'matricule' in form.getValues()) {
+        form.setValue('matricule', value.toUpperCase(), { shouldValidate: true });
     }
   };
 
@@ -254,7 +266,7 @@ export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
                         
                         {role === 'student' && (
                             <>
-                                <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="E123456" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="E123456" {...field} onBlur={handleMatriculeBlur} /></FormControl><FormMessage /></FormItem> )} />
                                 <div className="grid grid-cols-2 gap-4">
                                 <FormField control={form.control} name="dateDeNaissance" render={({ field }) => ( <FormItem><FormLabel>Date de Naissance</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="lieuDeNaissance" render={({ field }) => ( <FormItem><FormLabel>Lieu de Naissance</FormLabel><FormControl><Input placeholder="Paris" {...field} /></FormControl><FormMessage /></FormItem> )} />
