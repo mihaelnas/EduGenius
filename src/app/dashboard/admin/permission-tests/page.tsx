@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser } from '@/firebase';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { AlertCircle, CheckCircle, DatabaseZap, FileCheck, FilePlus, FileText } from 'lucide-react';
 import { AppUser } from '@/lib/placeholder-data';
 
@@ -56,9 +56,10 @@ export default function PermissionTestsPage() {
       filiere: 'IG',
       groupe: 1,
     };
-    const pendingUserDocRef = doc(firestore, 'pending_users', `test_${Date.now()}`);
+    // Use addDoc for collections
+    const pendingUsersCollectionRef = collection(firestore, 'pending_users');
     try {
-      await setDoc(pendingUserDocRef, newPendingUser);
+      await addDoc(pendingUsersCollectionRef, newPendingUser);
       toast({
         title: 'Succès de la création !',
         description: 'Utilisateur de test créé dans pending_users.',
@@ -121,7 +122,7 @@ export default function PermissionTestsPage() {
                 <FileText className='text-primary'/>
                 <h3 className="font-semibold">Test 1: Lire son propre profil</h3>
             </div>
-            <p className="text-sm text-muted-foreground">Teste `get` sur `/users/{votreId}`. Nécessaire pour que `isAdmin()` fonctionne.</p>
+            <p className="text-sm text-muted-foreground">Teste `get` sur `/users/votreId`. Nécessaire pour que `isAdmin()` fonctionne.</p>
             <Button onClick={handleReadOwnProfile}>
                 <CheckCircle className='mr-2'/>
                 Exécuter le test de lecture
