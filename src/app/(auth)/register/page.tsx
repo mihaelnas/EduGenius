@@ -115,7 +115,7 @@ export default function RegisterPage() {
       }).id;
 
       const validationInput: StudentValidationInput = {
-        studentId: values.matricule, // Use studentId as the key
+        studentId: values.matricule,
         firstName: values.firstName,
         lastName: values.lastName,
       };
@@ -124,11 +124,19 @@ export default function RegisterPage() {
       const validationResult = await validateAndAssignStudent(validationInput);
       console.log("Réponse du flow de validation reçue :", validationResult);
       
-      if (validationResult.status !== 'success') {
+      if (validationResult.status !== 'success' || !validationResult.className) {
         throw new Error(validationResult.message || 'La validation externe a échoué. Vos informations sont peut-être incorrectes.');
       }
       
       if (toastId) dismiss(toastId);
+      
+      // Notify about the received class name
+      toast({
+        title: 'Classe assignée reçue !',
+        description: `Classe retournée par l'API : ${validationResult.className}`,
+        duration: 5000,
+      });
+
       toastId = toast({
         title: 'Validation réussie ! Création du compte...',
         description: 'Veuillez patienter.',
