@@ -33,40 +33,25 @@ import { PlusCircle } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
-import { AppUser, Student, Teacher, Admin, getDisplayName } from '@/lib/placeholder-data';
-import { useFirestore } from '@/firebase';
-import { addDoc, collection } from 'firebase/firestore';
-import { useToast } from '@/hooks/use-toast';
+import { AppUser } from '@/lib/placeholder-data';
 
 const baseSchema = z.object({
   role: z.enum(['student', 'teacher', 'admin']),
   firstName: z.string().min(1, { message: 'Le prénom est requis.' }),
   lastName: z.string().min(1, { message: 'Le nom est requis.' }),
-  username: z.string().min(2, { message: "Le nom d'utilisateur est requis." }).startsWith('@', { message: 'Doit commencer par @.' }),
-  email: z.string().email({ message: 'Email invalide (utilisé pour la communication, pas la connexion).' }),
-  photo: z.string().url({ message: 'URL invalide.' }).optional().or(z.literal('')),
 });
 
 const studentSchema = baseSchema.extend({
   role: z.literal('student'),
   matricule: z.string().min(1, { message: 'Matricule requis.' }),
-  dateDeNaissance: z.string().min(1, { message: 'Date de naissance requise.' }),
-  lieuDeNaissance: z.string().min(1, { message: 'Lieu de naissance requis.' }),
-  genre: z.enum(['Homme', 'Femme']),
-  telephone: z.string().optional().or(z.literal('')),
-  adresse: z.string().optional().or(z.literal('')),
-  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2'], { required_error: 'Le niveau est requis.'}),
-  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC'], { required_error: 'La filière est requise.'}),
-  groupe: z.coerce.number().min(1, { message: "Le groupe est requis."}),
+  niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2']),
+  filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC']),
+  groupe: z.coerce.number().min(1, "Le groupe est requis"),
 });
 
 const teacherSchema = baseSchema.extend({
   role: z.literal('teacher'),
-  emailPro: z.string().email({ message: 'Email pro invalide.' }).optional().or(z.literal('')),
-  genre: z.enum(['Homme', 'Femme']).optional(),
-  telephone: z.string().optional().or(z.literal('')),
-  adresse: z.string().optional().or(z.literal('')),
-  specialite: z.string().optional().or(z.literal('')),
+  specialite: z.string().min(1, "La spécialité est requise."),
 });
 
 const adminSchema = baseSchema.extend({
@@ -81,27 +66,13 @@ export type AddUserFormValues = z.infer<typeof formSchema>;
 type AddUserDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onUserAdded: (userProfile: Omit<AppUser, 'id'>) => Promise<void>;
+    onUserAdded: (userProfile: Omit<AppUser, 'id' | 'email' | 'username' | 'status' | 'createdAt'>) => void;
 }
 
 const initialValues: Partial<AddUserFormValues> = {
   role: 'student',
   firstName: '',
   lastName: '',
-  username: '@',
-  email: '',
-  photo: '',
-  matricule: '',
-  dateDeNaissance: '',
-  lieuDeNaissance: '',
-  telephone: '',
-  adresse: '',
-  niveau: undefined,
-  filiere: undefined,
-  groupe: 1,
-  genre: undefined,
-  emailPro: '',
-  specialite: '',
 };
 
 export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogProps) {
@@ -115,63 +86,38 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
     name: 'role',
   });
 
-  async function onSubmit(values: AddUserFormValues) {
-    let userProfile: Omit<AppUser, 'id'>;
-
-    const baseProfile = {
-      firstName: values.firstName,
-      lastName: values.lastName,
-      username: values.username,
-      email: values.email,
-      photo: values.photo,
-      status: 'inactive' as const,
-      createdAt: new Date().toISOString(),
-    };
+  function onSubmit(values: AddUserFormValues) {
+    let userProfile: Omit<AppUser, 'id' | 'email' | 'username' | 'status' | 'createdAt'>;
 
     switch (values.role) {
       case 'student':
         userProfile = {
-          ...baseProfile,
           role: 'student',
+          firstName: values.firstName,
+          lastName: values.lastName,
           matricule: values.matricule.toUpperCase(),
-          dateDeNaissance: values.dateDeNaissance,
-          lieuDeNaissance: values.lieuDeNaissance,
-          genre: values.genre,
-          telephone: values.telephone,
-          adresse: values.adresse,
-          niveau: values.niveau.toUpperCase() as any,
-          filiere: values.filiere.toUpperCase() as any,
-          groupe: values.groupe,
+          niveau: values.niveau,
+          filiere: values.filiere,
+          groupe: values.groupe
         };
         break;
       case 'teacher':
         userProfile = {
-          ...baseProfile,
           role: 'teacher',
-          emailPro: values.emailPro,
-          genre: values.genre,
-          telephone: values.telephone,
-          adresse: values.adresse,
-          specialite: values.specialite?.toUpperCase(),
+          firstName: values.firstName,
+          lastName: values.lastName,
+          specialite: values.specialite.toUpperCase(),
         };
         break;
       case 'admin':
         userProfile = {
-          ...baseProfile,
           role: 'admin',
+          firstName: values.firstName,
+          lastName: values.lastName,
         };
         break;
     }
-    
-    // Clean the object from undefined values before sending to Firestore
-    Object.keys(userProfile).forEach(key => {
-        const typedKey = key as keyof typeof userProfile;
-        if (userProfile[typedKey] === undefined) {
-            delete userProfile[typedKey];
-        }
-    });
-
-    await onUserAdded(userProfile);
+    onUserAdded(userProfile);
     setIsOpen(false);
   }
   
@@ -218,11 +164,11 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
           Pré-inscrire un utilisateur
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Pré-inscrire un nouvel utilisateur</DialogTitle>
           <DialogDescription>
-            Crée un compte utilisateur avec le statut 'Inactif'. L'utilisateur devra l'activer lui-même en s'inscrivant.
+            Crée un compte utilisateur avec le statut 'Inactif'. L'utilisateur devra l'activer lui-même en s'inscrivant avec son matricule, nom et prénom.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -256,20 +202,10 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
                             <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="Jean" {...field} onBlur={handlePrenomBlur} /></FormControl><FormMessage /></FormItem> )} />
                             <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Nom</FormLabel><FormControl><Input placeholder="DUPONT" {...field} onBlur={handleNomBlur} /></FormControl><FormMessage /></FormItem> )} />
                         </div>
-
-                        <FormField control={form.control} name="username" render={({ field }) => ( <FormItem><FormLabel>Nom d'utilisateur</FormLabel><FormControl><Input placeholder="@jeandupont" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email (pour communication)</FormLabel><FormControl><Input placeholder="nom@exemple.com" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         
                         {role === 'student' && (
                             <>
                                 <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="E123456" {...field} onBlur={handleMatriculeBlur} /></FormControl><FormMessage /></FormItem> )} />
-                                <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="dateDeNaissance" render={({ field }) => ( <FormItem><FormLabel>Date de Naissance</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="lieuDeNaissance" render={({ field }) => ( <FormItem><FormLabel>Lieu de Naissance</FormLabel><FormControl><Input placeholder="Paris" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                </div>
-                                <FormField control={form.control} name="genre" render={({ field }) => ( <FormItem><FormLabel>Genre</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="Homme">Homme</SelectItem><SelectItem value="Femme">Femme</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="telephone" render={({ field }) => ( <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="0123456789" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="adresse" render={({ field }) => ( <FormItem><FormLabel>Adresse</FormLabel><FormControl><Input placeholder="123 Rue de Paris" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                                 <FormField control={form.control} name="niveau" render={({ field }) => ( <FormItem><FormLabel>Niveau</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['L1', 'L2', 'L3', 'M1', 'M2'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="filiere" render={({ field }) => ( <FormItem><FormLabel>Filière</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['IG', 'GB', 'ASR', 'GID', 'OCC'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
@@ -280,19 +216,14 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
 
                         {role === 'teacher' && (
                             <>
-                                <FormField control={form.control} name="emailPro" render={({ field }) => ( <FormItem><FormLabel>Email Professionnel</FormLabel><FormControl><Input placeholder="nom@univ.edu" type="email" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="genre" render={({ field }) => ( <FormItem><FormLabel>Genre</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="Homme">Homme</SelectItem><SelectItem value="Femme">Femme</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="telephone" render={({ field }) => ( <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="0123456789" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="adresse" render={({ field }) => ( <FormItem><FormLabel>Adresse</FormLabel><FormControl><Input placeholder="123 Rue de Paris" {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="specialite" render={({ field }) => ( <FormItem><FormLabel>Spécialité</FormLabel><FormControl><Input placeholder="Mathématiques" {...field} onBlur={handleSpecialiteBlur} /></FormControl><FormMessage /></FormItem> )} />
                             </>
                         )}
-                        <FormField control={form.control} name="photo" render={({ field }) => ( <FormItem><FormLabel>URL de la photo (Optionnel)</FormLabel><FormControl><Input placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem> )} />
                     </div>
                 </ScrollArea>
                 <DialogFooter className='pt-4'>
                     <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
-                    <Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Création..." : "Créer l'utilisateur"}</Button>
+                    <Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Création..." : "Pré-inscrire l'utilisateur"}</Button>
                 </DialogFooter>
             </form>
         </Form>
