@@ -32,14 +32,12 @@ import { PlusCircle } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
-import { nanoid } from 'nanoid';
 import { AppUser } from '@/lib/placeholder-data';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { addDoc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { getDisplayName } from '@/lib/placeholder-data';
 
-// Removed password fields as we are now pre-registering accounts without auth.
 const baseSchema = z.object({
   role: z.enum(['student', 'teacher', 'admin']),
   firstName: z.string().min(1, { message: 'Le prénom est requis.' }),
@@ -120,10 +118,9 @@ export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
   });
 
   async function onSubmit(values: AddUserFormValues) {
-    const userProfile = {
+    const userProfile: Omit<AppUser, 'id'> = {
         ...values,
-        id: `user_${nanoid()}`, // Temporary unique ID for the pre-registered document
-        status: 'inactive' as const, // Always inactive on creation
+        status: 'inactive' as const, 
         createdAt: new Date().toISOString(),
     };
      
@@ -131,13 +128,13 @@ export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
       userProfile.specialite = userProfile.specialite.toUpperCase();
     }
     
-    const userDocRef = doc(firestore, 'pending_users', userProfile.id);
+    const pendingUsersCollectionRef = collection(firestore, 'pending_users');
     
     try {
-        await setDoc(userDocRef, userProfile);
+        await addDoc(pendingUsersCollectionRef, userProfile);
         toast({
-          title: 'Utilisateur pré-inscrit avec succès !',
-          description: `Le profil pour ${getDisplayName(userProfile)} a été créé dans la liste d'attente.`,
+          title: 'Utilisateur pré-inscrit !',
+          description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
         });
         setIsOpen(false);
     } catch (error: any) {
@@ -192,7 +189,7 @@ export function AddUserDialog({ isOpen, setIsOpen }: AddUserDialogProps) {
         <DialogHeader>
           <DialogTitle>Pré-inscrire un nouvel utilisateur</DialogTitle>
           <DialogDescription>
-            Crée un compte utilisateur avec le statut 'Inactif'. L'utilisateur devra l'activer lui-même.
+            Crée un compte utilisateur avec le statut 'Inactif'. L'utilisateur devra l'activer lui-même en s'inscrivant.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
