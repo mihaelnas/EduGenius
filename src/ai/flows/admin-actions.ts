@@ -8,31 +8,22 @@
  */
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 
-// Lazy initialization for Firebase Admin SDK
+// Initialize Firebase Admin SDK
 let adminApp: App;
-let db: Firestore;
-
-function getDb(): Firestore {
-  if (!adminApp) {
-    if (!getApps().length) {
-      adminApp = initializeApp();
-    } else {
-      adminApp = getApps()[0];
-    }
-    db = getFirestore(adminApp);
-  }
-  return db;
+if (!getApps().length) {
+  adminApp = initializeApp();
+} else {
+  adminApp = getApps()[0];
 }
-
+const db = getFirestore(adminApp);
 
 // Helper function to verify admin status
 async function isAdmin(userId: string): Promise<boolean> {
   if (!userId) return false;
-  const firestore = getDb();
-  const userDocRef = firestore.collection('users').doc(userId);
+  const userDocRef = db.collection('users').doc(userId);
   const userDoc = await userDocRef.get();
   return userDoc.exists && userDoc.data()?.role === 'admin';
 }
@@ -61,13 +52,12 @@ export const secureCreateDocument = ai.defineFlow(
       if (!(await isAdmin(input.userId))) {
         return { success: false, error: 'Permission denied: User is not an admin.' };
       }
-      const firestore = getDb();
       const documentData = {
           ...input.data,
           creatorId: input.userId,
           createdAt: new Date().toISOString(),
       };
-      const docRef = await firestore.collection(input.collection).add(documentData);
+      const docRef = await db.collection(input.collection).add(documentData);
       return { success: true, id: docRef.id };
     } catch (e: any) {
       console.error("secureCreateDocument flow error:", e);
@@ -100,8 +90,7 @@ export const secureUpdateDocument = ai.defineFlow(
       if (!(await isAdmin(input.userId))) {
         return { success: false, error: 'Permission denied: User is not an admin.' };
       }
-      const firestore = getDb();
-      await firestore.collection(input.collection).doc(input.docId).update(input.data);
+      await db.collection(input.collection).doc(input.docId).update(input.data);
       return { success: true };
     } catch (e: any) {
       console.error("secureUpdateDocument flow error:", e);
@@ -133,8 +122,7 @@ export const secureDeleteDocument = ai.defineFlow(
       if (!(await isAdmin(input.userId))) {
         return { success: false, error: 'Permission denied: User is not an admin.' };
       }
-      const firestore = getDb();
-      await firestore.collection(input.collection).doc(input.docId).delete();
+      await db.collection(input.collection).doc(input.docId).delete();
       return { success: true };
     } catch (e: any) {
       console.error("secureDeleteDocument flow error:", e);

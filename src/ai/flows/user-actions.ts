@@ -7,25 +7,18 @@
  */
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import type { Student } from '@/lib/placeholder-data';
 
-// Lazy initialization for Firebase Admin SDK
+// Initialize Firebase Admin SDK
 let adminApp: App;
-let db: Firestore;
-
-function getDb(): Firestore {
-  if (!adminApp) {
-    if (!getApps().length) {
-      adminApp = initializeApp();
-    } else {
-      adminApp = getApps()[0];
-    }
-    db = getFirestore(adminApp);
-  }
-  return db;
+if (!getApps().length) {
+  adminApp = initializeApp();
+} else {
+  adminApp = getApps()[0];
 }
+const db = getFirestore(adminApp);
 
 
 // Schema for the account activation flow
@@ -50,7 +43,7 @@ export const activateAccount = ai.defineFlow(
   },
   async (input) => {
     try {
-      const firestore = getDb();
+      const firestore = db;
       const usersRef = firestore.collection('pending_users');
       // Query for all inactive users. The filtering will happen in server-side code.
       const q = usersRef.where('status', '==', 'inactive');
