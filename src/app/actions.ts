@@ -3,7 +3,7 @@
 
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
+import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
 import { revalidatePath } from 'next/cache';
 import type { AppUser, Student, Admin } from '@/lib/placeholder-data';
 import { z } from 'zod';
@@ -24,24 +24,15 @@ function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth> 
 }
 
 
-async function verifyAdminRole(userId: string): Promise<boolean> {
-  if (!userId) {
-    return false;
-  }
-  
-  try {
+async function getAuthenticatedUser(userId: string): Promise<{user: DecodedIdToken, isAdmin: boolean} | {user: null, isAdmin: boolean}> {
     const { auth } = getAdminInstances();
-    const userRecord = await auth.getUser(userId);
-    const userClaims = userRecord.customClaims;
-
-    if (userClaims && userClaims.admin === true) {
-        return true;
+    try {
+        const userRecord = await auth.getUser(userId);
+        const isAdmin = userRecord.customClaims?.admin === true;
+        return { user: userRecord.toJSON() as DecodedIdToken, isAdmin };
+    } catch (error) {
+        return { user: null, isAdmin: false };
     }
-    return false;
-  } catch (error) {
-    console.error(`Erreur critique pendant la vérification du rôle pour l'UID: ${userId}`, error);
-    return false;
-  }
 }
 
 const ActivateAccountInputSchema = z.object({
@@ -135,10 +126,10 @@ export async function getUserDetails(
   userIdToView: string,
   currentUserId: string
 ): Promise<{ success: boolean; user?: AppUser; error?: string }> {
+  const { user, isAdmin } = await getAuthenticatedUser(currentUserId);
   const isOwnProfile = userIdToView === currentUserId;
-  const isAdmin = await verifyAdminRole(currentUserId);
 
-  if (!isOwnProfile && !isAdmin) {
+  if (!user || (!isOwnProfile && !isAdmin)) {
     return { success: false, error: 'Permission denied.' };
   }
 
@@ -164,8 +155,8 @@ export async function secureGetDocuments<T>(
     path: 'users' | 'classes' | 'subjects',
     currentUserId: string
 ): Promise<{ success: boolean; data?: T[]; error?: string }> {
-  const isAdmin = await verifyAdminRole(currentUserId);
-  if (!isAdmin) {
+  const { user, isAdmin } = await getAuthenticatedUser(currentUserId);
+  if (!user || !isAdmin) {
     return { success: false, error: 'Permission denied: User is not an admin.' };
   }
 
@@ -186,8 +177,8 @@ export async function secureCreateDocument(
   data: any,
   userId: string
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const isAdmin = await verifyAdminRole(userId);
-  if (!isAdmin) {
+  const { user, isAdmin } = await getAuthenticatedUser(userId);
+  if (!user || !isAdmin) {
     return { success: false, error: 'Permission denied: User is not an admin.' };
   }
 
@@ -213,8 +204,8 @@ export async function secureUpdateDocument(
   data: any,
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const isAdmin = await verifyAdminRole(userId);
-  if (!isAdmin) {
+  const { user, isAdmin } = await getAuthenticatedUser(userId);
+  if (!user || !isAdmin) {
     return { success: false, error: 'Permission denied: User is not an admin.' };
   }
 
@@ -237,8 +228,8 @@ export async function secureDeleteDocument(
   docId: string,
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const isAdmin = await verifyAdminRole(userId);
-  if (!isAdmin) {
+  const { user, isAdmin } = await getAuthenticatedUser(userId);
+  if (!user || !isAdmin) {
     return { success: false, error: 'Permission denied: User is not an admin.' };
   }
 

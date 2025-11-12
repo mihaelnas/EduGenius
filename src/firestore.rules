@@ -3,7 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -33,30 +32,27 @@ service cloud.firestore {
     }
 
     // --- Admin-only managed collections ---
-    // All client-side writes are forbidden. They must go through secure server actions.
+    // All client-side reads and writes are forbidden. They must go through secure server actions.
     match /pending_users/{pendingUserId} {
       allow read, write: if false;
     }
-
     match /users/{userId} {
       // A user can read their own document. Admin reads go through server actions.
       allow get: if isOwner(userId);
       // Listing and writing is forbidden from the client.
       allow list, write: if false; 
     }
-    
     match /classes/{classId} {
-      // Anyone signed-in can read class data (e.g., for schedules, classmate lists).
-      allow get, list: if isSignedIn();
-      // All mutations must go through server actions.
-      allow write: if false;
+      // Students can read class data (e.g., for schedules, classmate lists), but cannot list all.
+      allow get: if isSignedIn();
+      // All mutations and listings must go through server actions.
+      allow list, write: if false;
     }
-
     match /subjects/{subjectId} {
-      // Anyone signed-in can read subject data (e.g., for course lists).
-      allow get, list: if isSignedIn();
-       // All mutations must go through server actions.
-      allow write: if false;
+      // Students can read subject data, but cannot list all.
+      allow get: if isSignedIn();
+       // All mutations and listings must go through server actions.
+      allow list, write: if false;
     }
     // --- End Admin-only ---
 
