@@ -44,11 +44,11 @@ async function verifyAdminRole(userId: string): Promise<boolean> {
   }
   
   try {
-    const { db } = getAdminInstances();
-    const userDocRef = db.collection('users').doc(userId);
-    const userDoc = await userDocRef.get();
+    const { auth } = getAdminInstances();
+    const userRecord = await auth.getUser(userId);
+    const userClaims = userRecord.customClaims;
 
-    if (userDoc.exists && userDoc.data()?.role === 'admin') {
+    if (userClaims && userClaims.role === 'admin') {
         return true;
     }
     return false;
