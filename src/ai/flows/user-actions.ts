@@ -7,20 +7,26 @@
  */
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import type { Student } from '@/lib/placeholder-data';
 
-// Initialize Firebase Admin SDK
+// Lazy initialization for Firebase Admin SDK
 let adminApp: App;
-if (!getApps().length) {
-  // Call initializeApp() without arguments.
-  // It will automatically use GOOGLE_APPLICATION_CREDENTIALS environment variable.
-  adminApp = initializeApp();
-} else {
-  adminApp = getApps()[0];
+let db: Firestore;
+
+function getDb(): Firestore {
+  if (!adminApp) {
+    if (!getApps().length) {
+      adminApp = initializeApp();
+    } else {
+      adminApp = getApps()[0];
+    }
+    db = getFirestore(adminApp);
+  }
+  return db;
 }
-const db = getFirestore(adminApp);
+
 
 // Schema for the account activation flow
 const ActivateAccountInputSchema = z.object({
@@ -44,7 +50,8 @@ export const activateAccount = ai.defineFlow(
   },
   async (input) => {
     try {
-      const usersRef = db.collection('pending_users');
+      const firestore = getDb();
+      const usersRef = firestore.collection('pending_users');
       // Query for all inactive users. The filtering will happen in server-side code.
       const q = usersRef.where('status', '==', 'inactive');
       
@@ -97,10 +104,10 @@ export const activateAccount = ai.defineFlow(
       console.log(`Document correspondant trouvé ! ID: ${matchingDoc.id}`);
       const pendingUserData = matchingDoc.data();
 
-      const batch = db.batch();
+      const batch = firestore.batch();
       
-      const pendingDocRef = db.collection('pending_users').doc(matchingDoc.id);
-      const newUserDocRef = db.collection('users').doc(input.newAuthUserId);
+      const pendingDocRef = firestore.collection('pending_users').doc(matchingDoc.id);
+      const newUserDocRef = firestore.collection('users').doc(input.newAuthUserId);
       
       const newUserProfile = {
         ...pendingUserData,
@@ -119,7 +126,7 @@ export const activateAccount = ai.defineFlow(
           const className = `${student.niveau}-${student.filiere}-G${student.groupe}`.toUpperCase();
           const anneeScolaire = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
           
-          const classesRef = db.collection('classes');
+          const classesRef = firestore.collection('classes');
           const classQuery = classesRef.where('name', '==', className).where("anneeScolaire", "==", anneeScolaire);
           const classSnapshot = await classQuery.get();
 
