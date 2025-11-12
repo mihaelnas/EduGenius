@@ -8,23 +8,19 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isSignedIn() && request.auth.token.admin == true;
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
+
     function isTeacherForCourse() {
       return isSignedIn() && request.resource.data.teacherId == request.auth.uid;
     }
 
     function isExistingTeacherForCourse() {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
-    }
-    
-    function isTeacherForSubject(subjectId) {
-      return isSignedIn() && get(/databases/$(database)/documents/subjects/$(subjectId)).data.teacherId == request.auth.uid;
     }
 
     function isTeacherForEvent() {
@@ -35,58 +31,41 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
-    match /pending_users/{pendingUserId} {
-      allow read, create, update, delete: if isAdmin();
+    // --- RÈGLES ADMIN ---
+    // Les administrateurs ont un accès complet en lecture et en écriture.
+    match /pending_users/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /classes/{docId} {
+      allow read, write: if isAdmin();
+      allow list, get: if isSignedIn(); // Les autres utilisateurs peuvent lire
+    }
+    match /subjects/{docId} {
+      allow read, write: if isAdmin();
+      allow list, get: if isSignedIn(); // Les autres utilisateurs peuvent lire
     }
 
+    // --- RÈGLES UTILISATEURS ---
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
+      // L'utilisateur peut créer son propre document lors de l'activation
       allow create: if isSignedIn();
+      // L'admin peut tout mettre à jour, l'utilisateur ne peut pas changer son rôle
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
-      allow delete: if isAdmin();
-    }
-    
-    match /classes/{classId} {
-      allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
+      // Seul l'admin peut supprimer
       allow delete: if isAdmin();
     }
 
-    match /subjects/{subjectId} {
-      allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
-      allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
-    }
-    
+    // --- RÈGLES ENSEIGNANTS & ÉTUDIANTS ---
     match /courses/{courseId} {
       allow get, list: if isSignedIn();
-      allow create: if (isTeacherForCourse() && isTeacherForSubject(request.resource.data.subjectId)) || isAdmin();
-      allow update: if isExistingTeacherForCourse() || isAdmin();
-      allow delete: if isExistingTeacherForCourse() || isAdmin();
-    }
-    
-     match /class_students/{classStudentId} {
-      allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    match /class_teachers/{classTeacherId} {
-      allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create, update, delete: if isExistingTeacherForCourse() || isTeacherForCourse() || isAdmin();
     }
 
     match /schedule/{eventId} {
       allow get, list: if isSignedIn();
-      allow create: if isTeacherForEvent() || isAdmin();
-      allow update: if isExistingTeacherForEvent() || isAdmin();
-      allow delete: if isExistingTeacherForEvent() || isAdmin();
+      allow create, update, delete: if isExistingTeacherForEvent() || isTeacherForEvent() || isAdmin();
     }
   }
 }
