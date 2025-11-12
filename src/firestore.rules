@@ -3,6 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -20,7 +21,6 @@ service cloud.firestore {
     }
     
     function isTeacherForSubject(subjectId) {
-      // This is a potentially costly read, but necessary for this rule logic.
       return isSignedIn() && get(/databases/$(database)/documents/subjects/$(subjectId)).data.teacherId == request.auth.uid;
     }
 
@@ -32,37 +32,53 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
+    // --- Admin-only managed collections ---
+    // All client-side writes are forbidden. They must go through secure server actions.
     match /pending_users/{pendingUserId} {
-      allow read, write: if false; // Server-side only
+      allow read, write: if false;
     }
 
     match /users/{userId} {
-      allow get: if isOwner(userId); // Only the owner can read their own doc directly
-      allow list, write: if false; // All other access via server actions
+      // A user can read their own document. Admin reads go through server actions.
+      allow get: if isOwner(userId);
+      // Listing and writing is forbidden from the client.
+      allow list, write: if false; 
     }
     
     match /classes/{classId} {
-      allow get, list: if isSignedIn(); // Allow students/teachers to get class info
-      allow write: if false; // All mutations via server actions
+      // Anyone signed-in can read class data (e.g., for schedules, classmate lists).
+      allow get, list: if isSignedIn();
+      // All mutations must go through server actions.
+      allow write: if false;
     }
 
     match /subjects/{subjectId} {
-      allow get, list: if isSignedIn(); // Allow students/teachers to get subject info
-      allow write: if false; // All mutations via server actions
-    }
-    
-    match /courses/{courseId} {
+      // Anyone signed-in can read subject data (e.g., for course lists).
       allow get, list: if isSignedIn();
+       // All mutations must go through server actions.
+      allow write: if false;
+    }
+    // --- End Admin-only ---
+
+
+    // --- Teacher-managed collections ---
+    match /courses/{courseId} {
+      // Any signed-in user (student or teacher) can view courses.
+      allow get, list: if isSignedIn();
+      // A teacher can create a course if they are the assigned teacher for that subject.
       allow create: if isTeacherForCourse() && isTeacherForSubject(request.resource.data.subjectId);
-      allow update: if isExistingTeacherForCourse();
-      allow delete: if isExistingTeacherForCourse();
+      // A teacher can update or delete a course they created.
+      allow update, delete: if isExistingTeacherForCourse();
     }
     
     match /schedule/{eventId} {
+       // Any signed-in user (student or teacher) can view schedule events.
       allow get, list: if isSignedIn();
+      // A teacher can create an event.
       allow create: if isTeacherForEvent();
-      allow update: if isExistingTeacherForEvent();
-      allow delete: if isExistingTeacherForEvent();
+      // A teacher can update or delete an event they created.
+      allow update, delete: if isExistingTeacherForEvent();
     }
+    // --- End Teacher-managed ---
   }
 }

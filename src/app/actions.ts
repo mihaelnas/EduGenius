@@ -34,7 +34,7 @@ async function verifyAdminRole(userId: string): Promise<boolean> {
     const userRecord = await auth.getUser(userId);
     const userClaims = userRecord.customClaims;
 
-    if (userClaims && userClaims.role === 'admin') {
+    if (userClaims && userClaims.admin === true) {
         return true;
     }
     return false;
@@ -70,7 +70,7 @@ export async function activateAccount(
               status: 'active',
               createdAt: new Date().toISOString(),
           };
-          await adminAuth.setCustomUserClaims(input.newAuthUserId, { role: 'admin' });
+          await adminAuth.setCustomUserClaims(input.newAuthUserId, { admin: true, role: 'admin' });
           await db.collection('users').doc(input.newAuthUserId).set(newAdminProfile);
           return { success: true, userProfile: newAdminProfile };
       }
