@@ -1,6 +1,6 @@
-
 import { z } from 'zod';
 
+// Base User type with common fields
 export type User = {
   id: string;
   firstName: string;
@@ -8,35 +8,39 @@ export type User = {
   email: string;
   username: string;
   role: 'admin' | 'teacher' | 'student';
-  status: 'active' | 'inactive' | 'pending';
+  status: 'active' | 'inactive';
   createdAt: string;
-  creatorId?: string; // Added for admin tracking
+  creatorId?: string; // For admin tracking
   photo?: string;
   genre?: 'Homme' | 'Femme';
   telephone?: string;
   adresse?: string;
 };
 
+// Student-specific fields
 export type Student = User & {
   role: 'student';
   matricule: string;
-  dateDeNaissance: string;
-  lieuDeNaissance: string;
+  dateDeNaissance?: string;
+  lieuDeNaissance?: string;
   niveau: 'L1' | 'L2' | 'L3' | 'M1' | 'M2';
   filiere: 'IG' | 'GB' | 'ASR' | 'GID' | 'OCC';
   groupe: number;
 };
 
+// Teacher-specific fields
 export type Teacher = User & {
   role: 'teacher';
   emailPro?: string;
   specialite?: string;
 };
 
+// Admin user - just the base fields
 export type Admin = User & {
   role: 'admin';
 };
 
+// A union type for any user profile
 export type AppUser = Student | Teacher | Admin;
 
 export type Class = {
@@ -49,7 +53,7 @@ export type Class = {
   teacherIds: string[];
   studentIds: string[];
   createdAt: string;
-  creatorId?: string; // Added for admin tracking
+  creatorId?: string; // For admin tracking
 };
 
 export type Subject = {
