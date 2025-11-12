@@ -39,10 +39,8 @@ service cloud.firestore {
     match /users/{userId} {
       // Any signed-in user can read public user profiles.
       allow get, list: if isSignedIn();
-      // Users can only create their own document during sign-up.
-      allow create: if isOwner(userId);
-      // Updates and deletes must go through secure server-side flows.
-      allow update, delete: if false;
+      // Creation is handled by the activateAccount flow. Updates/Deletes are admin-only.
+      allow write: if false;
     }
     
     match /classes/{classId} {
