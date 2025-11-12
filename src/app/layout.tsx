@@ -15,13 +15,7 @@ import { createSessionCookie, clearSessionCookie } from './actions';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  const { toast, dismiss } = useToast();
-  const [isOnline, setIsOnline] = useState(true);
+function AuthHandler({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
 
   useEffect(() => {
@@ -36,7 +30,19 @@ export default function RootLayout({
 
     return () => unsubscribe();
   }, [auth]);
-  
+
+  return <>{children}</>;
+}
+
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const { toast, dismiss } = useToast();
+  const [isOnline, setIsOnline] = useState(true);
+
   useEffect(() => {
     // Set initial status
     if (typeof window !== 'undefined') {
@@ -81,9 +87,11 @@ export default function RootLayout({
       </head>
       <body className={cn('font-body antialiased', inter.variable)}>
         <FirebaseClientProvider>
-          <UserProvider>
-            {children}
-          </UserProvider>
+          <AuthHandler>
+            <UserProvider>
+              {children}
+            </UserProvider>
+          </AuthHandler>
           <Toaster />
         </FirebaseClientProvider>
       </body>
