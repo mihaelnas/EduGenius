@@ -10,14 +10,13 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
-import { firebaseConfig } from '@/firebase/config';
 
 // Initialize Firebase Admin SDK
 let adminApp: App;
 if (!getApps().length) {
-  adminApp = initializeApp({
-    projectId: firebaseConfig.projectId,
-  });
+  // Call initializeApp() without arguments.
+  // It will automatically use GOOGLE_APPLICATION_CREDENTIALS environment variable.
+  adminApp = initializeApp();
 } else {
   adminApp = getApps()[0];
 }
