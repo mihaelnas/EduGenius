@@ -31,41 +31,49 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
-    // --- RÈGLES ADMIN ---
-    // Les administrateurs ont un accès complet en lecture et en écriture.
     match /pending_users/{docId} {
+      // Seuls les admins peuvent gérer les utilisateurs en attente.
       allow read, write: if isAdmin();
-    }
-    match /classes/{docId} {
-      allow read, write: if isAdmin();
-      allow list, get: if isSignedIn(); // Les autres utilisateurs peuvent lire
-    }
-    match /subjects/{docId} {
-      allow read, write: if isAdmin();
-      allow list, get: if isSignedIn(); // Les autres utilisateurs peuvent lire
     }
 
-    // --- RÈGLES UTILISATEURS ---
     match /users/{userId} {
+      // LECTURE : Un utilisateur peut voir son propre profil, les admins peuvent tout voir.
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      // L'utilisateur peut créer son propre document lors de l'activation
+      
+      // ECRITURE : Un utilisateur peut se créer. Un admin peut tout faire.
+      // Un utilisateur peut mettre à jour son propre profil mais pas son rôle.
       allow create: if isSignedIn();
-      // L'admin peut tout mettre à jour, l'utilisateur ne peut pas changer son rôle
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
-      // Seul l'admin peut supprimer
       allow delete: if isAdmin();
     }
+    
+    match /classes/{classId} {
+      // LECTURE : Tous les utilisateurs connectés peuvent voir les classes.
+      allow read: if isSignedIn();
+      // ECRITURE : Seuls les admins peuvent créer, modifier ou supprimer des classes.
+      allow write: if isAdmin();
+    }
+    
+    match /subjects/{subjectId} {
+      // LECTURE : Tous les utilisateurs connectés peuvent voir les matières.
+      allow read: if isSignedIn();
+      // ECRITURE : Seuls les admins peuvent créer, modifier ou supprimer des matières.
+      allow write: if isAdmin();
+    }
 
-    // --- RÈGLES ENSEIGNANTS & ÉTUDIANTS ---
     match /courses/{courseId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isExistingTeacherForCourse() || isTeacherForCourse() || isAdmin();
+      // LECTURE : Tous les utilisateurs connectés peuvent lire les cours.
+      allow read: if isSignedIn();
+      // ECRITURE : Seuls l'enseignant du cours ou un admin peuvent écrire.
+      allow write: if isTeacherForCourse() || isExistingTeacherForCourse() || isAdmin();
     }
 
     match /schedule/{eventId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isExistingTeacherForEvent() || isTeacherForEvent() || isAdmin();
+      // LECTURE : Tous les utilisateurs connectés peuvent voir l'emploi du temps.
+      allow read: if isSignedIn();
+      // ECRITURE : Seuls l'enseignant de l'événement ou un admin peuvent écrire.
+      allow write: if isTeacherForEvent() || isExistingTeacherForEvent() || isAdmin();
     }
   }
 }
