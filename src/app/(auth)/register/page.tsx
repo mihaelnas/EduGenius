@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/firebase';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut, User } from 'firebase/auth';
 import React from 'react';
 import { Eye, EyeOff, UserCog } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -46,18 +46,20 @@ const baseSchema = z.object({
 // Schéma pour l'utilisateur standard (avec matricule)
 const userSchema = baseSchema.extend({
   matricule: z.string().min(1, { message: 'Le matricule est requis.' }),
+  isRegisteringAsAdmin: z.literal(false),
 });
 
 // Schéma pour l'admin (sans matricule)
 const adminSchema = baseSchema.extend({
-  matricule: z.string().optional(), // Le matricule est optionnel pour l'admin
+  matricule: z.string().optional(),
+  isRegisteringAsAdmin: z.literal(true),
 });
 
 
 // Combine les schémas
 const formSchema = z.discriminatedUnion("isRegisteringAsAdmin", [
-    userSchema.extend({ isRegisteringAsAdmin: z.literal(false) }),
-    adminSchema.extend({ isRegisteringAsAdmin: z.literal(true) })
+    userSchema,
+    adminSchema
 ]).refine(data => data.password === data.confirmPassword, {
   message: 'Les mots de passe ne correspondent pas.',
   path: ['confirmPassword'],
@@ -93,22 +95,14 @@ export default function RegisterPage() {
   }, [isRegisteringAsAdmin, form]);
 
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    let toastId: string | undefined;
-    try {
-      toastId = toast({
-        title: 'Vérification en cours...',
-        description: 'Finalisation de votre compte...',
-        duration: Infinity
-      }).id;
-
-      // 1. Create the Auth user first
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      const newAuthUser = userCredential.user;
-
-      // 2. Call the secure server-side action to handle the database transaction and custom claims
+  const createAdminAccount = async (values: z.infer<typeof formSchema>, newAuthUser: User) => {
+      // Pour l'admin, l'email est la clé
+      if (values.email.toLowerCase() !== 'rajo.harisoa7@gmail.com') {
+        throw new Error("La création de compte admin est réservée à une adresse e-mail spécifique.");
+      }
+      
       const result = await activateAccount({
-        matricule: values.matricule || '',
+        matricule: '', // Non requis pour l'admin
         firstName: values.firstName,
         lastName: values.lastName,
         email: values.email,
@@ -116,46 +110,93 @@ export default function RegisterPage() {
       });
 
       if (!result.success) {
-        // If the action fails, delete the created auth user to allow them to try again.
-        await newAuthUser.delete();
-        throw new Error(result.error || "La transaction de base de données a échoué.");
+        throw new Error(result.error || "La création du compte admin a échoué.");
       }
       
-      // Special handling for admin to force token refresh and stay logged in
-      if (result.userProfile?.role === 'admin') {
-          await newAuthUser.getIdToken(true); // Force refresh to get custom claims
-          if (toastId) dismiss(toastId);
-          toast({ title: 'Compte administrateur créé !', description: 'Redirection vers le tableau de bord...', duration: 5000 });
-          router.push('/dashboard');
-          return;
+      // Force le rafraîchissement du token pour obtenir les droits admin immédiatement
+      await newAuthUser.getIdToken(true);
+      
+      toast({ 
+          title: 'Compte Administrateur Créé !', 
+          description: 'Vous avez maintenant tous les droits. Redirection vers le tableau de bord...',
+          duration: 5000 
+      });
+
+      router.push('/dashboard');
+  }
+
+  const activateStandardAccount = async (values: z.infer<typeof formSchema>, newAuthUser: User) => {
+      if (!values.matricule) {
+          throw new Error("Le matricule est requis pour l'activation.");
       }
 
-      // 3. For regular users, sign out immediately after activation
+      const result = await activateAccount({
+        matricule: values.matricule,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        newAuthUserId: newAuthUser.uid,
+      });
+
+       if (!result.success) {
+        throw new Error(result.error || "La transaction de base de données a échoué.");
+      }
+
+      // Déconnecter l'utilisateur standard après l'activation pour qu'il se connecte
       await signOut(auth);
 
-      if (toastId) dismiss(toastId);
       toast({ 
           title: 'Compte activé avec succès !', 
           description: 'Vous pouvez maintenant vous connecter avec vos identifiants.',
           duration: 8000 
       });
       
-      // 4. Redirect to the login page
       router.push('/login');
+  }
+
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    let toastId: string | undefined;
+    let newAuthUser: User | null = null;
+
+    try {
+      toastId = toast({
+        title: 'Vérification en cours...',
+        description: 'Finalisation de votre compte...',
+        duration: Infinity
+      }).id;
+
+      // 1. Créer l'utilisateur Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      newAuthUser = userCredential.user;
+
+      // 2. Choisir la bonne logique en fonction du switch
+      if (values.isRegisteringAsAdmin) {
+        await createAdminAccount(values, newAuthUser);
+      } else {
+        await activateStandardAccount(values, newAuthUser);
+      }
+      
+      if (toastId) dismiss(toastId);
 
     } catch (error: any) {
       if (toastId) dismiss(toastId);
       
+      // Si l'utilisateur Auth a été créé mais que l'action serveur a échoué, le supprimer
+      if (newAuthUser) {
+        await newAuthUser.delete().catch(e => console.error("Failed to delete auth user after error:", e));
+      }
+
       let errorMessage = 'Une erreur est survenue. Vérifiez vos informations et réessayez.';
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'Cette adresse e-mail est déjà utilisée pour un compte actif. Veuillez vous connecter ou utiliser une autre adresse.';
+        errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter ou utiliser une autre adresse.';
       } else if (error.message) {
         errorMessage = error.message;
       }
       
       toast({
           variant: 'destructive',
-          title: 'Échec de l\'activation',
+          title: "Échec de l'opération",
           description: errorMessage,
           duration: 8000
       });
@@ -207,7 +248,7 @@ export default function RegisterPage() {
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
-          <ScrollArea className="h-auto">
+          <ScrollArea className="h-auto max-h-[60vh]">
             <CardContent className="grid gap-4 px-6">
                 {!isRegisteringAsAdmin && (
                     <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="Ex: 1814 H-F" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -227,7 +268,7 @@ export default function RegisterPage() {
           </ScrollArea>
           <CardFooter className="flex flex-col gap-4 px-6 pb-6 pt-4">
             <Button className="w-full" type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Activation en cours..." : "Activer mon compte"}
+              {form.formState.isSubmitting ? "Opération en cours..." : (isRegisteringAsAdmin ? "Créer le compte Admin" : "Activer mon compte")}
             </Button>
             <div className="text-center text-sm text-muted-foreground">
               Vous avez déjà un compte ?{' '}

@@ -49,6 +49,7 @@ export async function activateAccount(
       const normalizedInputEmail = input.email.toLowerCase();
       
       // Explicit check for the admin email address, ignoring case.
+      // This path is taken when an admin registers themselves.
       if (normalizedInputEmail === 'rajo.harisoa7@gmail.com') {
           const newAdminProfile: Admin = {
               id: input.newAuthUserId,
@@ -63,11 +64,12 @@ export async function activateAccount(
           // Correctly set the custom claim to { admin: true }
           await adminAuth.setCustomUserClaims(input.newAuthUserId, { admin: true, role: 'admin' });
           await db.collection('users').doc(input.newAuthUserId).set(newAdminProfile);
-          // THIS IS THE CRITICAL FIX: return immediately after handling the admin case.
+          
+          // Return immediately after handling the admin case.
           return { success: true, userProfile: newAdminProfile };
       }
 
-      // Logic for non-admin users
+      // Logic for non-admin users: find them in pending_users
       const usersRef = db.collection('pending_users');
       const q = usersRef.where('status', '==', 'inactive');
       const querySnapshot = await q.get();
