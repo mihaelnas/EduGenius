@@ -6,7 +6,6 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
 import type { Admin, AppUser } from '@/lib/placeholder-data';
-import { cookies } from 'next/headers';
 
 const ADMIN_APP_NAME = 'firebase-admin-app-school-management';
 
@@ -23,8 +22,7 @@ function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth>;
     };
   }
 
-  // If not, initialize a new app using the service account key.
-  // This is the most reliable method for development and environments where the key is set.
+  // If not, initialize a new app. This is the most reliable method.
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     throw new Error('Les informations d\'identification du compte de service Firebase ne sont pas définies. Veuillez définir FIREBASE_SERVICE_ACCOUNT_KEY dans vos variables d\'environnement.');
   }
@@ -143,5 +141,3 @@ export async function activateAccount(
       return { success: false, error: e.message || 'An unknown server error occurred.' };
     }
 }
-
-
