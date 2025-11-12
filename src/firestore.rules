@@ -7,10 +7,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -36,50 +32,58 @@ service cloud.firestore {
     }
 
     match /pending_users/{pendingUserId} {
-      allow read, create, update, delete: if false; // All operations must go through secure flows
+      // Les opérations doivent passer par des flows sécurisés
+      allow read, write: if false;
     }
 
     match /users/{userId} {
+      // Tout utilisateur connecté peut lire les profils
       allow get, list: if isSignedIn();
-      // Allow creation only if the user is creating their own document.
+      // L'utilisateur ne peut créer que son propre document
       allow create: if isOwner(userId);
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
-      allow delete: if false; // Deletion must go through a secure flow
+      // Seul le propriétaire peut mettre à jour son rôle (et il ne peut pas le changer)
+      // Les autres mises à jour doivent passer par des flows sécurisés
+      allow update: if isOwner(userId) && request.resource.data.role == resource.data.role;
+      // La suppression doit passer par un flow sécurisé
+      allow delete: if false; 
     }
     
     match /classes/{classId} {
+      // Tout utilisateur connecté peut lire les informations des classes
       allow get, list: if isSignedIn();
-      allow create, update, delete: if false; // All write operations must go through secure flows
+      // Les écritures doivent passer par des flows sécurisés
+      allow write: if false;
     }
 
     match /subjects/{subjectId} {
+      // Tout utilisateur connecté peut lire les informations des matières
       allow get, list: if isSignedIn();
-      allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
-      allow create, delete: if false; // All write operations must go through secure flows
+      // La mise à jour du teacherId est autorisée pour le professeur concerné
+      allow update: if isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
+      // Les créations/suppressions doivent passer par des flows sécurisés
+      allow create, delete: if false;
     }
     
     match /courses/{courseId} {
       allow get, list: if isSignedIn();
-      allow create: if (isTeacherForCourse() && isTeacherForSubject(request.resource.data.subjectId)) || isAdmin();
-      allow update: if isExistingTeacherForCourse() || isAdmin();
-      allow delete: if isExistingTeacherForCourse() || isAdmin();
+      allow create: if (isTeacherForCourse() && isTeacherForSubject(request.resource.data.subjectId));
+      allow update: if isExistingTeacherForCourse();
+      allow delete: if isExistingTeacherForCourse();
     }
     
      match /class_students/{classStudentId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if false;
+      allow read, write: if false;
     }
 
     match /class_teachers/{classTeacherId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if false;
+      allow read, write: if false;
     }
 
     match /schedule/{eventId} {
       allow get, list: if isSignedIn();
-      allow create: if isTeacherForEvent() || isAdmin();
-      allow update: if isExistingTeacherForEvent() || isAdmin();
-      allow delete: if isExistingTeacherForEvent() || isAdmin();
+      allow create: if isTeacherForEvent();
+      allow update: if isExistingTeacherForEvent();
+      allow delete: if isExistingTeacherForEvent();
     }
   }
 }
