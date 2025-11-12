@@ -10,26 +10,24 @@ import { z } from 'zod';
 
 // --- Robust Admin SDK Initialization ---
 
-let adminApp: App | null = null;
+const ADMIN_APP_NAME = 'firebase-admin-app';
 
 function getAdminApp(): App {
-  if (adminApp) {
-    return adminApp;
+  // Check if the specific admin app has already been initialized.
+  const existingApp = getApps().find(app => app.name === ADMIN_APP_NAME);
+  if (existingApp) {
+    return existingApp;
   }
 
-  if (getApps().length > 0) {
-    adminApp = getApps()[0];
-    return adminApp;
-  }
-  
+  // If not, initialize it with a name and credentials.
+  // The empty credentials object will trigger Application Default Credentials (ADC)
+  // which is the flow that shows the Google login popup in this environment.
   try {
-     adminApp = initializeApp();
+    return initializeApp({}, ADMIN_APP_NAME);
   } catch (error: any) {
-    console.error("Échec de l'initialisation automatique de Firebase Admin. Assurez-vous que les variables d'environnement (comme GOOGLE_APPLICATION_CREDENTIALS) sont configurées pour le développement local.", error);
+    console.error(`Échec de l'initialisation de Firebase Admin ('${ADMIN_APP_NAME}'). Assurez-vous que l'environnement est correctement configuré.`, error);
     throw new Error("L'initialisation du SDK Admin a échoué. Le backend ne peut pas fonctionner.");
   }
-  
-  return adminApp;
 }
 
 function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth> } {
