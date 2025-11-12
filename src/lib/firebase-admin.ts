@@ -1,6 +1,6 @@
-'use client';
+
 // IMPORTANT: This file should not be imported into client-side code.
-import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 let app: App;
