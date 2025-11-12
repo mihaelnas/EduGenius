@@ -96,17 +96,13 @@ export default function RegisterPage() {
 
 
   const createAdminAccount = async (values: z.infer<typeof formSchema>, newAuthUser: User) => {
-      // Pour l'admin, l'email est la clé
-      if (values.email.toLowerCase() !== 'rajo.harisoa7@gmail.com') {
-        throw new Error("La création de compte admin est réservée à une adresse e-mail spécifique.");
-      }
-      
       const result = await activateAccount({
         matricule: '', // Non requis pour l'admin
         firstName: values.firstName,
         lastName: values.lastName,
         email: values.email,
         newAuthUserId: newAuthUser.uid,
+        isAdminCreation: true,
       });
 
       if (!result.success) {
@@ -136,6 +132,7 @@ export default function RegisterPage() {
         lastName: values.lastName,
         email: values.email,
         newAuthUserId: newAuthUser.uid,
+        isAdminCreation: false,
       });
 
        if (!result.success) {

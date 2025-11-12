@@ -38,6 +38,7 @@ const ActivateAccountInputSchema = z.object({
   lastName: z.string(),
   email: z.string().email(),
   newAuthUserId: z.string(),
+  isAdminCreation: z.boolean(),
 });
 type ActivateAccountInput = z.infer<typeof ActivateAccountInputSchema>;
 
@@ -46,11 +47,9 @@ export async function activateAccount(
 ): Promise<{ success: boolean; error?: string; userProfile?: any }> {
     try {
       const { db, auth: adminAuth } = getAdminInstances();
-      const normalizedInputEmail = input.email.toLowerCase();
       
-      // Explicit check for the admin email address, ignoring case.
-      // This path is taken when an admin registers themselves.
-      if (normalizedInputEmail === 'rajo.harisoa7@gmail.com') {
+      // Explicit check for admin creation flow.
+      if (input.isAdminCreation) {
           const newAdminProfile: Admin = {
               id: input.newAuthUserId,
               firstName: input.firstName,
