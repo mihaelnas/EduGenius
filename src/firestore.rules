@@ -32,45 +32,47 @@ service cloud.firestore {
     }
 
     match /pending_users/{pendingUserId} {
-      // Operations must go through secure flows
+      // All write operations must go through secure server-side flows.
       allow read, write: if false;
     }
 
     match /users/{userId} {
-      // Any signed-in user can read profiles
+      // Any signed-in user can read public user profiles.
       allow get, list: if isSignedIn();
-      // User can only create their own document during sign-up
+      // Users can only create their own document during sign-up.
       allow create: if isOwner(userId);
-      // Updates and deletes must go through secure flows
+      // Updates and deletes must go through secure server-side flows.
       allow update, delete: if false;
     }
     
     match /classes/{classId} {
-      // Any signed-in user can read class info
+      // Any signed-in user can read class information.
       allow get, list: if isSignedIn();
-      // Writes must go through secure flows
+      // All write operations must go through secure server-side flows.
       allow write: if false;
     }
 
     match /subjects/{subjectId} {
-      // Any signed-in user can read subject info
+      // Any signed-in user can read subject information.
       allow get, list: if isSignedIn();
-      // Writes must go through secure flows
+      // All write operations must go through secure server-side flows.
       allow write: if false;
     }
     
     match /courses/{courseId} {
       allow get, list: if isSignedIn();
-      allow create: if (isTeacherForCourse() && isTeacherForSubject(request.resource.data.subjectId));
+      allow create: if isTeacherForCourse() && isTeacherForSubject(request.resource.data.subjectId);
       allow update: if isExistingTeacherForCourse();
       allow delete: if isExistingTeacherForCourse();
     }
     
-     match /class_students/{classStudentId} {
+    match /class_students/{classStudentId} {
+      // Deprecated or unused collection, lock down access.
       allow read, write: if false;
     }
 
     match /class_teachers/{classTeacherId} {
+      // Deprecated or unused collection, lock down access.
       allow read, write: if false;
     }
 

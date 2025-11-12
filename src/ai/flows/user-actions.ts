@@ -51,6 +51,7 @@ export const activateAccount = ai.defineFlow(
       const querySnapshot = await q.get();
 
       if (querySnapshot.empty) {
+        console.log("No pending users with 'inactive' status found.");
         throw new Error("Aucun compte en attente d'activation n'a été trouvé.");
       }
       
