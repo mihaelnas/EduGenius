@@ -10,19 +10,28 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { db } from '@/lib/firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
-import { auth as clientAuth } from 'firebase-admin';
+import type { Auth } from 'firebase-admin/auth';
 
 
-async function verifyAdminClaim(auth: clientAuth.Auth, uid: string): Promise<boolean> {
+async function verifyAdminClaim(auth: Auth, uid: string): Promise<boolean> {
+  if (!uid) return false;
   try {
     const userRecord = await auth.getUser(uid);
-    // Check for the 'admin' custom claim
-    return userRecord.customClaims?.['admin'] === true;
+    // First, check for the custom claim which is the most efficient way.
+    if (userRecord.customClaims?.['admin'] === true) {
+      return true;
+    }
+    // As a fallback, check the user's document in Firestore.
+    // This handles cases where the user was made an admin before claims were set.
+    const userDocRef = db.collection('users').doc(uid);
+    const userDoc = await userDocRef.get();
+    return userDoc.exists && userDoc.data()?.role === 'admin';
   } catch (error) {
-    console.error(`Failed to verify admin claim for UID: ${uid}`, error);
+    console.error(`Failed to verify admin status for UID: ${uid}`, error);
     return false;
   }
 }
+
 
 // Schema and Flow for Document Creation
 const SecureCreateDocumentInputSchema = z.object({
