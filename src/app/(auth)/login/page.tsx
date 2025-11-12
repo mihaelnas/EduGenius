@@ -34,6 +34,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from '@/components/ui/label';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { createSessionCookie } from '@/app/actions';
 
 
 const formSchema = z.object({
@@ -100,7 +101,7 @@ export default function LoginPage() {
               title: 'Échec de la connexion',
               description: "Profil utilisateur non trouvé. Votre compte a peut-être été supprimé.",
           });
-          await signOut(auth); // Important: log out the user
+          await signOut(auth);
           return;
         }
         
@@ -113,11 +114,15 @@ export default function LoginPage() {
               description: "Votre compte est en attente ou inactif. Veuillez contacter un administrateur.",
               duration: 7000
           });
-          await signOut(auth); // Log out the user because their account is not ready
+          await signOut(auth);
           return;
         }
+
+        // Create the session cookie before redirecting
+        const idToken = await user.getIdToken();
+        await createSessionCookie(idToken);
         
-        // The layout will handle the redirection, removing the race condition.
+        router.push('/dashboard');
 
       } catch (e) {
           const permissionError = new FirestorePermissionError({
@@ -125,9 +130,7 @@ export default function LoginPage() {
             operation: 'get',
           });
           errorEmitter.emit('permission-error', permissionError);
-          // We don't re-throw here, as the global listener will handle it.
-          // The error toast will be shown by the listener's fallback mechanism.
-          await signOut(auth); // Log out the user to prevent being stuck in a broken state
+          await signOut(auth);
           return;
       }
 

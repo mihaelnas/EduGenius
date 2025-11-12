@@ -9,31 +9,8 @@ import { Inter } from 'next/font/google';
 import { FirebaseClientProvider, UserProvider } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { onIdTokenChanged } from 'firebase/auth';
-import { useAuth } from '@/firebase';
-import { createSessionCookie, clearSessionCookie } from './actions';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
-
-function AuthHandler({ children }: { children: React.ReactNode }) {
-  const auth = useAuth();
-
-  useEffect(() => {
-    const unsubscribe = onIdTokenChanged(auth, async (user) => {
-      if (user) {
-        const idToken = await user.getIdToken();
-        await createSessionCookie(idToken);
-      } else {
-        await clearSessionCookie();
-      }
-    });
-
-    return () => unsubscribe();
-  }, [auth]);
-
-  return <>{children}</>;
-}
-
 
 export default function RootLayout({
   children,
@@ -87,11 +64,9 @@ export default function RootLayout({
       </head>
       <body className={cn('font-body antialiased', inter.variable)}>
         <FirebaseClientProvider>
-          <AuthHandler>
-            <UserProvider>
-              {children}
-            </UserProvider>
-          </AuthHandler>
+          <UserProvider>
+            {children}
+          </UserProvider>
           <Toaster />
         </FirebaseClientProvider>
       </body>
