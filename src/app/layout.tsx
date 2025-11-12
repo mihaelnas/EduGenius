@@ -9,15 +9,11 @@ import { Inter } from 'next/font/google';
 import { FirebaseClientProvider, UserProvider } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { onIdTokenChanged } from 'firebase/auth';
+import { useAuth } from '@/firebase';
+import { createSessionCookie, clearSessionCookie } from './actions';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
-
-// Since we are making this a client component, we can't export metadata directly.
-// We'll rely on the static metadata generation if needed, or handle it differently.
-// export const metadata: Metadata = {
-//   title: 'EduGenius',
-//   description: 'La plateforme éducative du futur.',
-// };
 
 export default function RootLayout({
   children,
@@ -26,7 +22,21 @@ export default function RootLayout({
 }>) {
   const { toast, dismiss } = useToast();
   const [isOnline, setIsOnline] = useState(true);
+  const auth = useAuth();
 
+  useEffect(() => {
+    const unsubscribe = onIdTokenChanged(auth, async (user) => {
+      if (user) {
+        const idToken = await user.getIdToken();
+        await createSessionCookie(idToken);
+      } else {
+        await clearSessionCookie();
+      }
+    });
+
+    return () => unsubscribe();
+  }, [auth]);
+  
   useEffect(() => {
     // Set initial status
     if (typeof window !== 'undefined') {

@@ -40,19 +40,19 @@ export default function AdminSubjectsPage() {
         if (!currentUser) return;
         setIsLoading(true);
         const [subjectsResult, usersResult, classesResult] = await Promise.all([
-            secureGetDocuments<Subject>('subjects', currentUser.uid),
-            secureGetDocuments<AppUser>('users', currentUser.uid),
-            secureGetDocuments<Class>('classes', currentUser.uid)
+            secureGetDocuments<Subject>('subjects'),
+            secureGetDocuments<AppUser>('users'),
+            secureGetDocuments<Class>('classes')
         ]);
 
         if (subjectsResult.success && subjectsResult.data) setSubjects(subjectsResult.data);
-        else toast({ variant: 'destructive', title: 'Erreur de chargement', description: subjectsResult.error });
+        else toast({ variant: 'destructive', title: 'Erreur de chargement des matières', description: subjectsResult.error });
 
         if (usersResult.success && usersResult.data) setUsers(usersResult.data);
-        else toast({ variant: 'destructive', title: 'Erreur de chargement', description: usersResult.error });
+        else toast({ variant: 'destructive', title: 'Erreur de chargement des utilisateurs', description: usersResult.error });
 
         if (classesResult.success && classesResult.data) setClasses(classesResult.data);
-        else toast({ variant: 'destructive', title: 'Erreur de chargement', description: classesResult.error });
+        else toast({ variant: 'destructive', title: 'Erreur de chargement des classes', description: classesResult.error });
 
         setIsLoading(false);
     }
@@ -67,11 +67,11 @@ export default function AdminSubjectsPage() {
   const handleAdd = async (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt' | 'creatorId' | 'teacherId'>) => {
       if (!currentUser) return;
       const newSubjectData = { ...newSubject, teacherId: '', classCount: 0 };
-      const result = await secureCreateDocument('subjects', newSubjectData, currentUser.uid);
+      const result = await secureCreateDocument('subjects', newSubjectData);
 
       if (result.success && result.id) {
           toast({ title: 'Matière ajoutée', description: `La matière ${newSubject.name} a été créée.` });
-          setSubjects(prev => [...prev, { ...newSubjectData, id: result.id!, createdAt: new Date().toISOString() }]);
+          setSubjects(prev => [...prev, { ...newSubjectData, id: result.id!, createdAt: new Date().toISOString(), creatorId: currentUser.uid }]);
       } else {
           toast({ variant: 'destructive', title: 'Échec de la création', description: result.error });
       }
@@ -80,7 +80,7 @@ export default function AdminSubjectsPage() {
   const handleUpdate = async (updatedSubject: Subject) => {
     if (!currentUser) return;
     const { id, ...subjectData } = updatedSubject;
-    const result = await secureUpdateDocument('subjects', id, subjectData, currentUser.uid);
+    const result = await secureUpdateDocument('subjects', id, subjectData);
     if (result.success) {
         toast({ title: 'Matière modifiée', description: `La matière ${updatedSubject.name} a été mise à jour.` });
         setSubjects(prev => prev.map(s => s.id === id ? { ...s, ...subjectData } : s));
@@ -106,7 +106,7 @@ export default function AdminSubjectsPage() {
   
   const handleAssignTeacherSave = async (subjectId: string, teacherId: string | undefined) => {
     if (!selectedSubject || !currentUser) return;
-    const result = await secureUpdateDocument('subjects', subjectId, { teacherId: teacherId || '' }, currentUser.uid);
+    const result = await secureUpdateDocument('subjects', subjectId, { teacherId: teacherId || '' });
 
     if (result.success) {
         toast({ title: 'Assignation réussie', description: `L'enseignant a été mis à jour.` });
@@ -119,7 +119,7 @@ export default function AdminSubjectsPage() {
 
   const confirmDelete = async () => {
     if (selectedSubject && currentUser) {
-        const result = await secureDeleteDocument('subjects', selectedSubject.id, currentUser.uid);
+        const result = await secureDeleteDocument('subjects', selectedSubject.id);
 
         if (result.success) {
             toast({ variant: 'destructive', title: 'Matière supprimée', description: `La matière "${selectedSubject.name}" a été supprimée.` });

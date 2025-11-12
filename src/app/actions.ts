@@ -1,39 +1,45 @@
 
 'use server';
 
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, deleteApp } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
 import { revalidatePath } from 'next/cache';
 import type { AppUser, Student, Admin } from '@/lib/placeholder-data';
 import { z } from 'zod';
+import { cookies } from 'next/headers';
 
 const ADMIN_APP_NAME = 'firebase-admin-app-school-management';
 
-function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth> } {
+function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth>; adminApp: App } {
   const existingApp = getApps().find(app => app.name === ADMIN_APP_NAME);
   if (existingApp) {
-    return { db: getFirestore(existingApp), auth: getAuth(existingApp) };
+    return { db: getFirestore(existingApp), auth: getAuth(existingApp), adminApp: existingApp };
   }
 
   const adminApp = initializeApp({
     // ADC will be used in the Cloud environment
   }, ADMIN_APP_NAME);
   
-  return { db: getFirestore(adminApp), auth: getAuth(adminApp) };
+  return { db: getFirestore(adminApp), auth: getAuth(adminApp), adminApp };
 }
 
-
-async function getAuthenticatedUser(userId: string): Promise<{user: DecodedIdToken, isAdmin: boolean} | {user: null, isAdmin: boolean}> {
+async function getAuthenticatedUser(): Promise<{user: DecodedIdToken, isAdmin: boolean} | {user: null, isAdmin: boolean}> {
     const { auth } = getAdminInstances();
     try {
-        const userRecord = await auth.getUser(userId);
-        const isAdmin = userRecord.customClaims?.admin === true;
-        return { user: userRecord.toJSON() as DecodedIdToken, isAdmin };
+        const sessionCookie = cookies().get('__session')?.value;
+        if (!sessionCookie) {
+            return { user: null, isAdmin: false };
+        }
+        const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
+        const isAdmin = decodedToken.admin === true;
+        return { user: decodedToken, isAdmin };
     } catch (error) {
+        console.log('Auth error in getAuthenticatedUser:', error);
         return { user: null, isAdmin: false };
     }
 }
+
 
 const ActivateAccountInputSchema = z.object({
   matricule: z.string(),
@@ -124,12 +130,10 @@ export async function activateAccount(
 
 export async function getUserDetails(
   userIdToView: string,
-  currentUserId: string
 ): Promise<{ success: boolean; user?: AppUser; error?: string }> {
-  const { user, isAdmin } = await getAuthenticatedUser(currentUserId);
-  const isOwnProfile = userIdToView === currentUserId;
-
-  if (!user || (!isOwnProfile && !isAdmin)) {
+  const { user, isAdmin } = await getAuthenticatedUser();
+  
+  if (!user || !isAdmin) {
     return { success: false, error: 'Permission denied.' };
   }
 
@@ -152,10 +156,9 @@ export async function getUserDetails(
 }
 
 export async function secureGetDocuments<T>(
-    path: 'users' | 'classes' | 'subjects',
-    currentUserId: string
+    path: 'users' | 'classes' | 'subjects' | 'pending_users',
 ): Promise<{ success: boolean; data?: T[]; error?: string }> {
-  const { user, isAdmin } = await getAuthenticatedUser(currentUserId);
+  const { user, isAdmin } = await getAuthenticatedUser();
   if (!user || !isAdmin) {
     return { success: false, error: 'Permission denied: User is not an admin.' };
   }
@@ -175,9 +178,8 @@ export async function secureGetDocuments<T>(
 export async function secureCreateDocument(
   path: 'pending_users' | 'classes' | 'subjects',
   data: any,
-  userId: string
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const { user, isAdmin } = await getAuthenticatedUser(userId);
+  const { user, isAdmin } = await getAuthenticatedUser();
   if (!user || !isAdmin) {
     return { success: false, error: 'Permission denied: User is not an admin.' };
   }
@@ -186,7 +188,7 @@ export async function secureCreateDocument(
     const { db } = getAdminInstances();
     const documentData = {
       ...data,
-      creatorId: userId,
+      creatorId: user.uid,
       createdAt: new Date().toISOString(),
     };
     const docRef = await db.collection(path).add(documentData);
@@ -202,9 +204,8 @@ export async function secureUpdateDocument(
   path: 'users' | 'classes' | 'subjects',
   docId: string,
   data: any,
-  userId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { user, isAdmin } = await getAuthenticatedUser(userId);
+  const { user, isAdmin } = await getAuthenticatedUser();
   if (!user || !isAdmin) {
     return { success: false, error: 'Permission denied: User is not an admin.' };
   }
@@ -224,11 +225,10 @@ export async function secureUpdateDocument(
 }
 
 export async function secureDeleteDocument(
-  path: 'users' | 'classes' | 'subjects',
+  path: 'users' | 'classes' | 'subjects' | 'pending_users',
   docId: string,
-  userId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { user, isAdmin } = await getAuthenticatedUser(userId);
+  const { user, isAdmin } = await getAuthenticatedUser();
   if (!user || !isAdmin) {
     return { success: false, error: 'Permission denied: User is not an admin.' };
   }
@@ -242,4 +242,15 @@ export async function secureDeleteDocument(
     console.error("secureDeleteDocument action error:", e);
     return { success: false, error: e.message || 'An unknown server error occurred.' };
   }
+}
+
+export async function createSessionCookie(idToken: string) {
+    const { auth } = getAdminInstances();
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
+    cookies().set('__session', sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true });
+}
+
+export async function clearSessionCookie() {
+    cookies().delete('__session');
 }

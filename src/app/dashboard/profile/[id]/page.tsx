@@ -50,14 +50,11 @@ export default function ProfileDetailPage() {
 
   useEffect(() => {
     async function fetchUser() {
-      if (!userId || !currentUser?.uid) {
-        if (!isAuthLoading) {
-            router.push('/login');
-        }
+      if (!userId) {
         return;
       }
       setIsProfileLoading(true);
-      const result = await getUserDetails(userId, currentUser.uid);
+      const result = await getUserDetails(userId);
       if (result.success && result.user) {
         setUser(result.user);
       } else {
@@ -66,18 +63,21 @@ export default function ProfileDetailPage() {
             title: 'Erreur de chargement',
             description: result.error || 'Impossible de charger le profil utilisateur.',
         });
+        if (!result.user) {
+            router.push('/dashboard');
+        }
       }
       setIsProfileLoading(false);
     }
 
-    if (!isAuthLoading) {
+    if (!isAuthLoading) { // No need to check for currentUser, action does it.
       fetchUser();
     }
-  }, [userId, currentUser, isAuthLoading, toast, router]);
+  }, [userId, isAuthLoading, toast, router]);
   
   const handlePhotoUpdate = async (newPhotoUrl: string) => {
-    if (currentUser && user) {
-        const result = await secureUpdateDocument('users', user.id, { photo: newPhotoUrl }, currentUser.uid);
+    if (user) {
+        const result = await secureUpdateDocument('users', user.id, { photo: newPhotoUrl });
         if (result.success) {
             setUser(prev => prev ? { ...prev, photo: newPhotoUrl } : null);
             toast({
@@ -115,7 +115,7 @@ export default function ProfileDetailPage() {
   }
 
   if (!user) {
-    return <p className="text-center text-muted-foreground">Profil utilisateur non trouvé ou accès refusé.</p>;
+    return <p className="text-center text-muted-foreground">Chargement du profil ou accès refusé.</p>;
   }
 
   const student = user.role === 'student' ? user as Student : null;

@@ -17,7 +17,6 @@ import { AssignTeacherDialog } from '@/components/admin/assign-teacher-dialog';
 import { ManageStudentsDialog } from '@/components/admin/manage-students-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase';
-import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument, secureGetDocuments } from '@/app/actions';
 
@@ -42,20 +41,20 @@ export default function AdminClassesPage() {
         if (!currentUser) return;
         setIsLoading(true);
         const [classesResult, usersResult] = await Promise.all([
-            secureGetDocuments<Class>('classes', currentUser.uid),
-            secureGetDocuments<AppUser>('users', currentUser.uid)
+            secureGetDocuments<Class>('classes'),
+            secureGetDocuments<AppUser>('users')
         ]);
 
         if (classesResult.success && classesResult.data) {
             setClasses(classesResult.data);
         } else {
-            toast({ variant: 'destructive', title: 'Erreur de chargement', description: classesResult.error });
+            toast({ variant: 'destructive', title: 'Erreur de chargement des classes', description: classesResult.error });
         }
 
         if (usersResult.success && usersResult.data) {
             setUsers(usersResult.data);
         } else {
-            toast({ variant: 'destructive', title: 'Erreur de chargement', description: usersResult.error });
+            toast({ variant: 'destructive', title: 'Erreur de chargement des utilisateurs', description: usersResult.error });
         }
         setIsLoading(false);
     }
@@ -80,11 +79,11 @@ export default function AdminClassesPage() {
         studentIds: [],
     };
     
-    const result = await secureCreateDocument('classes', newClassData, currentUser.uid);
+    const result = await secureCreateDocument('classes', newClassData);
 
     if (result.success && result.id) {
         toast({ title: 'Classe ajoutée', description: `La classe ${newClass.name} a été créée.` });
-        setClasses(prev => [...prev, { ...newClassData, id: result.id!, createdAt: new Date().toISOString() }]);
+        setClasses(prev => [...prev, { ...newClassData, id: result.id!, createdAt: new Date().toISOString(), creatorId: currentUser.uid }]);
     } else {
         toast({ variant: 'destructive', title: 'Échec de la création', description: result.error });
     }
@@ -94,7 +93,7 @@ export default function AdminClassesPage() {
      if (!currentUser) return;
     const { id, ...classData } = updatedClass;
     
-    const result = await secureUpdateDocument('classes', id, classData, currentUser.uid);
+    const result = await secureUpdateDocument('classes', id, classData);
 
     if (result.success) {
         toast({ title: 'Classe modifiée', description: `La classe ${updatedClass.name} a été mise à jour.` });
@@ -106,7 +105,7 @@ export default function AdminClassesPage() {
   
   const handleUpdatePartial = async (classId: string, data: Partial<Omit<Class, 'id'>>) => {
      if (!currentUser) return;
-     const result = await secureUpdateDocument('classes', classId, data, currentUser.uid);
+     const result = await secureUpdateDocument('classes', classId, data);
      if (result.success) {
         setClasses(prev => prev.map(c => c.id === classId ? { ...c, ...data } : c));
      } else {
@@ -137,7 +136,7 @@ export default function AdminClassesPage() {
   const confirmDelete = async () => {
     if (selectedClass && currentUser) {
         // Complex logic like deleting related documents should be a single server action
-        const result = await secureDeleteDocument('classes', selectedClass.id, currentUser.uid);
+        const result = await secureDeleteDocument('classes', selectedClass.id);
 
         if (result.success) {
             toast({ variant: 'destructive', title: 'Classe supprimée', description: `La classe "${selectedClass.name}" a été supprimée.` });

@@ -15,8 +15,7 @@ import { AddUserDialog } from '@/components/admin/add-user-dialog';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore } from '@/firebase';
-import { collection, getDocs, writeBatch, query, where, arrayUnion } from 'firebase/firestore';
+import { useUser } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
@@ -47,14 +46,13 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = React.useState(true);
 
   const { toast } = useToast();
-  const firestore = useFirestore();
   const { user: currentUser } = useUser();
 
   React.useEffect(() => {
     async function fetchUsers() {
       if (!currentUser) return;
       setIsLoading(true);
-      const result = await secureGetDocuments<AppUser>('users', currentUser.uid);
+      const result = await secureGetDocuments<AppUser>('users');
       if (result.success && result.data) {
         setUsers(result.data);
       } else {
@@ -83,10 +81,9 @@ export default function AdminUsersPage() {
     const result = await secureCreateDocument(
         'pending_users',
         userProfileWithStatus,
-        currentUser.uid
     );
 
-    if (result.success) {
+    if (result.success && result.id) {
         toast({
           title: 'Utilisateur pré-inscrit !',
           description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
@@ -115,7 +112,6 @@ export default function AdminUsersPage() {
       'users',
       id,
       userData,
-      currentUser.uid
     );
     
     if (result.success) {
@@ -144,13 +140,9 @@ export default function AdminUsersPage() {
     
     const userId = selectedUser.id;
 
-    // This client-side batch write might fail due to security rules,
-    // it's better to move this complex logic to a dedicated server action.
-    // For now, we focus on deleting the user document.
     const result = await secureDeleteDocument(
         'users',
         userId,
-        currentUser.uid
     );
 
     if (result.success) {
@@ -236,7 +228,7 @@ export default function AdminUsersPage() {
                 ))
               ) : (
                 filteredUsers.map((user) => {
-                  const statusInfo = statusMap[user.status as 'active' | 'inactive'];
+                  const statusInfo = user.status === 'active' ? statusMap.active : statusMap.inactive;
                   return (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
@@ -259,7 +251,7 @@ export default function AdminUsersPage() {
                           {statusInfo?.text}
                         </Badge>
                     </TableCell>
-                    <TableCell>{format(new Date(user.createdAt), 'd MMMM yyyy', { locale: fr })}</TableCell>
+                    <TableCell>{user.createdAt ? format(new Date(user.createdAt), 'd MMMM yyyy', { locale: fr }) : '-'}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
