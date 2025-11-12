@@ -9,25 +9,26 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { db } from '@/lib/firebase-admin';
-import { getAuth } from 'firebase-admin/auth';
-import type { Auth } from 'firebase-admin/auth';
 
-
-async function verifyAdminClaim(auth: Auth, uid: string): Promise<boolean> {
-  if (!uid) return false;
+// This function now correctly checks Firestore for the admin role.
+async function verifyAdminRole(userId: string): Promise<boolean> {
+  if (!userId) {
+    console.log('Admin verification failed: No userId provided.');
+    return false;
+  }
   try {
-    const userRecord = await auth.getUser(uid);
-    // First, check for the custom claim which is the most efficient way.
-    if (userRecord.customClaims?.['admin'] === true) {
-      return true;
-    }
-    // As a fallback, check the user's document in Firestore.
-    // This handles cases where the user was made an admin before claims were set.
-    const userDocRef = db.collection('users').doc(uid);
+    const userDocRef = db.collection('users').doc(userId);
     const userDoc = await userDocRef.get();
-    return userDoc.exists && userDoc.data()?.role === 'admin';
+
+    if (userDoc.exists && userDoc.data()?.role === 'admin') {
+      console.log(`Admin verification successful for UID: ${userId}`);
+      return true;
+    } else {
+      console.log(`Admin verification failed for UID: ${userId}. User doc exists: ${userDoc.exists}, role: ${userDoc.data()?.role}`);
+      return false;
+    }
   } catch (error) {
-    console.error(`Failed to verify admin status for UID: ${uid}`, error);
+    console.error(`Error during admin verification for UID: ${userId}`, error);
     return false;
   }
 }
@@ -53,7 +54,7 @@ export const secureCreateDocument = ai.defineFlow(
   },
   async (input) => {
     try {
-      const isAdmin = await verifyAdminClaim(getAuth(), input.userId);
+      const isAdmin = await verifyAdminRole(input.userId);
       if (!isAdmin) {
         return { success: false, error: 'Permission denied: User is not an admin.' };
       }
@@ -93,7 +94,7 @@ export const secureUpdateDocument = ai.defineFlow(
   },
   async (input) => {
     try {
-      const isAdmin = await verifyAdminClaim(getAuth(), input.userId);
+      const isAdmin = await verifyAdminRole(input.userId);
       if (!isAdmin) {
         return { success: false, error: 'Permission denied: User is not an admin.' };
       }
@@ -126,7 +127,7 @@ export const secureDeleteDocument = ai.defineFlow(
   },
   async (input) => {
     try {
-      const isAdmin = await verifyAdminClaim(getAuth(), input.userId);
+      const isAdmin = await verifyAdminRole(input.userId);
       if (!isAdmin) {
         return { success: false, error: 'Permission denied: User is not an admin.' };
       }
