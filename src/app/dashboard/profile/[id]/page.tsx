@@ -1,15 +1,15 @@
 
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getDisplayName, Student, Teacher } from '@/lib/placeholder-data';
 import { AtSign, Cake, GraduationCap, Home, Mail, MapPin, Phone, School, User as UserIcon, Briefcase, Building, Camera, KeyRound, MailPlus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useUser, useFirestore } from '@/firebase';
+import { updateDoc } from 'firebase/firestore';
 import type { AppUser } from '@/lib/placeholder-data';
 import { useParams } from 'next/navigation';
 import { UpdatePhotoDialog } from '@/components/update-photo-dialog';
@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ChangePasswordDialog } from '@/components/profile/change-password-dialog';
 import { ChangeEmailDialog } from '@/components/profile/change-email-dialog';
+import { getUserDetails, secureUpdateDocument } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
 
 const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string, value?: string | null }) => {
   if (!value) return null;
@@ -34,29 +36,59 @@ const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string,
 export default function ProfileDetailPage() {
   const params = useParams();
   const userId = params.id as string;
-  const firestore = useFirestore();
-  const { user: currentUser } = useUser();
+  const { user: currentUser, isUserLoading: isAuthLoading } = useUser();
+  const { toast } = useToast();
 
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = React.useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
   const [isChangeEmailOpen, setIsChangeEmailOpen] = React.useState(false);
 
   const isOwnProfile = currentUser?.uid === userId;
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !userId) return null;
-    return doc(firestore, 'users', userId);
-  }, [firestore, userId]);
+  useEffect(() => {
+    async function fetchUser() {
+      if (!userId || !currentUser?.uid) {
+        if (!isAuthLoading) setIsProfileLoading(false);
+        return;
+      }
+      setIsProfileLoading(true);
+      const result = await getUserDetails(userId, currentUser.uid);
+      if (result.success && result.user) {
+        setUser(result.user);
+      } else {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur de chargement',
+            description: result.error || 'Impossible de charger le profil utilisateur.',
+        });
+      }
+      setIsProfileLoading(false);
+    }
 
-  const { data: user, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
+    if (!isAuthLoading) {
+      fetchUser();
+    }
+  }, [userId, currentUser, isAuthLoading, toast]);
   
   const handlePhotoUpdate = async (newPhotoUrl: string) => {
-    if (userDocRef) {
-        await updateDoc(userDocRef, { photo: newPhotoUrl });
+    if (currentUser && user) {
+        const result = await secureUpdateDocument('users', user.id, { photo: newPhotoUrl }, currentUser.uid);
+        if (result.success) {
+            setUser(prev => prev ? { ...prev, photo: newPhotoUrl } : null);
+            toast({
+                title: 'Photo de profil mise à jour',
+                description: 'Votre nouvelle photo a été enregistrée.'
+            });
+        } else {
+            toast({ variant: 'destructive', title: 'Erreur', description: result.error });
+        }
     }
   }
 
-  if (isProfileLoading) {
+  if (isProfileLoading || isAuthLoading) {
     return (
         <>
             <div className="flex items-center space-x-4 mb-8">
@@ -81,7 +113,7 @@ export default function ProfileDetailPage() {
   }
 
   if (!user) {
-    return <p>Utilisateur non trouvé.</p>;
+    return <p className="text-center text-muted-foreground">Profil utilisateur non trouvé ou accès refusé.</p>;
   }
 
   const student = user.role === 'student' ? user as Student : null;

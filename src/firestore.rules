@@ -8,8 +8,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Check for the admin custom claim on the user's token.
-      return request.auth != null && request.auth.token.admin == true;
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isOwner(userId) {
@@ -42,10 +41,11 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // An admin can list all users. Any signed-in user can read a specific user profile.
-      allow list: if isAdmin();
-      allow get: if isSignedIn();
-      // Creation is handled by the activateAccount flow. Updates/Deletes are admin-only via flows.
+      // An admin can list all users (via server action). Client-side list is disallowed.
+      allow list: if false;
+      // A user can get their own profile, or an admin can (checked on server).
+      allow get: if isOwner(userId);
+      // All write operations must go through secure server-side flows.
       allow write: if false;
     }
     
@@ -70,13 +70,11 @@ service cloud.firestore {
       allow delete: if isExistingTeacherForCourse();
     }
     
-    match /class_students/{classStudentId} {
-      // Deprecated or unused collection, lock down access.
+     match /class_students/{classStudentId} {
       allow read, write: if false;
     }
 
     match /class_teachers/{classTeacherId} {
-      // Deprecated or unused collection, lock down access.
       allow read, write: if false;
     }
 

@@ -5,16 +5,15 @@ import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { revalidatePath } from 'next/cache';
+import type { AppUser } from '@/lib/placeholder-data';
 
 // --- Initialisation du SDK Admin ---
-// Cette fonction garantit que nous n'initialisons l'app qu'une seule fois.
 function getAdminInstances(): { db: Firestore, auth: ReturnType<typeof getAuth> } {
   if (getApps().length > 0) {
     const app = getApps()[0];
     return { db: getFirestore(app), auth: getAuth(app) };
   }
 
-  // Dans un environnement App Hosting, les credentials sont découverts automatiquement.
   const app = initializeApp();
   return { db: getFirestore(app), auth: getAuth(app) };
 }
@@ -29,11 +28,8 @@ async function verifyAdminRole(userId: string): Promise<boolean> {
     const userDocRef = db.collection('users').doc(userId);
     const userDoc = await userDocRef.get();
 
-    if (userDoc.exists) {
-        const userRole = userDoc.data()?.role;
-        if (userRole === 'admin') {
-            return true;
-        }
+    if (userDoc.exists && userDoc.data()?.role === 'admin') {
+        return true;
     }
     return false;
   } catch (error) {
@@ -85,6 +81,9 @@ export async function secureUpdateDocument(
     const { db } = getAdminInstances();
     await db.collection(path).doc(docId).update(data);
     revalidatePath(`/dashboard/admin/${path}`);
+    if (path === 'users') {
+        revalidatePath(`/dashboard/profile/${docId}`);
+    }
     return { success: true };
   } catch (e: any) {
     console.error("secureUpdateDocument action error:", e);
@@ -109,6 +108,47 @@ export async function secureDeleteDocument(
     return { success: true };
   } catch (e: any) {
     console.error("secureDeleteDocument action error:", e);
+    return { success: false, error: e.message || 'An unknown server error occurred.' };
+  }
+}
+
+export async function getUserDetails(
+  userIdToView: string,
+  currentUserId: string
+): Promise<{ success: boolean; user?: AppUser; error?: string }> {
+  // Allow users to view their own profile
+  if (userIdToView === currentUserId) {
+      try {
+          const { db } = getAdminInstances();
+          const userDocRef = db.collection('users').doc(userIdToView);
+          const userDoc = await userDocRef.get();
+          if (userDoc.exists) {
+              return { success: true, user: { id: userDoc.id, ...userDoc.data() } as AppUser };
+          } else {
+              return { success: false, error: 'User not found.' };
+          }
+      } catch (e: any) {
+          return { success: false, error: e.message || 'An unknown server error occurred.' };
+      }
+  }
+
+  // Verify if the current user is an admin to view other profiles
+  const isAdmin = await verifyAdminRole(currentUserId);
+  if (!isAdmin) {
+    return { success: false, error: 'Permission denied: User is not an admin.' };
+  }
+
+  try {
+    const { db } = getAdminInstances();
+    const userDocRef = db.collection('users').doc(userIdToView);
+    const userDoc = await userDocRef.get();
+
+    if (userDoc.exists) {
+      return { success: true, user: { id: userDoc.id, ...userDoc.data() } as AppUser };
+    } else {
+      return { success: false, error: 'User not found.' };
+    }
+  } catch (e: any) {
     return { success: false, error: e.message || 'An unknown server error occurred.' };
   }
 }
