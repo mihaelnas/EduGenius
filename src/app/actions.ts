@@ -1,36 +1,65 @@
 
 'use server';
 
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { revalidatePath } from 'next/cache';
 import type { AppUser } from '@/lib/placeholder-data';
 
-// --- Initialisation du SDK Admin ---
-function getAdminInstances(): { db: Firestore, auth: ReturnType<typeof getAuth> } {
-  if (getApps().length > 0) {
-    const app = getApps()[0];
-    return { db: getFirestore(app), auth: getAuth(app) };
+// --- Initialisation Robuste du SDK Admin ---
+
+// Variable pour tenir l'instance initialisée
+let adminApp: App | null = null;
+
+function getAdminApp(): App {
+  if (adminApp) {
+    return adminApp;
   }
 
-  const app = initializeApp();
+  // Si des applications existent déjà, utilisez la première (scénario de hot-reloading)
+  if (getApps().length > 0) {
+    adminApp = getApps()[0];
+    return adminApp;
+  }
+  
+  // Scénario d'initialisation principal.
+  // Dans un environnement de production sur Google Cloud (comme App Hosting),
+  // initializeApp() sans arguments utilisera automatiquement les identifiants de l'environnement.
+  // En développement local, il peut être nécessaire de définir GOOGLE_APPLICATION_CREDENTIALS.
+  try {
+     adminApp = initializeApp();
+  } catch (error: any) {
+    console.error("Échec de l'initialisation automatique de Firebase Admin. Assurez-vous que les variables d'environnement (comme GOOGLE_APPLICATION_CREDENTIALS) sont configurées pour le développement local.", error);
+    // En cas d'échec, nous ne pouvons pas continuer.
+    throw new Error("L'initialisation du SDK Admin a échoué. Le backend ne peut pas fonctionner.");
+  }
+  
+  return adminApp;
+}
+
+
+function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth> } {
+  const app = getAdminApp();
   return { db: getFirestore(app), auth: getAuth(app) };
 }
 
 
 async function verifyAdminRole(userId: string): Promise<boolean> {
   if (!userId) {
+    console.error("verifyAdminRole a été appelé sans userId.");
     return false;
   }
-  const { db } = getAdminInstances();
+  
   try {
+    const { db } = getAdminInstances();
     const userDocRef = db.collection('users').doc(userId);
     const userDoc = await userDocRef.get();
 
     if (userDoc.exists && userDoc.data()?.role === 'admin') {
         return true;
     }
+    // Si le document n'existe pas ou si le rôle n'est pas admin
     return false;
   } catch (error) {
     console.error(`Erreur critique pendant la vérification du rôle pour l'UID: ${userId}`, error);
@@ -39,6 +68,37 @@ async function verifyAdminRole(userId: string): Promise<boolean> {
 }
 
 // --- Actions Serveur ---
+
+export async function getUserDetails(
+  userIdToView: string,
+  currentUserId: string
+): Promise<{ success: boolean; user?: AppUser; error?: string }> {
+  const isAdmin = await verifyAdminRole(currentUserId);
+  if (!isAdmin) {
+    // Si ce n'est pas un admin, on vérifie si l'utilisateur demande son propre profil.
+    if (userIdToView !== currentUserId) {
+      return { success: false, error: 'Permission denied: Not an admin and not accessing own profile.' };
+    }
+  }
+
+  try {
+    const { db } = getAdminInstances();
+    const userDocRef = db.collection('users').doc(userIdToView);
+    const userDoc = await userDocRef.get();
+
+    if (!userDoc.exists) {
+      return { success: false, error: 'User not found.' };
+    }
+    
+    revalidatePath(`/dashboard/profile/${userIdToView}`);
+    return { success: true, user: userDoc.data() as AppUser };
+
+  } catch (e: any) {
+    console.error("getUserDetails action error:", e);
+    return { success: false, error: e.message || 'An unknown server error occurred.' };
+  }
+}
+
 
 export async function secureCreateDocument(
   path: 'pending_users' | 'classes' | 'subjects',
@@ -108,47 +168,6 @@ export async function secureDeleteDocument(
     return { success: true };
   } catch (e: any) {
     console.error("secureDeleteDocument action error:", e);
-    return { success: false, error: e.message || 'An unknown server error occurred.' };
-  }
-}
-
-export async function getUserDetails(
-  userIdToView: string,
-  currentUserId: string
-): Promise<{ success: boolean; user?: AppUser; error?: string }> {
-  // Allow users to view their own profile
-  if (userIdToView === currentUserId) {
-      try {
-          const { db } = getAdminInstances();
-          const userDocRef = db.collection('users').doc(userIdToView);
-          const userDoc = await userDocRef.get();
-          if (userDoc.exists) {
-              return { success: true, user: { id: userDoc.id, ...userDoc.data() } as AppUser };
-          } else {
-              return { success: false, error: 'User not found.' };
-          }
-      } catch (e: any) {
-          return { success: false, error: e.message || 'An unknown server error occurred.' };
-      }
-  }
-
-  // Verify if the current user is an admin to view other profiles
-  const isAdmin = await verifyAdminRole(currentUserId);
-  if (!isAdmin) {
-    return { success: false, error: 'Permission denied: User is not an admin.' };
-  }
-
-  try {
-    const { db } = getAdminInstances();
-    const userDocRef = db.collection('users').doc(userIdToView);
-    const userDoc = await userDocRef.get();
-
-    if (userDoc.exists) {
-      return { success: true, user: { id: userDoc.id, ...userDoc.data() } as AppUser };
-    } else {
-      return { success: false, error: 'User not found.' };
-    }
-  } catch (e: any) {
     return { success: false, error: e.message || 'An unknown server error occurred.' };
   }
 }
