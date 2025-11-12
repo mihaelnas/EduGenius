@@ -5,7 +5,7 @@ import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
-import type { Admin } from '@/lib/placeholder-data';
+import type { Admin, AppUser } from '@/lib/placeholder-data';
 import { cookies } from 'next/headers';
 
 const ADMIN_APP_NAME = 'firebase-admin-app-school-management';
@@ -13,23 +13,39 @@ const ADMIN_APP_NAME = 'firebase-admin-app-school-management';
 // This function initializes and returns the Firebase Admin SDK instances.
 // It's memoized to ensure it's only called once per server request.
 function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth>; adminApp: App } {
+  // If an app with the same name already exists, use it.
   const existingApp = getApps().find(app => app.name === ADMIN_APP_NAME);
   if (existingApp) {
-    return { db: getFirestore(existingApp), auth: getAuth(existingApp), adminApp: existingApp };
+    return { 
+      db: getFirestore(existingApp), 
+      auth: getAuth(existingApp), 
+      adminApp: existingApp 
+    };
   }
 
   // Check for service account credentials from environment variables
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.');
+    throw new Error('La variable d\'environnement FIREBASE_SERVICE_ACCOUNT_KEY n\'est pas définie.');
   }
 
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
 
-  const adminApp = initializeApp({
-    credential: cert(serviceAccount)
-  }, ADMIN_APP_NAME);
-  
-  return { db: getFirestore(adminApp), auth: getAuth(adminApp), adminApp: adminApp };
+    // Initialize the new app
+    const adminApp = initializeApp({
+      credential: cert(serviceAccount)
+    }, ADMIN_APP_NAME);
+    
+    return { 
+      db: getFirestore(adminApp), 
+      auth: getAuth(adminApp), 
+      adminApp: adminApp 
+    };
+  } catch (e: any) {
+    // This will catch JSON parsing errors or other initialization issues.
+    console.error("Failed to initialize Firebase Admin SDK:", e);
+    throw new Error(`Erreur lors de l'initialisation de Firebase Admin : ${e.message}`);
+  }
 }
 
 const ActivateAccountInputSchema = z.object({
@@ -98,7 +114,7 @@ export async function activateAccount(
       const pendingDocRef = db.collection('pending_users').doc(matchingDoc.id);
       const newUserDocRef = db.collection('users').doc(input.newAuthUserId);
       
-      const newUserProfile = {
+      const newUserProfile: AppUser = {
         ...pendingUserData,
         id: input.newAuthUserId,
         email: input.email,
