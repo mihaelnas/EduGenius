@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/ai/flows/admin-actions';
+import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/app/actions';
 
 export default function AdminSubjectsPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -54,11 +54,11 @@ export default function AdminSubjectsPage() {
       };
       
       try {
-          const result = await secureCreateDocument({
-              collection: 'subjects',
-              userId: currentUser.uid,
-              data: newSubjectData,
-          });
+          const result = await secureCreateDocument(
+              'subjects',
+              newSubjectData,
+              currentUser.uid
+          );
 
           if (result.success) {
             toast({
@@ -80,12 +80,12 @@ export default function AdminSubjectsPage() {
   const handleUpdate = async (updatedSubject: Subject) => {
     if (!currentUser) return;
     const { id, ...subjectData } = updatedSubject;
-    const result = await secureUpdateDocument({
-        collection: 'subjects',
-        docId: id,
-        data: subjectData,
-        userId: currentUser.uid,
-    });
+    const result = await secureUpdateDocument(
+        'subjects',
+        id,
+        subjectData,
+        currentUser.uid
+    );
     if (result.success) {
         toast({
           title: 'Matière modifiée',
@@ -113,12 +113,12 @@ export default function AdminSubjectsPage() {
   
   const handleAssignTeacherSave = async (subjectId: string, teacherId: string | undefined) => {
     if (!selectedSubject || !currentUser) return;
-    const result = await secureUpdateDocument({
-        collection: 'subjects',
-        docId: subjectId,
-        data: { teacherId: teacherId || '' },
-        userId: currentUser.uid,
-    });
+    const result = await secureUpdateDocument(
+        'subjects',
+        subjectId,
+        { teacherId: teacherId || '' },
+        currentUser.uid
+    );
 
     if (result.success) {
         toast({
@@ -135,7 +135,6 @@ export default function AdminSubjectsPage() {
     if (selectedSubject && currentUser) {
         const batch = writeBatch(firestore);
 
-        // Batch delete related documents that don't need to be secure deleted (or handle them differently)
         const coursesRef = collection(firestore, 'courses');
         const coursesQuery = query(coursesRef, where('subjectId', '==', selectedSubject.id));
         const coursesSnapshot = await getDocs(coursesQuery);
@@ -147,11 +146,11 @@ export default function AdminSubjectsPage() {
         scheduleSnapshot.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
 
-        const result = await secureDeleteDocument({
-            collection: 'subjects',
-            docId: selectedSubject.id,
-            userId: currentUser.uid
-        });
+        const result = await secureDeleteDocument(
+            'subjects',
+            selectedSubject.id,
+            currentUser.uid
+        );
 
         if (result.success) {
             toast({

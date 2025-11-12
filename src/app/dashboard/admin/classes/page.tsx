@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/ai/flows/admin-actions';
+import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/app/actions';
 
 export default function AdminClassesPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -54,11 +54,11 @@ export default function AdminClassesPage() {
     };
     
     try {
-        const result = await secureCreateDocument({
-            collection: 'classes',
-            userId: currentUser.uid,
-            data: newClassData
-        });
+        const result = await secureCreateDocument(
+            'classes',
+            newClassData,
+            currentUser.uid
+        );
 
         if (result.success) {
             toast({
@@ -81,12 +81,12 @@ export default function AdminClassesPage() {
      if (!currentUser) return;
     const { id, ...classData } = updatedClass;
     
-    const result = await secureUpdateDocument({
-        collection: 'classes',
-        docId: id,
-        data: classData,
-        userId: currentUser.uid
-    });
+    const result = await secureUpdateDocument(
+        'classes',
+        id,
+        classData,
+        currentUser.uid
+    );
 
     if (result.success) {
         toast({
@@ -100,12 +100,12 @@ export default function AdminClassesPage() {
   
   const handleUpdatePartial = async (classId: string, data: Partial<Omit<Class, 'id'>>) => {
      if (!currentUser) return;
-     const result = await secureUpdateDocument({
-        collection: 'classes',
-        docId: classId,
-        data: data,
-        userId: currentUser.uid
-     });
+     const result = await secureUpdateDocument(
+        'classes',
+        classId,
+        data,
+        currentUser.uid
+     );
      if (!result.success) {
         toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
      }
@@ -133,7 +133,6 @@ export default function AdminClassesPage() {
 
   const confirmDelete = async () => {
     if (selectedClass && currentUser) {
-        // We still need to batch delete related documents, but the primary deletion is secured.
         const batch = writeBatch(firestore);
 
         const scheduleRef = collection(firestore, 'schedule');
@@ -144,11 +143,11 @@ export default function AdminClassesPage() {
         });
         await batch.commit();
 
-        const result = await secureDeleteDocument({
-            collection: 'classes',
-            docId: selectedClass.id,
-            userId: currentUser.uid
-        });
+        const result = await secureDeleteDocument(
+            'classes',
+            selectedClass.id,
+            currentUser.uid
+        );
 
         if (result.success) {
             toast({

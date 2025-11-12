@@ -22,7 +22,7 @@ import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/ai/flows/admin-actions';
+import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/app/actions';
 import { signOut } from 'firebase/auth';
 
 const roleNames: Record<AppUser['role'], string> = {
@@ -67,11 +67,11 @@ export default function AdminUsersPage() {
     };
     
     try {
-        const result = await secureCreateDocument({
-            collection: 'pending_users',
-            userId: currentUser.uid,
-            data: userProfileWithStatus
-        });
+        const result = await secureCreateDocument(
+            'pending_users',
+            userProfileWithStatus,
+            currentUser.uid
+        );
 
         if (result.success) {
             toast({
@@ -100,12 +100,12 @@ export default function AdminUsersPage() {
       delete (userData as Partial<AppUser>).photo;
     }
 
-    const result = await secureUpdateDocument({
-      collection: 'users',
-      docId: id,
-      data: userData,
-      userId: currentUser.uid
-    });
+    const result = await secureUpdateDocument(
+      'users',
+      id,
+      userData,
+      currentUser.uid
+    );
     
     if (result.success) {
         toast({
@@ -135,7 +135,6 @@ export default function AdminUsersPage() {
     try {
         const batch = writeBatch(firestore);
         
-        // Batch related document modifications. These don't need to be secure as they are cascading effects.
         if (selectedUser.role === 'student') {
             const classesRef = collection(firestore, 'classes');
             const q = query(classesRef, where('studentIds', 'array-contains', userId));
@@ -151,12 +150,11 @@ export default function AdminUsersPage() {
         }
         await batch.commit();
 
-        // Perform the secure deletion of the user document
-        const result = await secureDeleteDocument({
-            collection: 'users',
-            docId: userId,
-            userId: currentUser.uid
-        });
+        const result = await secureDeleteDocument(
+            'users',
+            userId,
+            currentUser.uid
+        );
 
         if (result.success) {
             toast({
