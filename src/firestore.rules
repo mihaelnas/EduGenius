@@ -32,36 +32,31 @@ service cloud.firestore {
     }
 
     match /pending_users/{pendingUserId} {
-      // Les opérations doivent passer par des flows sécurisés
+      // Operations must go through secure flows
       allow read, write: if false;
     }
 
     match /users/{userId} {
-      // Tout utilisateur connecté peut lire les profils
+      // Any signed-in user can read profiles
       allow get, list: if isSignedIn();
-      // L'utilisateur ne peut créer que son propre document
+      // User can only create their own document during sign-up
       allow create: if isOwner(userId);
-      // Seul le propriétaire peut mettre à jour son rôle (et il ne peut pas le changer)
-      // Les autres mises à jour doivent passer par des flows sécurisés
-      allow update: if isOwner(userId) && request.resource.data.role == resource.data.role;
-      // La suppression doit passer par un flow sécurisé
-      allow delete: if false; 
+      // Updates and deletes must go through secure flows
+      allow update, delete: if false;
     }
     
     match /classes/{classId} {
-      // Tout utilisateur connecté peut lire les informations des classes
+      // Any signed-in user can read class info
       allow get, list: if isSignedIn();
-      // Les écritures doivent passer par des flows sécurisés
+      // Writes must go through secure flows
       allow write: if false;
     }
 
     match /subjects/{subjectId} {
-      // Tout utilisateur connecté peut lire les informations des matières
+      // Any signed-in user can read subject info
       allow get, list: if isSignedIn();
-      // La mise à jour du teacherId est autorisée pour le professeur concerné
-      allow update: if isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
-      // Les créations/suppressions doivent passer par des flows sécurisés
-      allow create, delete: if false;
+      // Writes must go through secure flows
+      allow write: if false;
     }
     
     match /courses/{courseId} {
