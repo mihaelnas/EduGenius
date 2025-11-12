@@ -10,29 +10,23 @@ import { z } from 'zod';
 
 // --- Robust Admin SDK Initialization ---
 
-const ADMIN_APP_NAME = 'firebase-admin-app';
-
-function getAdminApp(): App {
-  // Check if the specific admin app has already been initialized.
-  const existingApp = getApps().find(app => app.name === ADMIN_APP_NAME);
-  if (existingApp) {
-    return existingApp;
-  }
-
-  // If not, initialize it with a name and credentials.
-  // The empty credentials object will trigger Application Default Credentials (ADC)
-  // which is the flow that shows the Google login popup in this environment.
-  try {
-    return initializeApp({}, ADMIN_APP_NAME);
-  } catch (error: any) {
-    console.error(`Échec de l'initialisation de Firebase Admin ('${ADMIN_APP_NAME}'). Assurez-vous que l'environnement est correctement configuré.`, error);
-    throw new Error("L'initialisation du SDK Admin a échoué. Le backend ne peut pas fonctionner.");
-  }
-}
+const ADMIN_APP_NAME = 'firebase-admin-app-school';
 
 function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth> } {
-  const app = getAdminApp();
-  return { db: getFirestore(app), auth: getAuth(app) };
+  // Find our specific named app
+  const existingApp = getApps().find(app => app.name === ADMIN_APP_NAME);
+  if (existingApp) {
+    return { db: getFirestore(existingApp), auth: getAuth(existingApp) };
+  }
+
+  // If it doesn't exist, initialize it with a name.
+  // The empty credentials object will trigger Application Default Credentials (ADC)
+  // which is the flow that shows the Google login popup in this environment.
+  const adminApp = initializeApp({
+    // ADC will be used
+  }, ADMIN_APP_NAME);
+  
+  return { db: getFirestore(adminApp), auth: getAuth(adminApp) };
 }
 
 
@@ -73,6 +67,7 @@ export async function activateAccount(
     try {
       const { db, auth: adminAuth } = getAdminInstances();
 
+      // Special case for creating the primary admin
       if (input.email === 'rajo.harisoa7@gmail.com') {
           const newAdminProfile: Admin = {
               id: input.newAuthUserId,
@@ -84,7 +79,8 @@ export async function activateAccount(
               status: 'active',
               createdAt: new Date().toISOString(),
           };
-          await adminAuth.setCustomUserClaims(input.newAuthUserId, { admin: true, role: 'admin' });
+          // THIS IS THE CRITICAL STEP: Set custom claims for the admin role
+          await adminAuth.setCustomUserClaims(input.newAuthUserId, { role: 'admin' });
           await db.collection('users').doc(input.newAuthUserId).set(newAdminProfile);
           return { success: true, userProfile: newAdminProfile };
       }
