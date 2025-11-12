@@ -15,15 +15,14 @@ import { AddUserDialog } from '@/components/admin/add-user-dialog';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase, useUser, useAuth } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 import { collection, getDocs, writeBatch, query, where, arrayUnion } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/app/actions';
-import { signOut } from 'firebase/auth';
+import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument, secureGetDocuments } from '@/app/actions';
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -43,17 +42,32 @@ export default function AdminUsersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedUser, setSelectedUser] = React.useState<AppUser | null>(null);
+  
+  const [users, setUsers] = React.useState<AppUser[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
-  const auth = useAuth();
 
-  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: users, isLoading } = useCollection<AppUser>(usersCollectionRef);
+  React.useEffect(() => {
+    async function fetchUsers() {
+      if (!currentUser) return;
+      setIsLoading(true);
+      const result = await secureGetDocuments<AppUser>('users', currentUser.uid);
+      if (result.success && result.data) {
+        setUsers(result.data);
+      } else {
+        toast({ variant: 'destructive', title: 'Erreur de chargement', description: result.error });
+      }
+      setIsLoading(false);
+    }
 
-  const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
-  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
-  
+    if (currentUser) {
+      fetchUsers();
+    }
+  }, [currentUser, toast]);
+
 
   const handleUserAdded = async (userProfile: Omit<AppUser, 'id' | 'email' | 'username' | 'status' | 'createdAt' | 'creatorId'>) => {
     if (!currentUser) {
@@ -66,26 +80,23 @@ export default function AdminUsersPage() {
       status: 'inactive' as const,
     };
     
-    try {
-        const result = await secureCreateDocument(
-            'pending_users',
-            userProfileWithStatus,
-            currentUser.uid
-        );
+    const result = await secureCreateDocument(
+        'pending_users',
+        userProfileWithStatus,
+        currentUser.uid
+    );
 
-        if (result.success) {
-            toast({
-              title: 'Utilisateur pré-inscrit !',
-              description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
-            });
-        } else {
-            throw new Error(result.error || "La création a échoué via le flow sécurisé.");
-        }
-    } catch (error: any) {
+    if (result.success) {
+        toast({
+          title: 'Utilisateur pré-inscrit !',
+          description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
+        });
+        // Optionally refetch data here or handle state locally
+    } else {
         toast({
             variant: 'destructive',
             title: "Échec de la pré-inscription",
-            description: error.message || "Une erreur est survenue.",
+            description: result.error || "Une erreur est survenue.",
             duration: 9000,
         });
     }
@@ -112,6 +123,7 @@ export default function AdminUsersPage() {
           title: 'Utilisateur modifié',
           description: `L'utilisateur ${getDisplayName(updatedUser)} a été mis à jour.`,
         });
+        setUsers(prev => prev.map(u => u.id === id ? { ...u, ...userData } : u));
     } else {
         toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
     }
@@ -132,59 +144,35 @@ export default function AdminUsersPage() {
     
     const userId = selectedUser.id;
 
-    try {
-        const batch = writeBatch(firestore);
-        
-        if (selectedUser.role === 'student') {
-            const classesRef = collection(firestore, 'classes');
-            const q = query(classesRef, where('studentIds', 'array-contains', userId));
-            const snapshot = await getDocs(q);
-            snapshot.forEach(doc => {
-                const data = doc.data() as Class;
-                batch.update(doc.ref, { studentIds: data.studentIds.filter(id => id !== userId) });
-            });
-        }
-        
-        if (selectedUser.role === 'teacher') {
-            // This part can be complex and might be better handled by a dedicated backend function in a real app
-        }
-        await batch.commit();
+    // This client-side batch write might fail due to security rules,
+    // it's better to move this complex logic to a dedicated server action.
+    // For now, we focus on deleting the user document.
+    const result = await secureDeleteDocument(
+        'users',
+        userId,
+        currentUser.uid
+    );
 
-        const result = await secureDeleteDocument(
-            'users',
-            userId,
-            currentUser.uid
-        );
-
-        if (result.success) {
-            toast({
-                variant: 'destructive',
-                title: 'Utilisateur supprimé de Firestore',
-                description: `Le profil de ${getDisplayName(selectedUser)} a été supprimé de la base de données.`,
-            });
-        } else {
-            throw new Error(result.error || "La suppression sécurisée a échoué.");
-        }
-        
-        setIsDeleteDialogOpen(false);
-        setSelectedUser(null);
-
-    } catch (error: any) {
-        console.error("Échec de la suppression de l'utilisateur:", error);
+    if (result.success) {
         toast({
             variant: 'destructive',
-            title: 'Erreur de suppression',
-            description: `La suppression a échoué: ${error.message}`,
+            title: 'Utilisateur supprimé',
+            description: `Le profil de ${getDisplayName(selectedUser)} a été supprimé.`,
         });
+        setUsers(prev => prev.filter(u => u.id !== userId));
+    } else {
+        toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
     }
+    
+    setIsDeleteDialogOpen(false);
+    setSelectedUser(null);
   };
   
-  const filteredUsers = React.useMemo(() => (users || []).filter(user =>
+  const filteredUsers = React.useMemo(() => users.filter(user =>
     (getDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
     (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())))
   ), [users, searchTerm]);
 
-  const isLoadingData = isLoading || isLoadingClasses;
 
   return (
     <>
@@ -192,7 +180,7 @@ export default function AdminUsersPage() {
         <ShieldAlert className="h-4 w-4" />
         <AlertTitle>Action de suppression limitée</AlertTitle>
         <AlertDescription>
-          La suppression d'un utilisateur est limitée à la base de données (Firestore). Le compte d'authentification ne sera pas supprimé en raison des restrictions de sécurité de l'environnement de développement. Après cette action, l'utilisateur concerné ne pourra plus se connecter.
+          La suppression d'un utilisateur est limitée à la base de données (Firestore). Le compte d'authentification ne sera pas supprimé.
         </AlertDescription>
       </Alert>
       <Card>
@@ -235,7 +223,7 @@ export default function AdminUsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoadingData ? (
+              {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-10 w-40" /></TableCell>

@@ -20,6 +20,7 @@ service cloud.firestore {
     }
     
     function isTeacherForSubject(subjectId) {
+      // This is a potentially costly read, but necessary for this rule logic.
       return isSignedIn() && get(/databases/$(database)/documents/subjects/$(subjectId)).data.teacherId == request.auth.uid;
     }
 
@@ -32,31 +33,22 @@ service cloud.firestore {
     }
 
     match /pending_users/{pendingUserId} {
-      // All write operations must go through secure server-side flows.
-      allow read, write: if false;
+      allow read, write: if false; // Server-side only
     }
 
     match /users/{userId} {
-      // Listing users is a server-only action for admins.
-      allow list: if false;
-      // A user can get their own profile. Admins get profiles via a server action.
-      allow get: if isOwner(userId);
-      // All write operations must go through secure server-side flows.
-      allow write: if false;
+      allow get: if isOwner(userId); // Only the owner can read their own doc directly
+      allow list, write: if false; // All other access via server actions
     }
     
     match /classes/{classId} {
-      // Any signed-in user can read class information.
-      allow get, list: if isSignedIn();
-      // All write operations must go through secure server-side flows.
-      allow write: if false;
+      allow get, list: if isSignedIn(); // Allow students/teachers to get class info
+      allow write: if false; // All mutations via server actions
     }
 
     match /subjects/{subjectId} {
-      // Any signed-in user can read subject information.
-      allow get, list: if isSignedIn();
-      // All write operations must go through secure server-side flows.
-      allow write: if false;
+      allow get, list: if isSignedIn(); // Allow students/teachers to get subject info
+      allow write: if false; // All mutations via server actions
     }
     
     match /courses/{courseId} {
@@ -66,14 +58,6 @@ service cloud.firestore {
       allow delete: if isExistingTeacherForCourse();
     }
     
-     match /class_students/{classStudentId} {
-      allow read, write: if false;
-    }
-
-    match /class_teachers/{classTeacherId} {
-      allow read, write: if false;
-    }
-
     match /schedule/{eventId} {
       allow get, list: if isSignedIn();
       allow create: if isTeacherForEvent();

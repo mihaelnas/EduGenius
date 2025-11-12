@@ -1,29 +1,23 @@
 
 'use server';
 
-import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
-import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { revalidatePath } from 'next/cache';
 import type { AppUser, Student, Admin } from '@/lib/placeholder-data';
 import { z } from 'zod';
 
-// --- Robust Admin SDK Initialization ---
-
-const ADMIN_APP_NAME = 'firebase-admin-app-school';
+const ADMIN_APP_NAME = 'firebase-admin-app-school-management';
 
 function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth> } {
-  // Find our specific named app
   const existingApp = getApps().find(app => app.name === ADMIN_APP_NAME);
   if (existingApp) {
     return { db: getFirestore(existingApp), auth: getAuth(existingApp) };
   }
 
-  // If it doesn't exist, initialize it with a name.
-  // The empty credentials object will trigger Application Default Credentials (ADC)
-  // which is the flow that shows the Google login popup in this environment.
   const adminApp = initializeApp({
-    // ADC will be used
+    // ADC will be used in the Cloud environment
   }, ADMIN_APP_NAME);
   
   return { db: getFirestore(adminApp), auth: getAuth(adminApp) };
@@ -50,8 +44,6 @@ async function verifyAdminRole(userId: string): Promise<boolean> {
   }
 }
 
-// --- Server Actions ---
-
 const ActivateAccountInputSchema = z.object({
   matricule: z.string(),
   firstName: z.string(),
@@ -67,7 +59,6 @@ export async function activateAccount(
     try {
       const { db, auth: adminAuth } = getAdminInstances();
 
-      // Special case for creating the primary admin
       if (input.email === 'rajo.harisoa7@gmail.com') {
           const newAdminProfile: Admin = {
               id: input.newAuthUserId,
@@ -79,7 +70,6 @@ export async function activateAccount(
               status: 'active',
               createdAt: new Date().toISOString(),
           };
-          // THIS IS THE CRITICAL STEP: Set custom claims for the admin role
           await adminAuth.setCustomUserClaims(input.newAuthUserId, { role: 'admin' });
           await db.collection('users').doc(input.newAuthUserId).set(newAdminProfile);
           return { success: true, userProfile: newAdminProfile };
@@ -130,21 +120,6 @@ export async function activateAccount(
 
       batch.set(newUserDocRef, newUserProfile);
       batch.delete(pendingDocRef);
-
-      if (newUserProfile.role === 'student') {
-        const student = newUserProfile as Student;
-        if (student.niveau && student.filiere && student.groupe) {
-          const className = `${student.niveau}-${student.filiere}-G${student.groupe}`.toUpperCase();
-          const anneeScolaire = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
-          const classesRef = db.collection('classes');
-          const classQuery = classesRef.where('name', '==', className).where("anneeScolaire", "==", anneeScolaire);
-          const classSnapshot = await classQuery.get();
-          if (!classSnapshot.empty) {
-            const classDoc = classSnapshot.docs[0];
-            batch.update(classDoc.ref, { studentIds: FieldValue.arrayUnion(newUserProfile.id) });
-          }
-        }
-      }
       
       await batch.commit();
 
@@ -181,6 +156,26 @@ export async function getUserDetails(
 
   } catch (e: any) {
     console.error("getUserDetails action error:", e);
+    return { success: false, error: e.message || 'An unknown server error occurred.' };
+  }
+}
+
+export async function secureGetDocuments<T>(
+    path: 'users' | 'classes' | 'subjects',
+    currentUserId: string
+): Promise<{ success: boolean; data?: T[]; error?: string }> {
+  const isAdmin = await verifyAdminRole(currentUserId);
+  if (!isAdmin) {
+    return { success: false, error: 'Permission denied: User is not an admin.' };
+  }
+
+  try {
+    const { db } = getAdminInstances();
+    const snapshot = await db.collection(path).get();
+    const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as T));
+    return { success: true, data };
+  } catch (e: any) {
+    console.error(`secureGetDocuments action error for path ${path}:`, e);
     return { success: false, error: e.message || 'An unknown server error occurred.' };
   }
 }

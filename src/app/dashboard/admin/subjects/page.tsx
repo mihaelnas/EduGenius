@@ -15,10 +15,9 @@ import { EditSubjectDialog } from '@/components/admin/edit-subject-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { AssignSubjectTeacherDialog } from '@/components/admin/assign-subject-teacher-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { useUser } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
-import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/app/actions';
+import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument, secureGetDocuments } from '@/app/actions';
 
 export default function AdminSubjectsPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -27,70 +26,64 @@ export default function AdminSubjectsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [isAssignTeacherDialogOpen, setIsAssignTeacherDialogOpen] = React.useState(false);
   const [selectedSubject, setSelectedSubject] = React.useState<Subject | null>(null);
+
+  const [subjects, setSubjects] = React.useState<Subject[]>([]);
+  const [users, setUsers] = React.useState<AppUser[]>([]);
+  const [classes, setClasses] = React.useState<Class[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
   const { toast } = useToast();
-  const firestore = useFirestore();
   const { user: currentUser } = useUser();
 
-  const subjectsCollectionRef = useMemoFirebase(() => collection(firestore, 'subjects'), [firestore]);
-  const { data: subjects, isLoading: isLoadingSubjects } = useCollection<Subject>(subjectsCollectionRef);
-  
-  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: users, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
+  React.useEffect(() => {
+    async function fetchData() {
+        if (!currentUser) return;
+        setIsLoading(true);
+        const [subjectsResult, usersResult, classesResult] = await Promise.all([
+            secureGetDocuments<Subject>('subjects', currentUser.uid),
+            secureGetDocuments<AppUser>('users', currentUser.uid),
+            secureGetDocuments<Class>('classes', currentUser.uid)
+        ]);
 
-  const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
-  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
+        if (subjectsResult.success && subjectsResult.data) setSubjects(subjectsResult.data);
+        else toast({ variant: 'destructive', title: 'Erreur de chargement', description: subjectsResult.error });
+
+        if (usersResult.success && usersResult.data) setUsers(usersResult.data);
+        else toast({ variant: 'destructive', title: 'Erreur de chargement', description: usersResult.error });
+
+        if (classesResult.success && classesResult.data) setClasses(classesResult.data);
+        else toast({ variant: 'destructive', title: 'Erreur de chargement', description: classesResult.error });
+
+        setIsLoading(false);
+    }
+
+    if (currentUser) {
+        fetchData();
+    }
+  }, [currentUser, toast]);
   
-  const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
+  const allTeachers = React.useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
 
   const handleAdd = async (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt' | 'creatorId' | 'teacherId'>) => {
-      if (!currentUser) {
-        toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté pour créer une matière.' });
-        return;
-      }
-      const newSubjectData = {
-          ...newSubject,
-          teacherId: '', // Initialize with no teacher
-          classCount: 0,
-      };
-      
-      try {
-          const result = await secureCreateDocument(
-              'subjects',
-              newSubjectData,
-              currentUser.uid
-          );
+      if (!currentUser) return;
+      const newSubjectData = { ...newSubject, teacherId: '', classCount: 0 };
+      const result = await secureCreateDocument('subjects', newSubjectData, currentUser.uid);
 
-          if (result.success) {
-            toast({
-                title: 'Matière ajoutée',
-                description: `La matière ${newSubject.name} a été créée avec succès.`,
-            });
-          } else {
-              throw new Error(result.error || "La création de la matière a échoué.");
-          }
-      } catch (error: any) {
-          toast({
-              variant: 'destructive',
-              title: 'Échec de la création',
-              description: error.message
-          });
+      if (result.success && result.id) {
+          toast({ title: 'Matière ajoutée', description: `La matière ${newSubject.name} a été créée.` });
+          setSubjects(prev => [...prev, { ...newSubjectData, id: result.id!, createdAt: new Date().toISOString() }]);
+      } else {
+          toast({ variant: 'destructive', title: 'Échec de la création', description: result.error });
       }
   };
 
   const handleUpdate = async (updatedSubject: Subject) => {
     if (!currentUser) return;
     const { id, ...subjectData } = updatedSubject;
-    const result = await secureUpdateDocument(
-        'subjects',
-        id,
-        subjectData,
-        currentUser.uid
-    );
+    const result = await secureUpdateDocument('subjects', id, subjectData, currentUser.uid);
     if (result.success) {
-        toast({
-          title: 'Matière modifiée',
-          description: `La matière ${updatedSubject.name} a été mise à jour.`,
-        });
+        toast({ title: 'Matière modifiée', description: `La matière ${updatedSubject.name} a été mise à jour.` });
+        setSubjects(prev => prev.map(s => s.id === id ? { ...s, ...subjectData } : s));
     } else {
         toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
     }
@@ -113,18 +106,11 @@ export default function AdminSubjectsPage() {
   
   const handleAssignTeacherSave = async (subjectId: string, teacherId: string | undefined) => {
     if (!selectedSubject || !currentUser) return;
-    const result = await secureUpdateDocument(
-        'subjects',
-        subjectId,
-        { teacherId: teacherId || '' },
-        currentUser.uid
-    );
+    const result = await secureUpdateDocument('subjects', subjectId, { teacherId: teacherId || '' }, currentUser.uid);
 
     if (result.success) {
-        toast({
-          title: 'Assignation réussie',
-          description: `L'enseignant a été mis à jour pour la matière ${selectedSubject.name}.`,
-        });
+        toast({ title: 'Assignation réussie', description: `L'enseignant a été mis à jour.` });
+        setSubjects(prev => prev.map(s => s.id === subjectId ? { ...s, teacherId: teacherId || '' } : s));
         setIsAssignTeacherDialogOpen(false);
     } else {
         toast({ variant: 'destructive', title: 'Erreur d\'assignation', description: result.error });
@@ -133,31 +119,11 @@ export default function AdminSubjectsPage() {
 
   const confirmDelete = async () => {
     if (selectedSubject && currentUser) {
-        const batch = writeBatch(firestore);
-
-        const coursesRef = collection(firestore, 'courses');
-        const coursesQuery = query(coursesRef, where('subjectId', '==', selectedSubject.id));
-        const coursesSnapshot = await getDocs(coursesQuery);
-        coursesSnapshot.forEach(doc => batch.delete(doc.ref));
-
-        const scheduleRef = collection(firestore, 'schedule');
-        const scheduleQuery = query(scheduleRef, where('subject', '==', selectedSubject.name));
-        const scheduleSnapshot = await getDocs(scheduleQuery);
-        scheduleSnapshot.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-
-        const result = await secureDeleteDocument(
-            'subjects',
-            selectedSubject.id,
-            currentUser.uid
-        );
+        const result = await secureDeleteDocument('subjects', selectedSubject.id, currentUser.uid);
 
         if (result.success) {
-            toast({
-                variant: 'destructive',
-                title: 'Matière et données associées supprimées',
-                description: `La matière "${selectedSubject.name}" ainsi que ses cours et événements ont été supprimés.`,
-            });
+            toast({ variant: 'destructive', title: 'Matière supprimée', description: `La matière "${selectedSubject.name}" a été supprimée.` });
+            setSubjects(prev => prev.filter(s => s.id !== selectedSubject.id));
         } else {
             toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
         }
@@ -167,18 +133,16 @@ export default function AdminSubjectsPage() {
     }
   };
 
-  const getTeacherById = (id: string): AppUser | undefined => users?.find(u => u.id === id);
+  const getTeacherById = (id: string): AppUser | undefined => users.find(u => u.id === id);
 
-  const filteredSubjects = React.useMemo(() => (subjects || []).map(subject => {
-      const assignedClassesCount = (classes || []).filter(c => 
+  const filteredSubjects = React.useMemo(() => subjects.map(subject => {
+      const assignedClassesCount = classes.filter(c => 
           c.teacherIds.some(tId => tId === subject.teacherId)
       ).length;
       return { ...subject, classCount: assignedClassesCount };
   }).filter(subject =>
     subject.name.toLowerCase().includes(searchTerm.toLowerCase())
   ), [subjects, classes, searchTerm]);
-
-  const isLoading = isLoadingSubjects || isLoadingUsers || isLoadingClasses;
 
   return (
     <>
@@ -281,7 +245,7 @@ export default function AdminSubjectsPage() {
           setIsOpen={setIsEditDialogOpen}
           subject={selectedSubject}
           onSubjectUpdated={async (updatedData) => {
-            await handleUpdate({...selectedSubject, ...updatedData})
+            await handleUpdate({ ...selectedSubject, ...updatedData });
           }}
         />
       )}

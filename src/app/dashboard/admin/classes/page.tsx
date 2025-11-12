@@ -16,10 +16,10 @@ import { Badge } from '@/components/ui/badge';
 import { AssignTeacherDialog } from '@/components/admin/assign-teacher-dialog';
 import { ManageStudentsDialog } from '@/components/admin/manage-students-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useUser } from '@/firebase';
 import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/app/actions';
+import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument, secureGetDocuments } from '@/app/actions';
 
 export default function AdminClassesPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -29,18 +29,45 @@ export default function AdminClassesPage() {
   const [isAssignTeacherDialogOpen, setIsAssignTeacherDialogOpen] = React.useState(false);
   const [isManageStudentsDialogOpen, setIsManageStudentsDialogOpen] = React.useState(false);
   const [selectedClass, setSelectedClass] = React.useState<Class | null>(null);
+  
+  const [classes, setClasses] = React.useState<Class[]>([]);
+  const [users, setUsers] = React.useState<AppUser[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  
   const { toast } = useToast();
-  const firestore = useFirestore();
   const { user: currentUser } = useUser();
 
-  const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
-  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
-  
-  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: users, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
+  React.useEffect(() => {
+    async function fetchData() {
+        if (!currentUser) return;
+        setIsLoading(true);
+        const [classesResult, usersResult] = await Promise.all([
+            secureGetDocuments<Class>('classes', currentUser.uid),
+            secureGetDocuments<AppUser>('users', currentUser.uid)
+        ]);
 
-  const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
-  const allStudents = React.useMemo(() => (users || []).filter(u => u.role === 'student'), [users]);
+        if (classesResult.success && classesResult.data) {
+            setClasses(classesResult.data);
+        } else {
+            toast({ variant: 'destructive', title: 'Erreur de chargement', description: classesResult.error });
+        }
+
+        if (usersResult.success && usersResult.data) {
+            setUsers(usersResult.data);
+        } else {
+            toast({ variant: 'destructive', title: 'Erreur de chargement', description: usersResult.error });
+        }
+        setIsLoading(false);
+    }
+
+    if (currentUser) {
+        fetchData();
+    }
+  }, [currentUser, toast]);
+
+
+  const allTeachers = React.useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+  const allStudents = React.useMemo(() => users.filter(u => u.role === 'student'), [users]);
 
   const handleAdd = async (newClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt' | 'creatorId'>) => {
     if (!currentUser) {
@@ -53,27 +80,13 @@ export default function AdminClassesPage() {
         studentIds: [],
     };
     
-    try {
-        const result = await secureCreateDocument(
-            'classes',
-            newClassData,
-            currentUser.uid
-        );
+    const result = await secureCreateDocument('classes', newClassData, currentUser.uid);
 
-        if (result.success) {
-            toast({
-              title: 'Classe ajoutée',
-              description: `La classe ${newClass.name} a été créée avec succès.`,
-            });
-        } else {
-            throw new Error(result.error || "La création de la classe a échoué.");
-        }
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Échec de la création',
-            description: error.message,
-        });
+    if (result.success && result.id) {
+        toast({ title: 'Classe ajoutée', description: `La classe ${newClass.name} a été créée.` });
+        setClasses(prev => [...prev, { ...newClassData, id: result.id!, createdAt: new Date().toISOString() }]);
+    } else {
+        toast({ variant: 'destructive', title: 'Échec de la création', description: result.error });
     }
   };
 
@@ -81,18 +94,11 @@ export default function AdminClassesPage() {
      if (!currentUser) return;
     const { id, ...classData } = updatedClass;
     
-    const result = await secureUpdateDocument(
-        'classes',
-        id,
-        classData,
-        currentUser.uid
-    );
+    const result = await secureUpdateDocument('classes', id, classData, currentUser.uid);
 
     if (result.success) {
-        toast({
-          title: 'Classe modifiée',
-          description: `La classe ${updatedClass.name} a été mise à jour.`,
-        });
+        toast({ title: 'Classe modifiée', description: `La classe ${updatedClass.name} a été mise à jour.` });
+        setClasses(prev => prev.map(c => c.id === id ? { ...c, ...classData } : c));
     } else {
         toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
     }
@@ -100,13 +106,10 @@ export default function AdminClassesPage() {
   
   const handleUpdatePartial = async (classId: string, data: Partial<Omit<Class, 'id'>>) => {
      if (!currentUser) return;
-     const result = await secureUpdateDocument(
-        'classes',
-        classId,
-        data,
-        currentUser.uid
-     );
-     if (!result.success) {
+     const result = await secureUpdateDocument('classes', classId, data, currentUser.uid);
+     if (result.success) {
+        setClasses(prev => prev.map(c => c.id === classId ? { ...c, ...data } : c));
+     } else {
         toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
      }
   };
@@ -133,28 +136,12 @@ export default function AdminClassesPage() {
 
   const confirmDelete = async () => {
     if (selectedClass && currentUser) {
-        const batch = writeBatch(firestore);
-
-        const scheduleRef = collection(firestore, 'schedule');
-        const scheduleQuery = query(scheduleRef, where('class', '==', selectedClass.name));
-        const scheduleSnapshot = await getDocs(scheduleQuery);
-        scheduleSnapshot.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-        await batch.commit();
-
-        const result = await secureDeleteDocument(
-            'classes',
-            selectedClass.id,
-            currentUser.uid
-        );
+        // Complex logic like deleting related documents should be a single server action
+        const result = await secureDeleteDocument('classes', selectedClass.id, currentUser.uid);
 
         if (result.success) {
-            toast({
-                variant: 'destructive',
-                title: 'Classe supprimée',
-                description: `La classe "${selectedClass.name}" et ses événements ont été supprimés.`,
-            });
+            toast({ variant: 'destructive', title: 'Classe supprimée', description: `La classe "${selectedClass.name}" a été supprimée.` });
+            setClasses(prev => prev.filter(c => c.id !== selectedClass.id));
         } else {
             toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
         }
@@ -164,14 +151,13 @@ export default function AdminClassesPage() {
     }
   };
   
-  const getTeacherById = (id: string): AppUser | undefined => users?.find(u => u.id === id);
+  const getTeacherById = (id: string): AppUser | undefined => users.find(u => u.id === id);
 
-  const filteredClasses = React.useMemo(() => (classes || []).filter(c =>
+  const filteredClasses = React.useMemo(() => classes.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.filiere.toLowerCase().includes(searchTerm.toLowerCase())
   ), [classes, searchTerm]);
 
-  const isLoading = isLoadingClasses || isLoadingUsers;
 
   return (
     <>
@@ -279,7 +265,7 @@ export default function AdminClassesPage() {
           setIsOpen={setIsEditDialogOpen}
           classData={selectedClass}
           onClassUpdated={async (updatedData) => {
-            await handleUpdate({...selectedClass, ...updatedData})
+            await handleUpdate({ ...selectedClass, ...updatedData });
           }}
         />
       )}
