@@ -135,7 +135,7 @@ export default function AdminSubjectsPage() {
     if (selectedSubject && currentUser) {
         const batch = writeBatch(firestore);
 
-        // Batch delete related documents that don't need secure deletion (or handle them differently)
+        // Batch delete related documents that don't need to be secure deleted (or handle them differently)
         const coursesRef = collection(firestore, 'courses');
         const coursesQuery = query(coursesRef, where('subjectId', '==', selectedSubject.id));
         const coursesSnapshot = await getDocs(coursesQuery);
