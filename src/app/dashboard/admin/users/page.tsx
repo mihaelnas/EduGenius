@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -56,17 +55,32 @@ export default function AdminUsersPage() {
   
   React.useEffect(() => {
     const forceRefresh = async () => {
-        const idTokenResult = await currentUser?.getIdTokenResult(true);
-        const isAdmin = idTokenResult?.claims.admin === true;
-        if (!isAdmin) {
-          toast({
-            variant: "destructive",
-            title: "Accès refusé",
-            description: "Vous n'avez pas les droits d'administrateur. Déconnexion...",
-          });
-          setTimeout(() => signOut(auth), 3000);
+        if (!currentUser) return;
+
+        try {
+            // Force a refresh of the ID token to get the latest custom claims.
+            const idTokenResult = await currentUser.getIdTokenResult(true);
+            const isAdmin = idTokenResult.claims.admin === true;
+
+            if (!isAdmin) {
+                toast({
+                    variant: "destructive",
+                    title: "Accès refusé",
+                    description: "Vous n'avez pas les droits d'administrateur. Déconnexion...",
+                });
+                setTimeout(() => signOut(auth), 3000);
+            }
+        } catch (error) {
+            console.error("Error refreshing token or checking admin claim:", error);
+            toast({
+                variant: "destructive",
+                title: "Erreur d'authentification",
+                description: "Impossible de vérifier vos permissions. Déconnexion...",
+            });
+            setTimeout(() => signOut(auth), 3000);
         }
     }
+    
     if(currentUser) {
         forceRefresh();
     }
@@ -340,3 +354,5 @@ export default function AdminUsersPage() {
     </>
   );
 }
+
+    
