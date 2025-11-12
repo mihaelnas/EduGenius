@@ -1,20 +1,33 @@
+
 'use server';
 
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
 import type { Admin } from '@/lib/placeholder-data';
+import { cookies } from 'next/headers';
 
 const ADMIN_APP_NAME = 'firebase-admin-app-school-management';
 
+// This function initializes and returns the Firebase Admin SDK instances.
+// It's memoized to ensure it's only called once per server request.
 function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth>; adminApp: App } {
   const existingApp = getApps().find(app => app.name === ADMIN_APP_NAME);
   if (existingApp) {
     return { db: getFirestore(existingApp), auth: getAuth(existingApp), adminApp: existingApp };
   }
 
-  const adminApp = initializeApp({}, ADMIN_APP_NAME);
+  // Check for service account credentials from environment variables
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.');
+  }
+
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+
+  const adminApp = initializeApp({
+    credential: cert(serviceAccount)
+  }, ADMIN_APP_NAME);
   
   return { db: getFirestore(adminApp), auth: getAuth(adminApp), adminApp: adminApp };
 }
@@ -33,8 +46,10 @@ export async function activateAccount(
 ): Promise<{ success: boolean; error?: string; userProfile?: any }> {
     try {
       const { db, auth: adminAuth } = getAdminInstances();
-
-      if (input.email === 'rajo.harisoa7@gmail.com') {
+      const normalizedInputEmail = input.email.toLowerCase();
+      
+      // Explicit check for the admin email address, ignoring case.
+      if (normalizedInputEmail === 'rajo.harisoa7@gmail.com') {
           const newAdminProfile: Admin = {
               id: input.newAuthUserId,
               firstName: input.firstName,
@@ -45,11 +60,13 @@ export async function activateAccount(
               status: 'active',
               createdAt: new Date().toISOString(),
           };
+          // Correctly set the custom claim to { admin: true }
           await adminAuth.setCustomUserClaims(input.newAuthUserId, { admin: true, role: 'admin' });
           await db.collection('users').doc(input.newAuthUserId).set(newAdminProfile);
           return { success: true, userProfile: newAdminProfile };
       }
 
+      // Logic for non-admin users
       const usersRef = db.collection('pending_users');
       const q = usersRef.where('status', '==', 'inactive');
       const querySnapshot = await q.get();
@@ -90,6 +107,7 @@ export async function activateAccount(
       };
 
       if (newUserProfile.role) {
+         // For regular users, just set their role if it exists
          await adminAuth.setCustomUserClaims(input.newAuthUserId, { role: newUserProfile.role });
       }
 

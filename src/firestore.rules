@@ -8,6 +8,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
+      // This is the single source of truth for admin role verification.
       return isSignedIn() && request.auth.token.admin == true;
     }
 
@@ -35,46 +36,46 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
-    // --- Admin-managed collections ---
     match /pending_users/{pendingUserId} {
       allow read, create, update, delete: if isAdmin();
     }
+
     match /users/{userId} {
-      // An admin can read/list all users. A user can read their own document.
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      // Only admins can create, update, or delete users through the admin panel
-      allow create, update, delete: if isAdmin();
+      allow create: if isSignedIn(); // Initial creation by user is allowed, then secured by activateAccount
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
+      allow delete: if isAdmin();
     }
+    
     match /classes/{classId} {
       allow get, list, create, update, delete: if isAdmin();
     }
-    match /subjects/{subjectId} {
-      // Admins can manage everything. Teachers can only update/delete subjects they are assigned to.
-      allow get, list, create: if isAdmin();
-      allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
-      allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
-    }
-    // --- End Admin-managed ---
 
-    // --- Teacher-managed collections ---
+    match /subjects/{subjectId} {
+      allow get, list, create, update, delete: if isAdmin();
+    }
+    
     match /courses/{courseId} {
       // Any signed-in user (student or teacher) can view courses.
       allow get, list: if isSignedIn();
-      // A teacher can create a course if they are the assigned teacher for that subject.
-      allow create: if isTeacherForCourse() && isTeacherForSubject(request.resource.data.subjectId);
-      // A teacher can update or delete a course they created.
-      allow update, delete: if isExistingTeacherForCourse();
+      // Admins and assigned teachers can create/edit/delete
+      allow create, update, delete: if isAdmin() || isTeacherForCourse() || isExistingTeacherForCourse();
     }
     
-    match /schedule/{eventId} {
-       // Any signed-in user (student or teacher) can view schedule events.
-      allow get, list: if isSignedIn();
-      // A teacher can create an event.
-      allow create: if isTeacherForEvent();
-      // A teacher can update or delete an event they created.
-      allow update, delete: if isExistingTeacherForEvent();
+     match /class_students/{classStudentId} {
+      allow get, list, create, update, delete: if isAdmin();
     }
-    // --- End Teacher-managed ---
+
+    match /class_teachers/{classTeacherId} {
+      allow get, list, create, update, delete: if isAdmin();
+    }
+
+    match /schedule/{eventId} {
+      // Any signed-in user can view schedule
+      allow get, list: if isSignedIn();
+      // Admins or the assigned teacher can manage events
+      allow create, update, delete: if isAdmin() || isTeacherForEvent() || isExistingTeacherForEvent();
+    }
   }
 }
