@@ -1,5 +1,6 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -14,23 +15,19 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-
-    function isTeacherForCourse(course) {
-      return request.auth.uid == course.teacherId;
+    
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isSignedIn(); // For the initial creation
+      allow update: if isOwner(userId) || isAdmin(); // Allow self-updates or admin updates
+      allow delete: if isAdmin();
     }
     
     match /pending_users/{docId} {
       allow read, write: if isAdmin();
     }
 
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow create: if isSignedIn();
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
-      allow delete: if isAdmin();
-    }
-    
     match /classes/{classId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
@@ -43,12 +40,13 @@ service cloud.firestore {
 
     match /courses/{courseId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isTeacherForCourse(request.resource.data);
+      // Only the teacher assigned to the subject or an admin can create/update a course
+      allow write: if isAdmin() || (request.auth.uid == request.resource.data.teacherId);
     }
 
     match /schedule/{eventId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isTeacherForCourse(request.resource.data);
+      allow write: if isAdmin() || (request.auth.uid == request.resource.data.teacherId);
     }
   }
 }
