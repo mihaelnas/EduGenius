@@ -1,7 +1,7 @@
 
 'use server';
 
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { revalidatePath } from 'next/cache';
@@ -9,25 +9,19 @@ import { revalidatePath } from 'next/cache';
 // --- Initialisation du SDK Admin ---
 // Cette fonction garantit que nous n'initialisons l'app qu'une seule fois.
 function getAdminInstances(): { db: Firestore, auth: ReturnType<typeof getAuth> } {
-  console.log("Appel de getAdminInstances...");
   if (getApps().length > 0) {
-    console.log("Utilisation d'une instance Firebase Admin existante.");
     const app = getApps()[0];
     return { db: getFirestore(app), auth: getAuth(app) };
   }
 
   // Dans un environnement App Hosting, les credentials sont découverts automatiquement.
-  console.log("Initialisation d'une nouvelle instance Firebase Admin...");
   const app = initializeApp();
-  console.log("Nouvelle instance initialisée avec succès !");
   return { db: getFirestore(app), auth: getAuth(app) };
 }
 
 
 async function verifyAdminRole(userId: string): Promise<boolean> {
-  console.log(`Début de la vérification du rôle admin pour l'UID: ${userId}`);
   if (!userId) {
-    console.error('La vérification a échoué : aucun userId fourni.');
     return false;
   }
   const { db } = getAdminInstances();
@@ -37,18 +31,11 @@ async function verifyAdminRole(userId: string): Promise<boolean> {
 
     if (userDoc.exists) {
         const userRole = userDoc.data()?.role;
-        console.log(`Document trouvé pour ${userId}. Rôle: ${userRole}`);
         if (userRole === 'admin') {
-            console.log(`SUCCÈS : L'utilisateur ${userId} est bien un admin.`);
             return true;
-        } else {
-            console.warn(`ÉCHEC : L'utilisateur ${userId} a le rôle '${userRole}', mais 'admin' est requis.`);
-            return false;
         }
-    } else {
-      console.warn(`ÉCHEC : Aucun document utilisateur trouvé dans Firestore pour l'UID: ${userId}`);
-      return false;
     }
+    return false;
   } catch (error) {
     console.error(`Erreur critique pendant la vérification du rôle pour l'UID: ${userId}`, error);
     return false;
