@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -29,7 +30,7 @@ import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { activateAccount } from '@/ai/flows/user-actions';
+import { activateAccount } from '@/app/actions';
 
 const formSchema = z.object({
   firstName: z.string().min(1, { message: 'Le prénom est requis.' }),
@@ -76,7 +77,7 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const newAuthUser = userCredential.user;
 
-      // 2. Call the secure server-side flow to handle the database transaction and custom claims
+      // 2. Call the secure server-side action to handle the database transaction and custom claims
       const result = await activateAccount({
         matricule: values.matricule,
         firstName: values.firstName,
@@ -86,7 +87,7 @@ export default function RegisterPage() {
       });
 
       if (!result.success) {
-        // If the flow fails, delete the created auth user to allow them to try again.
+        // If the action fails, delete the created auth user to allow them to try again.
         await newAuthUser.delete();
         throw new Error(result.error || "La transaction de base de données a échoué.");
       }

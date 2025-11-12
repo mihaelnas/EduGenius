@@ -8,10 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getDisplayName, Student, Teacher } from '@/lib/placeholder-data';
 import { AtSign, Cake, GraduationCap, Home, Mail, MapPin, Phone, School, User as UserIcon, Briefcase, Building, Camera, KeyRound, MailPlus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUser, useFirestore } from '@/firebase';
-import { updateDoc } from 'firebase/firestore';
+import { useUser } from '@/firebase';
 import type { AppUser } from '@/lib/placeholder-data';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { UpdatePhotoDialog } from '@/components/update-photo-dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -35,6 +34,7 @@ const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string,
 
 export default function ProfileDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const userId = params.id as string;
   const { user: currentUser, isUserLoading: isAuthLoading } = useUser();
   const { toast } = useToast();
@@ -51,7 +51,9 @@ export default function ProfileDetailPage() {
   useEffect(() => {
     async function fetchUser() {
       if (!userId || !currentUser?.uid) {
-        if (!isAuthLoading) setIsProfileLoading(false);
+        if (!isAuthLoading) {
+            router.push('/login');
+        }
         return;
       }
       setIsProfileLoading(true);
@@ -71,7 +73,7 @@ export default function ProfileDetailPage() {
     if (!isAuthLoading) {
       fetchUser();
     }
-  }, [userId, currentUser, isAuthLoading, toast]);
+  }, [userId, currentUser, isAuthLoading, toast, router]);
   
   const handlePhotoUpdate = async (newPhotoUrl: string) => {
     if (currentUser && user) {

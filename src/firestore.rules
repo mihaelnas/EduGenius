@@ -37,7 +37,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // An admin can list all users via a server action. Client-side list is disallowed.
+      // Listing users is a server-only action for admins.
       allow list: if false;
       // A user can get their own profile. Admins get profiles via a server action.
       allow get: if isOwner(userId);
