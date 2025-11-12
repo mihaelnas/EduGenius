@@ -7,18 +7,9 @@
  */
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { FieldValue } from 'firebase-admin/firestore';
+import { db } from '@/lib/firebase-admin';
 import type { Student } from '@/lib/placeholder-data';
-
-// Initialize Firebase Admin SDK
-let adminApp: App;
-if (!getApps().length) {
-  adminApp = initializeApp();
-} else {
-  adminApp = getApps()[0];
-}
-const db = getFirestore(adminApp);
 
 
 // Schema for the account activation flow
