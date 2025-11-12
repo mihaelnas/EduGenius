@@ -23,6 +23,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument } from '@/ai/flows/admin-actions';
+import { signOut } from 'firebase/auth';
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -45,12 +46,31 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
+  const auth = useAuth();
 
   const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: users, isLoading } = useCollection<AppUser>(usersCollectionRef);
 
   const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
   const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
+  
+  React.useEffect(() => {
+    const forceRefresh = async () => {
+        const idTokenResult = await currentUser?.getIdTokenResult(true);
+        const isAdmin = idTokenResult?.claims.admin === true;
+        if (!isAdmin) {
+          toast({
+            variant: "destructive",
+            title: "Accès refusé",
+            description: "Vous n'avez pas les droits d'administrateur. Déconnexion...",
+          });
+          setTimeout(() => signOut(auth), 3000);
+        }
+    }
+    if(currentUser) {
+        forceRefresh();
+    }
+  }, [currentUser, auth, toast]);
 
   const handleUserAdded = async (userProfile: Omit<AppUser, 'id' | 'email' | 'username' | 'status' | 'createdAt' | 'creatorId'>) => {
     if (!currentUser) {

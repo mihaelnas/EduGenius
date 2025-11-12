@@ -24,13 +24,11 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth } from '@/firebase';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Admin } from '@/lib/placeholder-data';
 import { activateAccount } from '@/ai/flows/user-actions';
 
 const formSchema = z.object({
@@ -48,7 +46,6 @@ const formSchema = z.object({
 export default function RegisterPage() {
   const router = useRouter();
   const { toast, dismiss } = useToast();
-  const firestore = useFirestore();
   const auth = useAuth();
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
@@ -67,46 +64,6 @@ export default function RegisterPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    
-    if (values.email === 'rajo.harisoa7@gmail.com') {
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-            const newAuthUser = userCredential.user;
-
-            const newUserProfile: Admin = {
-                id: newAuthUser.uid,
-                firstName: values.firstName,
-                lastName: values.lastName,
-                email: values.email,
-                username: `@${values.firstName.toLowerCase()}`,
-                role: 'admin',
-                status: 'active',
-                createdAt: new Date().toISOString(),
-            };
-            
-            await setDoc(doc(firestore, 'users', newAuthUser.uid), newUserProfile);
-            
-            toast({ title: 'Succès !', description: 'Compte administrateur créé. Redirection...', duration: 5000 });
-            router.push('/dashboard');
-            return;
-
-        } catch (error: any) {
-            let errorMessage = 'Une erreur est survenue lors de la création du compte admin.';
-            if (error.code === 'auth/email-already-in-use') {
-              errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.';
-            } else {
-              errorMessage = `Erreur: ${error.message} (code: ${error.code})`;
-            }
-            toast({
-                variant: 'destructive',
-                title: 'Échec de la création du compte admin',
-                description: errorMessage,
-                duration: 15000
-            });
-            return;
-        }
-    }
-
     let toastId: string | undefined;
     try {
       toastId = toast({
@@ -119,7 +76,7 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const newAuthUser = userCredential.user;
 
-      // 2. Call the secure server-side flow to handle the database transaction
+      // 2. Call the secure server-side flow to handle the database transaction and custom claims
       const result = await activateAccount({
         matricule: values.matricule,
         firstName: values.firstName,
@@ -129,10 +86,21 @@ export default function RegisterPage() {
       });
 
       if (!result.success) {
+        // If the flow fails, delete the created auth user to allow them to try again.
+        await newAuthUser.delete();
         throw new Error(result.error || "La transaction de base de données a échoué.");
       }
       
-      // 3. Sign the user out immediately after activation
+      // Special handling for admin to force token refresh and stay logged in
+      if (result.userProfile?.role === 'admin') {
+          await newAuthUser.getIdToken(true); // Force refresh to get custom claims
+          if (toastId) dismiss(toastId);
+          toast({ title: 'Compte administrateur créé !', description: 'Redirection vers le tableau de bord...', duration: 5000 });
+          router.push('/dashboard');
+          return;
+      }
+
+      // 3. For regular users, sign out immediately after activation
       await signOut(auth);
 
       if (toastId) dismiss(toastId);

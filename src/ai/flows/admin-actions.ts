@@ -9,15 +9,20 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { db } from '@/lib/firebase-admin';
+import { getAuth } from 'firebase-admin/auth';
+import { auth as clientAuth } from 'firebase-admin';
 
-// Helper function to verify admin status
-async function isAdmin(userId: string): Promise<boolean> {
-  if (!userId) return false;
-  const userDocRef = db.collection('users').doc(userId);
-  const userDoc = await userDocRef.get();
-  return userDoc.exists && userDoc.data()?.role === 'admin';
+
+async function verifyAdminClaim(auth: clientAuth.Auth, uid: string): Promise<boolean> {
+  try {
+    const userRecord = await auth.getUser(uid);
+    // Check for the 'admin' custom claim
+    return userRecord.customClaims?.['admin'] === true;
+  } catch (error) {
+    console.error(`Failed to verify admin claim for UID: ${uid}`, error);
+    return false;
+  }
 }
-
 
 // Schema and Flow for Document Creation
 const SecureCreateDocumentInputSchema = z.object({
@@ -39,9 +44,11 @@ export const secureCreateDocument = ai.defineFlow(
   },
   async (input) => {
     try {
-      if (!(await isAdmin(input.userId))) {
+      const isAdmin = await verifyAdminClaim(getAuth(), input.userId);
+      if (!isAdmin) {
         return { success: false, error: 'Permission denied: User is not an admin.' };
       }
+
       const documentData = {
           ...input.data,
           creatorId: input.userId,
@@ -77,7 +84,8 @@ export const secureUpdateDocument = ai.defineFlow(
   },
   async (input) => {
     try {
-      if (!(await isAdmin(input.userId))) {
+      const isAdmin = await verifyAdminClaim(getAuth(), input.userId);
+      if (!isAdmin) {
         return { success: false, error: 'Permission denied: User is not an admin.' };
       }
       await db.collection(input.collection).doc(input.docId).update(input.data);
@@ -109,7 +117,8 @@ export const secureDeleteDocument = ai.defineFlow(
   },
   async (input) => {
     try {
-      if (!(await isAdmin(input.userId))) {
+      const isAdmin = await verifyAdminClaim(getAuth(), input.userId);
+      if (!isAdmin) {
         return { success: false, error: 'Permission denied: User is not an admin.' };
       }
       await db.collection(input.collection).doc(input.docId).delete();

@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview User-related actions performed securely on the server.
@@ -8,8 +7,9 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import { db } from '@/lib/firebase-admin';
-import type { Student } from '@/lib/placeholder-data';
+import type { Student, Admin } from '@/lib/placeholder-data';
 
 
 // Schema for the account activation flow
@@ -35,6 +35,30 @@ export const activateAccount = ai.defineFlow(
   async (input) => {
     try {
       const firestore = db;
+
+      // Handle special admin creation case
+      if (input.email === 'rajo.harisoa7@gmail.com') {
+          const newAdminProfile: Admin = {
+              id: input.newAuthUserId,
+              firstName: input.firstName,
+              lastName: input.lastName,
+              email: input.email,
+              username: `@${input.firstName.toLowerCase()}`,
+              role: 'admin',
+              status: 'active',
+              createdAt: new Date().toISOString(),
+          };
+
+          // Set custom claim for admin role
+          await getAuth().setCustomUserClaims(input.newAuthUserId, { admin: true });
+          
+          // Create user document in Firestore
+          await firestore.collection('users').doc(input.newAuthUserId).set(newAdminProfile);
+          
+          return { success: true, userProfile: newAdminProfile };
+      }
+
+
       const usersRef = firestore.collection('pending_users');
       // Query for all inactive users. The filtering will happen in server-side code.
       const q = usersRef.where('status', '==', 'inactive');
@@ -100,6 +124,11 @@ export const activateAccount = ai.defineFlow(
         status: 'active' as const,
         claimedAt: new Date().toISOString(),
       };
+
+      // Set custom claim for non-admin roles if needed (e.g., role: 'student')
+      if (newUserProfile.role) {
+         await getAuth().setCustomUserClaims(input.newAuthUserId, { role: newUserProfile.role });
+      }
 
       batch.set(newUserDocRef, newUserProfile);
       batch.delete(pendingDocRef);
