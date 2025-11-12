@@ -23,18 +23,21 @@ function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth>;
     };
   }
 
-  // Check for service account credentials from environment variables
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    throw new Error('La variable d\'environnement FIREBASE_SERVICE_ACCOUNT_KEY n\'est pas définie.');
+  // Check for service account credentials from environment variables if not in a managed environment
+  if (!process.env.GCLOUD_PROJECT && !process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    throw new Error('Les informations d\'identification du compte de service Firebase ne sont pas définies. Veuillez définir FIREBASE_SERVICE_ACCOUNT_KEY dans vos variables d\'environnement.');
   }
-
+  
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY 
+        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+        : undefined;
 
     // Initialize the new app
-    const adminApp = initializeApp({
-      credential: cert(serviceAccount)
-    }, ADMIN_APP_NAME);
+    const adminApp = initializeApp(
+        serviceAccount ? { credential: cert(serviceAccount) } : {}, 
+        ADMIN_APP_NAME
+    );
     
     return { 
       db: getFirestore(adminApp), 
@@ -141,3 +144,4 @@ export async function activateAccount(
       return { success: false, error: e.message || 'An unknown server error occurred.' };
     }
 }
+
