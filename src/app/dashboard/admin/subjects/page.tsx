@@ -15,9 +15,12 @@ import { EditSubjectDialog } from '@/components/admin/edit-subject-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { AssignSubjectTeacherDialog } from '@/components/admin/assign-subject-teacher-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
-import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument, secureGetDocuments } from '@/app/actions';
+import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 export default function AdminSubjectsPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -27,75 +30,59 @@ export default function AdminSubjectsPage() {
   const [isAssignTeacherDialogOpen, setIsAssignTeacherDialogOpen] = React.useState(false);
   const [selectedSubject, setSelectedSubject] = React.useState<Subject | null>(null);
 
-  const [subjects, setSubjects] = React.useState<Subject[]>([]);
-  const [users, setUsers] = React.useState<AppUser[]>([]);
-  const [classes, setClasses] = React.useState<Class[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-
   const { toast } = useToast();
-  const { user: currentUser, isUserLoading } = useUser();
+  const { user: currentUser } = useUser();
+  const firestore = useFirestore();
 
-  const fetchData = React.useCallback(async () => {
-    if (!currentUser) return;
-    setIsLoading(true);
-    try {
-      const idToken = await currentUser.getIdToken();
-      const [subjectsResult, usersResult, classesResult] = await Promise.all([
-          secureGetDocuments<Subject>(idToken, 'subjects'),
-          secureGetDocuments<AppUser>(idToken, 'users'),
-          secureGetDocuments<Class>(idToken, 'classes')
-      ]);
+  const subjectsCollectionRef = useMemoFirebase(() => collection(firestore, 'subjects'), [firestore]);
+  const { data: subjects, isLoading: isLoadingSubjects } = useCollection<Subject>(subjectsCollectionRef);
 
-      if (subjectsResult.success && subjectsResult.data) setSubjects(subjectsResult.data);
-      else toast({ variant: 'destructive', title: 'Erreur de chargement des matières', description: subjectsResult.error });
+  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const { data: users, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
 
-      if (usersResult.success && usersResult.data) setUsers(usersResult.data);
-      else toast({ variant: 'destructive', title: 'Erreur de chargement des utilisateurs', description: usersResult.error });
-
-      if (classesResult.success && classesResult.data) setClasses(classesResult.data);
-      else toast({ variant: 'destructive', title: 'Erreur de chargement des classes', description: classesResult.error });
-    } catch(error) {
-        toast({ variant: 'destructive', title: 'Erreur d\'authentification', description: "Impossible de vérifier l'utilisateur." });
-    } finally {
-        setIsLoading(false);
-    }
-  }, [currentUser, toast]);
-
-  React.useEffect(() => {
-    if (!isUserLoading && currentUser) {
-      fetchData();
-    } else if (!isUserLoading && !currentUser) {
-        setIsLoading(false);
-    }
-  }, [currentUser, isUserLoading, fetchData]);
+  const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
+  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
   
-  const allTeachers = React.useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+  const isLoading = isLoadingSubjects || isLoadingUsers || isLoadingClasses;
+  
+  const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
 
   const handleAdd = async (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt' | 'creatorId' | 'teacherId'>) => {
       if (!currentUser) return;
-      const newSubjectData = { ...newSubject, teacherId: '', classCount: 0 };
-      const idToken = await currentUser.getIdToken();
-      const result = await secureCreateDocument(idToken, 'subjects', newSubjectData);
-
-      if (result.success) {
+      const newSubjectData = { 
+        ...newSubject,
+        teacherId: '',
+        classCount: 0,
+        creatorId: currentUser.uid,
+        createdAt: new Date().toISOString(),
+      };
+      
+      addDoc(collection(firestore, 'subjects'), newSubjectData).then(() => {
           toast({ title: 'Matière ajoutée', description: `La matière ${newSubject.name} a été créée.` });
-          await fetchData();
-      } else {
-          toast({ variant: 'destructive', title: 'Échec de la création', description: result.error });
-      }
+      }).catch(e => {
+        const permissionError = new FirestorePermissionError({
+            path: 'subjects',
+            operation: 'create',
+            requestResourceData: newSubjectData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const handleUpdate = async (updatedSubject: Subject) => {
-    if (!currentUser) return;
     const { id, ...subjectData } = updatedSubject;
-    const idToken = await currentUser.getIdToken();
-    const result = await secureUpdateDocument(idToken, 'subjects', id, subjectData);
-    if (result.success) {
-        toast({ title: 'Matière modifiée', description: `La matière ${updatedSubject.name} a été mise à jour.` });
-        await fetchData();
-    } else {
-        toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
-    }
+    const subjectDocRef = doc(firestore, 'subjects', id);
+
+    updateDoc(subjectDocRef, subjectData).then(() => {
+      toast({ title: 'Matière modifiée', description: `La matière ${updatedSubject.name} a été mise à jour.` });
+    }).catch(e => {
+      const permissionError = new FirestorePermissionError({
+          path: subjectDocRef.path,
+          operation: 'update',
+          requestResourceData: subjectData,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const handleEdit = (subject: Subject) => {
@@ -114,40 +101,44 @@ export default function AdminSubjectsPage() {
   };
   
   const handleAssignTeacherSave = async (subjectId: string, teacherId: string | undefined) => {
-    if (!selectedSubject || !currentUser) return;
-    const idToken = await currentUser.getIdToken();
-    const result = await secureUpdateDocument(idToken, 'subjects', subjectId, { teacherId: teacherId || '' });
-
-    if (result.success) {
+    if (!selectedSubject) return;
+    const subjectDocRef = doc(firestore, 'subjects', subjectId);
+    
+    updateDoc(subjectDocRef, { teacherId: teacherId || '' }).then(() => {
         toast({ title: 'Assignation réussie', description: `L'enseignant a été mis à jour.` });
-        await fetchData();
         setIsAssignTeacherDialogOpen(false);
-    } else {
-        toast({ variant: 'destructive', title: 'Erreur d\'assignation', description: result.error });
-    }
+    }).catch(e => {
+      const permissionError = new FirestorePermissionError({
+          path: subjectDocRef.path,
+          operation: 'update',
+          requestResourceData: { teacherId: teacherId || '' },
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const confirmDelete = async () => {
-    if (selectedSubject && currentUser) {
-        const idToken = await currentUser.getIdToken();
-        const result = await secureDeleteDocument(idToken, 'subjects', selectedSubject.id);
-
-        if (result.success) {
+    if (selectedSubject) {
+        const subjectDocRef = doc(firestore, 'subjects', selectedSubject.id);
+        deleteDoc(subjectDocRef).then(() => {
             toast({ variant: 'destructive', title: 'Matière supprimée', description: `La matière "${selectedSubject.name}" a été supprimée.` });
-            await fetchData();
-        } else {
-            toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
-        }
+        }).catch(e => {
+          const permissionError = new FirestorePermissionError({
+              path: subjectDocRef.path,
+              operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
 
         setIsDeleteDialogOpen(false);
         setSelectedSubject(null);
     }
   };
 
-  const getTeacherById = (id: string): AppUser | undefined => users.find(u => u.id === id);
+  const getTeacherById = (id: string): AppUser | undefined => users?.find(u => u.id === id);
 
-  const filteredSubjects = React.useMemo(() => subjects.map(subject => {
-      const assignedClassesCount = classes.filter(c => 
+  const filteredSubjects = React.useMemo(() => (subjects || []).map(subject => {
+      const assignedClassesCount = (classes || []).filter(c => 
           c.teacherIds.some(tId => tId === subject.teacherId)
       ).length;
       return { ...subject, classCount: assignedClassesCount };

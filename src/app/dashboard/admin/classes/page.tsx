@@ -16,9 +16,12 @@ import { Badge } from '@/components/ui/badge';
 import { AssignTeacherDialog } from '@/components/admin/assign-teacher-dialog';
 import { ManageStudentsDialog } from '@/components/admin/manage-students-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
-import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument, secureGetDocuments } from '@/app/actions';
+import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 export default function AdminClassesPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -29,100 +32,70 @@ export default function AdminClassesPage() {
   const [isManageStudentsDialogOpen, setIsManageStudentsDialogOpen] = React.useState(false);
   const [selectedClass, setSelectedClass] = React.useState<Class | null>(null);
   
-  const [classes, setClasses] = React.useState<Class[]>([]);
-  const [users, setUsers] = React.useState<AppUser[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  
   const { toast } = useToast();
-  const { user: currentUser, isUserLoading } = useUser();
+  const { user: currentUser } = useUser();
+  const firestore = useFirestore();
 
-  const fetchData = React.useCallback(async () => {
-    if (!currentUser) return;
-    setIsLoading(true);
+  const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
+  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
+  
+  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const { data: users, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
 
-    try {
-        const idToken = await currentUser.getIdToken();
-        const [classesResult, usersResult] = await Promise.all([
-            secureGetDocuments(idToken, 'classes'),
-            secureGetDocuments(idToken, 'users')
-        ]);
+  const isLoading = isLoadingClasses || isLoadingUsers;
 
-        if (classesResult.success && classesResult.data) {
-            setClasses(classesResult.data);
-        } else {
-            toast({ variant: 'destructive', title: 'Erreur de chargement des classes', description: classesResult.error });
-        }
-
-        if (usersResult.success && usersResult.data) {
-            setUsers(usersResult.data);
-        } else {
-            toast({ variant: 'destructive', title: 'Erreur de chargement des utilisateurs', description: usersResult.error });
-        }
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Erreur d\'authentification', description: "Impossible de vérifier l'utilisateur." });
-    } finally {
-        setIsLoading(false);
-    }
-  }, [currentUser, toast]);
-
-  React.useEffect(() => {
-    if (!isUserLoading && currentUser) {
-        fetchData();
-    } else if (!isUserLoading && !currentUser) {
-        setIsLoading(false);
-    }
-  }, [currentUser, isUserLoading, fetchData]);
-
-
-  const allTeachers = React.useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
-  const allStudents = React.useMemo(() => users.filter(u => u.role === 'student'), [users]);
+  const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
+  const allStudents = React.useMemo(() => (users || []).filter(u => u.role === 'student'), [users]);
 
   const handleAdd = async (newClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt' | 'creatorId'>) => {
-    if (!currentUser) {
-        toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté pour créer une classe.' });
-        return;
-    }
+    if (!currentUser) return;
+
     const newClassData = {
         ...newClass,
         teacherIds: [],
         studentIds: [],
+        creatorId: currentUser.uid,
+        createdAt: new Date().toISOString(),
     };
     
-    const idToken = await currentUser.getIdToken();
-    const result = await secureCreateDocument(idToken, 'classes', newClassData);
-
-    if (result.success && result.id) {
+    addDoc(collection(firestore, 'classes'), newClassData).then(() => {
         toast({ title: 'Classe ajoutée', description: `La classe ${newClass.name} a été créée.` });
-        await fetchData(); // Refresh data
-    } else {
-        toast({ variant: 'destructive', title: 'Échec de la création', description: result.error });
-    }
+    }).catch(e => {
+        const permissionError = new FirestorePermissionError({
+            path: 'classes',
+            operation: 'create',
+            requestResourceData: newClassData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const handleUpdate = async (updatedClass: Class) => {
-     if (!currentUser) return;
     const { id, ...classData } = updatedClass;
+    const classDocRef = doc(firestore, 'classes', id);
     
-    const idToken = await currentUser.getIdToken();
-    const result = await secureUpdateDocument(idToken, 'classes', id, classData);
-
-    if (result.success) {
+    updateDoc(classDocRef, classData).then(() => {
         toast({ title: 'Classe modifiée', description: `La classe ${updatedClass.name} a été mise à jour.` });
-        await fetchData(); // Refresh data
-    } else {
-        toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
-    }
+    }).catch(e => {
+        const permissionError = new FirestorePermissionError({
+            path: classDocRef.path,
+            operation: 'update',
+            requestResourceData: classData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
   
   const handleUpdatePartial = async (classId: string, data: Partial<Omit<Class, 'id'>>) => {
-     if (!currentUser) return;
-     const idToken = await currentUser.getIdToken();
-     const result = await secureUpdateDocument(idToken, 'classes', classId, data);
-     if (result.success) {
-        await fetchData(); // Refresh data
-     } else {
-        toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
-     }
+     const classDocRef = doc(firestore, 'classes', classId);
+     updateDoc(classDocRef, data).catch(e => {
+        const permissionError = new FirestorePermissionError({
+            path: classDocRef.path,
+            operation: 'update',
+            requestResourceData: data,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+     });
   };
 
   const handleEdit = (c: Class) => {
@@ -146,25 +119,25 @@ export default function AdminClassesPage() {
   };
 
   const confirmDelete = async () => {
-    if (selectedClass && currentUser) {
-        const idToken = await currentUser.getIdToken();
-        const result = await secureDeleteDocument(idToken, 'classes', selectedClass.id);
-
-        if (result.success) {
+    if (selectedClass) {
+        const classDocRef = doc(firestore, 'classes', selectedClass.id);
+        deleteDoc(classDocRef).then(() => {
             toast({ variant: 'destructive', title: 'Classe supprimée', description: `La classe "${selectedClass.name}" a été supprimée.` });
-            await fetchData(); // Refresh data
-        } else {
-            toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
-        }
-
+        }).catch(e => {
+            const permissionError = new FirestorePermissionError({
+                path: classDocRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
         setIsDeleteDialogOpen(false);
         setSelectedClass(null);
     }
   };
   
-  const getTeacherById = (id: string): AppUser | undefined => users.find(u => u.id === id);
+  const getTeacherById = (id: string): AppUser | undefined => users?.find(u => u.id === id);
 
-  const filteredClasses = React.useMemo(() => classes.filter(c =>
+  const filteredClasses = React.useMemo(() => (classes || []).filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.filiere.toLowerCase().includes(searchTerm.toLowerCase())
   ), [classes, searchTerm]);

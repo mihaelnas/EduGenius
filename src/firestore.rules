@@ -7,6 +7,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -31,31 +35,27 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
-    // --- Admin-only managed collections ---
-    // All client-side reads and writes are forbidden. They must go through secure server actions.
+    // --- Admin-managed collections ---
     match /pending_users/{pendingUserId} {
-      allow read, write: if false;
+      allow read, create, update, delete: if isAdmin();
     }
     match /users/{userId} {
-      // A user can read their own document. Admin reads go through server actions.
-      allow get: if isOwner(userId);
-      // Listing and writing is forbidden from the client.
-      allow list, write: if false; 
+      // An admin can read/list all users. A user can read their own document.
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      // Only admins can create, update, or delete users through the admin panel
+      allow create, update, delete: if isAdmin();
     }
     match /classes/{classId} {
-      // Students can read class data (e.g., for schedules, classmate lists), but cannot list all.
-      allow get: if isSignedIn();
-      // All mutations and listings must go through server actions.
-      allow list, write: if false;
+      allow get, list, create, update, delete: if isAdmin();
     }
     match /subjects/{subjectId} {
-      // Students can read subject data, but cannot list all.
-      allow get: if isSignedIn();
-       // All mutations and listings must go through server actions.
-      allow list, write: if false;
+      // Admins can manage everything. Teachers can only update/delete subjects they are assigned to.
+      allow get, list, create: if isAdmin();
+      allow update: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
+      allow delete: if (isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid) || isAdmin();
     }
-    // --- End Admin-only ---
-
+    // --- End Admin-managed ---
 
     // --- Teacher-managed collections ---
     match /courses/{courseId} {

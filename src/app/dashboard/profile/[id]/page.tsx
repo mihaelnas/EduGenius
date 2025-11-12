@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getDisplayName, Student, Teacher } from '@/lib/placeholder-data';
 import { AtSign, Cake, GraduationCap, Home, Mail, MapPin, Phone, School, User as UserIcon, Briefcase, Building, Camera, KeyRound, MailPlus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import type { AppUser } from '@/lib/placeholder-data';
 import { useParams, useRouter } from 'next/navigation';
 import { UpdatePhotoDialog } from '@/components/update-photo-dialog';
@@ -16,8 +16,10 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ChangePasswordDialog } from '@/components/profile/change-password-dialog';
 import { ChangeEmailDialog } from '@/components/profile/change-email-dialog';
-import { getUserDetails, secureUpdateDocument } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
+import { doc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string, value?: string | null }) => {
   if (!value) return null;
@@ -38,58 +40,49 @@ export default function ProfileDetailPage() {
   const userId = params.id as string;
   const { user: currentUser, isUserLoading: isAuthLoading } = useUser();
   const { toast } = useToast();
+  const firestore = useFirestore();
 
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
-  
+  const userDocRef = useMemoFirebase(() => userId ? doc(firestore, 'users', userId) : null, [firestore, userId]);
+  const { data: user, isLoading: isProfileLoading, error: profileError } = useDoc<AppUser>(userDocRef);
+
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = React.useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
   const [isChangeEmailOpen, setIsChangeEmailOpen] = React.useState(false);
 
   const isOwnProfile = currentUser?.uid === userId;
+  
+  useEffect(() => {
+    if(!isAuthLoading && !currentUser) {
+      router.push('/login');
+    }
+  }, [currentUser, isAuthLoading, router]);
 
   useEffect(() => {
-    async function fetchUser() {
-      if (!userId || !currentUser) {
-        if (!isAuthLoading && !currentUser) router.push('/login');
-        return;
+      if (profileError) {
+          toast({
+              variant: 'destructive',
+              title: 'Erreur de chargement',
+              description: "Impossible de charger le profil utilisateur ou vous n'avez pas les permissions.",
+          });
       }
-      setIsProfileLoading(true);
-      const idToken = await currentUser.getIdToken();
-      const result = await getUserDetails(idToken, userId);
-      if (result.success && result.user) {
-        setUser(result.user);
-      } else {
-        toast({
-            variant: 'destructive',
-            title: 'Erreur de chargement',
-            description: result.error || 'Impossible de charger le profil utilisateur.',
-        });
-        if (!result.user) {
-            router.push('/dashboard');
-        }
-      }
-      setIsProfileLoading(false);
-    }
-
-    if (!isAuthLoading) {
-      fetchUser();
-    }
-  }, [userId, currentUser, isAuthLoading, toast, router]);
+  }, [profileError, toast]);
   
   const handlePhotoUpdate = async (newPhotoUrl: string) => {
-    if (user && currentUser) {
-        const idToken = await currentUser.getIdToken();
-        const result = await secureUpdateDocument(idToken, 'users', user.id, { photo: newPhotoUrl });
-        if (result.success) {
-            setUser(prev => prev ? { ...prev, photo: newPhotoUrl } : null);
+    if (user) {
+        const userDocRef = doc(firestore, 'users', user.id);
+        updateDoc(userDocRef, { photo: newPhotoUrl }).then(() => {
             toast({
                 title: 'Photo de profil mise à jour',
                 description: 'Votre nouvelle photo a été enregistrée.'
             });
-        } else {
-            toast({ variant: 'destructive', title: 'Erreur', description: result.error });
-        }
+        }).catch(e => {
+            const permissionError = new FirestorePermissionError({
+                path: userDocRef.path,
+                operation: 'update',
+                requestResourceData: { photo: newPhotoUrl },
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
     }
   }
 

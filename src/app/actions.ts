@@ -1,12 +1,10 @@
-
 'use server';
 
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
-import { revalidatePath } from 'next/cache';
-import type { AppUser, Student, Admin } from '@/lib/placeholder-data';
+import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
+import type { Admin } from '@/lib/placeholder-data';
 
 const ADMIN_APP_NAME = 'firebase-admin-app-school-management';
 
@@ -16,29 +14,10 @@ function getAdminInstances(): { db: Firestore; auth: ReturnType<typeof getAuth>;
     return { db: getFirestore(existingApp), auth: getAuth(existingApp), adminApp: existingApp };
   }
 
-  const adminApp = initializeApp({
-    // ADC will be used in the Cloud environment
-  }, ADMIN_APP_NAME);
+  const adminApp = initializeApp({}, ADMIN_APP_NAME);
   
   return { db: getFirestore(adminApp), auth: getAuth(adminApp), adminApp: adminApp };
 }
-
-async function getAuthenticatedUser(idToken: string | undefined): Promise<{user: DecodedIdToken, isAdmin: boolean} | {user: null, isAdmin: boolean}> {
-    if (!idToken) {
-        return { user: null, isAdmin: false };
-    }
-    
-    const { auth } = getAdminInstances();
-    try {
-        const decodedToken = await auth.verifyIdToken(idToken);
-        const isAdmin = decodedToken.admin === true;
-        return { user: decodedToken, isAdmin };
-    } catch (error) {
-        console.log('Auth error in getAuthenticatedUser:', error);
-        return { user: null, isAdmin: false };
-    }
-}
-
 
 const ActivateAccountInputSchema = z.object({
   matricule: z.string(),
@@ -125,125 +104,4 @@ export async function activateAccount(
       console.error("activateAccount action error:", e);
       return { success: false, error: e.message || 'An unknown server error occurred.' };
     }
-}
-
-export async function getUserDetails(
-  idToken: string,
-  userIdToView: string,
-): Promise<{ success: boolean; user?: AppUser; error?: string }> {
-  const { user, isAdmin } = await getAuthenticatedUser(idToken);
-  
-  if (!user || (!isAdmin && user.uid !== userIdToView)) {
-    return { success: false, error: 'Permission denied.' };
-  }
-
-  try {
-    const { db } = getAdminInstances();
-    const userDocRef = db.collection('users').doc(userIdToView);
-    const userDoc = await userDocRef.get();
-
-    if (!userDoc.exists) {
-      return { success: false, error: 'User not found.' };
-    }
-    
-    revalidatePath(`/dashboard/profile/${userIdToView}`);
-    return { success: true, user: userDoc.data() as AppUser };
-
-  } catch (e: any) {
-    console.error("getUserDetails action error:", e);
-    return { success: false, error: e.message || 'An unknown server error occurred.' };
-  }
-}
-
-export async function secureGetDocuments<T>(
-    idToken: string | undefined,
-    path: 'users' | 'classes' | 'subjects' | 'pending_users',
-): Promise<{ success: boolean; data?: T[]; error?: string }> {
-  const { isAdmin } = await getAuthenticatedUser(idToken);
-  if (!isAdmin) {
-    return { success: false, error: 'Permission denied: User is not an admin.' };
-  }
-
-  try {
-    const { db } = getAdminInstances();
-    const snapshot = await db.collection(path).get();
-    const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as T));
-    return { success: true, data };
-  } catch (e: any) {
-    console.error(`secureGetDocuments action error for path ${path}:`, e);
-    return { success: false, error: e.message || 'An unknown server error occurred.' };
-  }
-}
-
-
-export async function secureCreateDocument(
-  idToken: string,
-  path: 'pending_users' | 'classes' | 'subjects',
-  data: any,
-): Promise<{ success: boolean; id?: string; error?: string }> {
-  const { user, isAdmin } = await getAuthenticatedUser(idToken);
-  if (!user || !isAdmin) {
-    return { success: false, error: 'Permission denied: User is not an admin.' };
-  }
-
-  try {
-    const { db } = getAdminInstances();
-    const documentData = {
-      ...data,
-      creatorId: user.uid,
-      createdAt: new Date().toISOString(),
-    };
-    const docRef = await db.collection(path).add(documentData);
-    revalidatePath(`/dashboard/admin/${path}`);
-    return { success: true, id: docRef.id };
-  } catch (e: any) {
-    console.error("secureCreateDocument action error:", e);
-    return { success: false, error: e.message || 'An unknown server error occurred.' };
-  }
-}
-
-export async function secureUpdateDocument(
-  idToken: string,
-  path: 'users' | 'classes' | 'subjects',
-  docId: string,
-  data: any,
-): Promise<{ success: boolean; error?: string }> {
-  const { isAdmin } = await getAuthenticatedUser(idToken);
-  if (!isAdmin) {
-    return { success: false, error: 'Permission denied: User is not an admin.' };
-  }
-
-  try {
-    const { db } = getAdminInstances();
-    await db.collection(path).doc(docId).update(data);
-    revalidatePath(`/dashboard/admin/${path}`);
-    if (path === 'users') {
-        revalidatePath(`/dashboard/profile/${docId}`);
-    }
-    return { success: true };
-  } catch (e: any) {
-    console.error("secureUpdateDocument action error:", e);
-    return { success: false, error: e.message || 'An unknown server error occurred.' };
-  }
-}
-
-export async function secureDeleteDocument(
-  idToken: string,
-  path: 'users' | 'classes' | 'subjects' | 'pending_users',
-  docId: string,
-): Promise<{ success: boolean; error?: string }> {
-  const { isAdmin } = await getAuthenticatedUser(idToken);
-  if (!isAdmin) {
-    return { success: false, error: 'Permission denied: User is not an admin.' };
-  }
-
-  try {
-    const { db } = getAdminInstances();
-    await db.collection(path).doc(docId).delete();
-    revalidatePath(`/dashboard/admin/${path}`);
-    return { success: true };
-  } catch (e: any) {
-    console.error("secureDeleteDocument action error:", e);
-    return { success: false, error: e.message || 'An unknown server error occurred.' };
-  }
 }

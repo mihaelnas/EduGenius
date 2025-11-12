@@ -6,22 +6,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getDisplayName, AppUser, Class, Student } from '@/lib/placeholder-data';
+import { getDisplayName, AppUser } from '@/lib/placeholder-data';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Search, ShieldAlert, KeyRound, CheckCircle } from 'lucide-react';
+import { MoreHorizontal, Search, ShieldAlert, CheckCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AddUserDialog } from '@/components/admin/add-user-dialog';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { secureCreateDocument, secureUpdateDocument, secureDeleteDocument, secureGetDocuments } from '@/app/actions';
+import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -42,99 +44,61 @@ export default function AdminUsersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedUser, setSelectedUser] = React.useState<AppUser | null>(null);
   
-  const [users, setUsers] = React.useState<AppUser[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-
   const { toast } = useToast();
-  const { user: currentUser, isUserLoading } = useUser();
+  const { user: currentUser } = useUser();
+  const firestore = useFirestore();
 
-  const fetchUsers = React.useCallback(async () => {
-      if (!currentUser) return;
-      setIsLoading(true);
-      try {
-        const idToken = await currentUser.getIdToken();
-        const result = await secureGetDocuments<AppUser>(idToken, 'users');
-        if (result.success && result.data) {
-          setUsers(result.data);
-        } else {
-          toast({ variant: 'destructive', title: 'Erreur de chargement', description: result.error });
-        }
-      } catch(error) {
-        toast({ variant: 'destructive', title: 'Erreur d\'authentification', description: "Impossible de vérifier l'utilisateur." });
-      } finally {
-        setIsLoading(false);
-      }
-  }, [currentUser, toast]);
-
-  React.useEffect(() => {
-    if (!isUserLoading && currentUser) {
-      fetchUsers();
-    } else if (!isUserLoading && !currentUser) {
-        setIsLoading(false);
-    }
-  }, [currentUser, isUserLoading, fetchUsers]);
-
+  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const { data: users, isLoading } = useCollection<AppUser>(usersCollectionRef);
 
   const handleUserAdded = async (userProfile: Omit<AppUser, 'id' | 'email' | 'username' | 'status' | 'createdAt' | 'creatorId'>) => {
-    if (!currentUser) {
-        toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté pour pré-inscrire un utilisateur.' });
-        return;
-    }
+    if (!currentUser) return;
     
     const userProfileWithStatus = {
       ...userProfile,
       status: 'inactive' as const,
+      creatorId: currentUser.uid,
+      createdAt: new Date().toISOString(),
     };
-    
-    const idToken = await currentUser.getIdToken();
-    const result = await secureCreateDocument(
-        idToken,
-        'pending_users',
-        userProfileWithStatus,
-    );
 
-    if (result.success && result.id) {
+    const pendingUsersRef = collection(firestore, 'pending_users');
+    addDoc(pendingUsersRef, userProfileWithStatus).then(() => {
         toast({
           title: 'Utilisateur pré-inscrit !',
           description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
         });
-        // Optionally refetch data here or handle state locally
-    } else {
-        toast({
-            variant: 'destructive',
-            title: "Échec de la pré-inscription",
-            description: result.error || "Une erreur est survenue.",
-            duration: 9000,
+    }).catch(e => {
+        const permissionError = new FirestorePermissionError({
+            path: pendingUsersRef.path,
+            operation: 'create',
+            requestResourceData: userProfileWithStatus,
         });
-    }
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
 
   const handleUpdate = async (updatedUser: AppUser) => {
-    if (!currentUser) return;
     const { id, ...userData } = updatedUser;
     
     if (userData.photo === '') {
       delete (userData as Partial<AppUser>).photo;
     }
     
-    const idToken = await currentUser.getIdToken();
-    const result = await secureUpdateDocument(
-      idToken,
-      'users',
-      id,
-      userData,
-    );
-    
-    if (result.success) {
-        toast({
+    const userDocRef = doc(firestore, 'users', id);
+    updateDoc(userDocRef, userData).then(() => {
+       toast({
           title: 'Utilisateur modifié',
           description: `L'utilisateur ${getDisplayName(updatedUser)} a été mis à jour.`,
         });
-        await fetchUsers();
-    } else {
-        toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
-    }
+    }).catch(e => {
+        const permissionError = new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'update',
+            requestResourceData: userData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const handleEdit = (user: AppUser) => {
@@ -148,32 +112,28 @@ export default function AdminUsersPage() {
   };
 
   const confirmDelete = async () => {
-    if (!selectedUser || !currentUser) return;
+    if (!selectedUser) return;
     
-    const userId = selectedUser.id;
-    const idToken = await currentUser.getIdToken();
-    const result = await secureDeleteDocument(
-        idToken,
-        'users',
-        userId,
-    );
-
-    if (result.success) {
+    const userDocRef = doc(firestore, 'users', selectedUser.id);
+    deleteDoc(userDocRef).then(() => {
         toast({
             variant: 'destructive',
             title: 'Utilisateur supprimé',
             description: `Le profil de ${getDisplayName(selectedUser)} a été supprimé.`,
         });
-        await fetchUsers();
-    } else {
-        toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
-    }
+    }).catch(e => {
+        const permissionError = new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
     
     setIsDeleteDialogOpen(false);
     setSelectedUser(null);
   };
   
-  const filteredUsers = React.useMemo(() => users.filter(user =>
+  const filteredUsers = React.useMemo(() => (users || []).filter(user =>
     (getDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
     (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())))
   ), [users, searchTerm]);
