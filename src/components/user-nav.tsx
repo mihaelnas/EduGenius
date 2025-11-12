@@ -20,7 +20,6 @@ import { useUser, useFirestore, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import type { AppUser } from '@/lib/placeholder-data';
 import { doc, getDoc } from 'firebase/firestore';
-import { clearSessionCookie } from '@/app/actions';
 
 export function UserNav() {
   const router = useRouter();
@@ -45,7 +44,7 @@ export function UserNav() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      await clearSessionCookie();
+      // No need to clear session cookie manually as it's not used anymore.
       router.push('/login');
     } catch (error) {
       console.error('Logout Error:', error);

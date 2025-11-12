@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -34,7 +35,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from '@/components/ui/label';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { createSessionCookie } from '@/app/actions';
 
 
 const formSchema = z.object({
@@ -117,10 +117,6 @@ export default function LoginPage() {
           await signOut(auth);
           return;
         }
-
-        // Create the session cookie before redirecting
-        const idToken = await user.getIdToken();
-        await createSessionCookie(idToken);
         
         router.push('/dashboard');
 

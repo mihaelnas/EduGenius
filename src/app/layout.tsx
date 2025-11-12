@@ -21,44 +21,43 @@ export default function RootLayout({
   const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    // Set initial status
+    // This effect runs only on the client
     if (typeof window !== 'undefined') {
       setIsOnline(navigator.onLine);
+
+      const handleOnline = () => {
+        dismiss('offline-toast');
+        toast({
+          title: 'De retour en ligne',
+          description: 'La connexion à Internet a été rétablie.',
+        });
+        setIsOnline(true);
+      };
+
+      const handleOffline = () => {
+        toast({
+          id: 'offline-toast',
+          variant: 'destructive',
+          title: 'Vous êtes hors ligne',
+          description: 'Vérifiez votre connexion Internet. Certaines fonctionnalités pourraient être indisponibles.',
+          duration: Infinity,
+        });
+        setIsOnline(false);
+      };
+
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
     }
-    
-    const handleOnline = () => {
-      dismiss('offline-toast');
-      toast({
-        title: 'De retour en ligne',
-        description: 'La connexion à Internet a été rétablie.',
-      });
-      setIsOnline(true);
-    };
-
-    const handleOffline = () => {
-      toast({
-        id: 'offline-toast',
-        variant: 'destructive',
-        title: 'Vous êtes hors ligne',
-        description: 'Vérifiez votre connexion Internet. Certaines fonctionnalités pourraient être indisponibles.',
-        duration: Infinity, // Keep it visible until online again
-      });
-      setIsOnline(false);
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
   }, [toast, dismiss]);
 
   return (
     <html lang="fr" className="dark" suppressHydrationWarning>
        <head>
-        {/* We can place static meta tags here */}
         <title>EduGenius</title>
         <meta name="description" content="La plateforme éducative du futur." />
       </head>

@@ -33,45 +33,53 @@ export default function AdminSubjectsPage() {
   const [isLoading, setIsLoading] = React.useState(true);
 
   const { toast } = useToast();
-  const { user: currentUser } = useUser();
+  const { user: currentUser, isUserLoading } = useUser();
 
-  React.useEffect(() => {
-    async function fetchData() {
-        if (!currentUser) return;
-        setIsLoading(true);
-        const [subjectsResult, usersResult, classesResult] = await Promise.all([
-            secureGetDocuments<Subject>('subjects'),
-            secureGetDocuments<AppUser>('users'),
-            secureGetDocuments<Class>('classes')
-        ]);
+  const fetchData = React.useCallback(async () => {
+    if (!currentUser) return;
+    setIsLoading(true);
+    try {
+      const idToken = await currentUser.getIdToken();
+      const [subjectsResult, usersResult, classesResult] = await Promise.all([
+          secureGetDocuments<Subject>(idToken, 'subjects'),
+          secureGetDocuments<AppUser>(idToken, 'users'),
+          secureGetDocuments<Class>(idToken, 'classes')
+      ]);
 
-        if (subjectsResult.success && subjectsResult.data) setSubjects(subjectsResult.data);
-        else toast({ variant: 'destructive', title: 'Erreur de chargement des matières', description: subjectsResult.error });
+      if (subjectsResult.success && subjectsResult.data) setSubjects(subjectsResult.data);
+      else toast({ variant: 'destructive', title: 'Erreur de chargement des matières', description: subjectsResult.error });
 
-        if (usersResult.success && usersResult.data) setUsers(usersResult.data);
-        else toast({ variant: 'destructive', title: 'Erreur de chargement des utilisateurs', description: usersResult.error });
+      if (usersResult.success && usersResult.data) setUsers(usersResult.data);
+      else toast({ variant: 'destructive', title: 'Erreur de chargement des utilisateurs', description: usersResult.error });
 
-        if (classesResult.success && classesResult.data) setClasses(classesResult.data);
-        else toast({ variant: 'destructive', title: 'Erreur de chargement des classes', description: classesResult.error });
-
+      if (classesResult.success && classesResult.data) setClasses(classesResult.data);
+      else toast({ variant: 'destructive', title: 'Erreur de chargement des classes', description: classesResult.error });
+    } catch(error) {
+        toast({ variant: 'destructive', title: 'Erreur d\'authentification', description: "Impossible de vérifier l'utilisateur." });
+    } finally {
         setIsLoading(false);
     }
-
-    if (currentUser) {
-        fetchData();
-    }
   }, [currentUser, toast]);
+
+  React.useEffect(() => {
+    if (!isUserLoading && currentUser) {
+      fetchData();
+    } else if (!isUserLoading && !currentUser) {
+        setIsLoading(false);
+    }
+  }, [currentUser, isUserLoading, fetchData]);
   
   const allTeachers = React.useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
 
   const handleAdd = async (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt' | 'creatorId' | 'teacherId'>) => {
       if (!currentUser) return;
       const newSubjectData = { ...newSubject, teacherId: '', classCount: 0 };
-      const result = await secureCreateDocument('subjects', newSubjectData);
+      const idToken = await currentUser.getIdToken();
+      const result = await secureCreateDocument(idToken, 'subjects', newSubjectData);
 
-      if (result.success && result.id) {
+      if (result.success) {
           toast({ title: 'Matière ajoutée', description: `La matière ${newSubject.name} a été créée.` });
-          setSubjects(prev => [...prev, { ...newSubjectData, id: result.id!, createdAt: new Date().toISOString(), creatorId: currentUser.uid }]);
+          await fetchData();
       } else {
           toast({ variant: 'destructive', title: 'Échec de la création', description: result.error });
       }
@@ -80,10 +88,11 @@ export default function AdminSubjectsPage() {
   const handleUpdate = async (updatedSubject: Subject) => {
     if (!currentUser) return;
     const { id, ...subjectData } = updatedSubject;
-    const result = await secureUpdateDocument('subjects', id, subjectData);
+    const idToken = await currentUser.getIdToken();
+    const result = await secureUpdateDocument(idToken, 'subjects', id, subjectData);
     if (result.success) {
         toast({ title: 'Matière modifiée', description: `La matière ${updatedSubject.name} a été mise à jour.` });
-        setSubjects(prev => prev.map(s => s.id === id ? { ...s, ...subjectData } : s));
+        await fetchData();
     } else {
         toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
     }
@@ -106,11 +115,12 @@ export default function AdminSubjectsPage() {
   
   const handleAssignTeacherSave = async (subjectId: string, teacherId: string | undefined) => {
     if (!selectedSubject || !currentUser) return;
-    const result = await secureUpdateDocument('subjects', subjectId, { teacherId: teacherId || '' });
+    const idToken = await currentUser.getIdToken();
+    const result = await secureUpdateDocument(idToken, 'subjects', subjectId, { teacherId: teacherId || '' });
 
     if (result.success) {
         toast({ title: 'Assignation réussie', description: `L'enseignant a été mis à jour.` });
-        setSubjects(prev => prev.map(s => s.id === subjectId ? { ...s, teacherId: teacherId || '' } : s));
+        await fetchData();
         setIsAssignTeacherDialogOpen(false);
     } else {
         toast({ variant: 'destructive', title: 'Erreur d\'assignation', description: result.error });
@@ -119,11 +129,12 @@ export default function AdminSubjectsPage() {
 
   const confirmDelete = async () => {
     if (selectedSubject && currentUser) {
-        const result = await secureDeleteDocument('subjects', selectedSubject.id);
+        const idToken = await currentUser.getIdToken();
+        const result = await secureDeleteDocument(idToken, 'subjects', selectedSubject.id);
 
         if (result.success) {
             toast({ variant: 'destructive', title: 'Matière supprimée', description: `La matière "${selectedSubject.name}" a été supprimée.` });
-            setSubjects(prev => prev.filter(s => s.id !== selectedSubject.id));
+            await fetchData();
         } else {
             toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
         }

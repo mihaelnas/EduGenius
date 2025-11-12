@@ -34,15 +34,17 @@ export default function AdminClassesPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   
   const { toast } = useToast();
-  const { user: currentUser } = useUser();
+  const { user: currentUser, isUserLoading } = useUser();
 
-  React.useEffect(() => {
-    async function fetchData() {
-        if (!currentUser) return;
-        setIsLoading(true);
+  const fetchData = React.useCallback(async () => {
+    if (!currentUser) return;
+    setIsLoading(true);
+
+    try {
+        const idToken = await currentUser.getIdToken();
         const [classesResult, usersResult] = await Promise.all([
-            secureGetDocuments<Class>('classes'),
-            secureGetDocuments<AppUser>('users')
+            secureGetDocuments(idToken, 'classes'),
+            secureGetDocuments(idToken, 'users')
         ]);
 
         if (classesResult.success && classesResult.data) {
@@ -56,13 +58,20 @@ export default function AdminClassesPage() {
         } else {
             toast({ variant: 'destructive', title: 'Erreur de chargement des utilisateurs', description: usersResult.error });
         }
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Erreur d\'authentification', description: "Impossible de vérifier l'utilisateur." });
+    } finally {
         setIsLoading(false);
     }
-
-    if (currentUser) {
-        fetchData();
-    }
   }, [currentUser, toast]);
+
+  React.useEffect(() => {
+    if (!isUserLoading && currentUser) {
+        fetchData();
+    } else if (!isUserLoading && !currentUser) {
+        setIsLoading(false);
+    }
+  }, [currentUser, isUserLoading, fetchData]);
 
 
   const allTeachers = React.useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
@@ -79,11 +88,12 @@ export default function AdminClassesPage() {
         studentIds: [],
     };
     
-    const result = await secureCreateDocument('classes', newClassData);
+    const idToken = await currentUser.getIdToken();
+    const result = await secureCreateDocument(idToken, 'classes', newClassData);
 
     if (result.success && result.id) {
         toast({ title: 'Classe ajoutée', description: `La classe ${newClass.name} a été créée.` });
-        setClasses(prev => [...prev, { ...newClassData, id: result.id!, createdAt: new Date().toISOString(), creatorId: currentUser.uid }]);
+        await fetchData(); // Refresh data
     } else {
         toast({ variant: 'destructive', title: 'Échec de la création', description: result.error });
     }
@@ -93,11 +103,12 @@ export default function AdminClassesPage() {
      if (!currentUser) return;
     const { id, ...classData } = updatedClass;
     
-    const result = await secureUpdateDocument('classes', id, classData);
+    const idToken = await currentUser.getIdToken();
+    const result = await secureUpdateDocument(idToken, 'classes', id, classData);
 
     if (result.success) {
         toast({ title: 'Classe modifiée', description: `La classe ${updatedClass.name} a été mise à jour.` });
-        setClasses(prev => prev.map(c => c.id === id ? { ...c, ...classData } : c));
+        await fetchData(); // Refresh data
     } else {
         toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
     }
@@ -105,9 +116,10 @@ export default function AdminClassesPage() {
   
   const handleUpdatePartial = async (classId: string, data: Partial<Omit<Class, 'id'>>) => {
      if (!currentUser) return;
-     const result = await secureUpdateDocument('classes', classId, data);
+     const idToken = await currentUser.getIdToken();
+     const result = await secureUpdateDocument(idToken, 'classes', classId, data);
      if (result.success) {
-        setClasses(prev => prev.map(c => c.id === classId ? { ...c, ...data } : c));
+        await fetchData(); // Refresh data
      } else {
         toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
      }
@@ -135,12 +147,12 @@ export default function AdminClassesPage() {
 
   const confirmDelete = async () => {
     if (selectedClass && currentUser) {
-        // Complex logic like deleting related documents should be a single server action
-        const result = await secureDeleteDocument('classes', selectedClass.id);
+        const idToken = await currentUser.getIdToken();
+        const result = await secureDeleteDocument(idToken, 'classes', selectedClass.id);
 
         if (result.success) {
             toast({ variant: 'destructive', title: 'Classe supprimée', description: `La classe "${selectedClass.name}" a été supprimée.` });
-            setClasses(prev => prev.filter(c => c.id !== selectedClass.id));
+            await fetchData(); // Refresh data
         } else {
             toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
         }

@@ -50,11 +50,13 @@ export default function ProfileDetailPage() {
 
   useEffect(() => {
     async function fetchUser() {
-      if (!userId) {
+      if (!userId || !currentUser) {
+        if (!isAuthLoading && !currentUser) router.push('/login');
         return;
       }
       setIsProfileLoading(true);
-      const result = await getUserDetails(userId);
+      const idToken = await currentUser.getIdToken();
+      const result = await getUserDetails(idToken, userId);
       if (result.success && result.user) {
         setUser(result.user);
       } else {
@@ -70,14 +72,15 @@ export default function ProfileDetailPage() {
       setIsProfileLoading(false);
     }
 
-    if (!isAuthLoading) { // No need to check for currentUser, action does it.
+    if (!isAuthLoading) {
       fetchUser();
     }
-  }, [userId, isAuthLoading, toast, router]);
+  }, [userId, currentUser, isAuthLoading, toast, router]);
   
   const handlePhotoUpdate = async (newPhotoUrl: string) => {
-    if (user) {
-        const result = await secureUpdateDocument('users', user.id, { photo: newPhotoUrl });
+    if (user && currentUser) {
+        const idToken = await currentUser.getIdToken();
+        const result = await secureUpdateDocument(idToken, 'users', user.id, { photo: newPhotoUrl });
         if (result.success) {
             setUser(prev => prev ? { ...prev, photo: newPhotoUrl } : null);
             toast({

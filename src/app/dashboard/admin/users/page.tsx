@@ -46,25 +46,33 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = React.useState(true);
 
   const { toast } = useToast();
-  const { user: currentUser } = useUser();
+  const { user: currentUser, isUserLoading } = useUser();
 
-  React.useEffect(() => {
-    async function fetchUsers() {
+  const fetchUsers = React.useCallback(async () => {
       if (!currentUser) return;
       setIsLoading(true);
-      const result = await secureGetDocuments<AppUser>('users');
-      if (result.success && result.data) {
-        setUsers(result.data);
-      } else {
-        toast({ variant: 'destructive', title: 'Erreur de chargement', description: result.error });
+      try {
+        const idToken = await currentUser.getIdToken();
+        const result = await secureGetDocuments<AppUser>(idToken, 'users');
+        if (result.success && result.data) {
+          setUsers(result.data);
+        } else {
+          toast({ variant: 'destructive', title: 'Erreur de chargement', description: result.error });
+        }
+      } catch(error) {
+        toast({ variant: 'destructive', title: 'Erreur d\'authentification', description: "Impossible de vérifier l'utilisateur." });
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }
-
-    if (currentUser) {
-      fetchUsers();
-    }
   }, [currentUser, toast]);
+
+  React.useEffect(() => {
+    if (!isUserLoading && currentUser) {
+      fetchUsers();
+    } else if (!isUserLoading && !currentUser) {
+        setIsLoading(false);
+    }
+  }, [currentUser, isUserLoading, fetchUsers]);
 
 
   const handleUserAdded = async (userProfile: Omit<AppUser, 'id' | 'email' | 'username' | 'status' | 'createdAt' | 'creatorId'>) => {
@@ -78,7 +86,9 @@ export default function AdminUsersPage() {
       status: 'inactive' as const,
     };
     
+    const idToken = await currentUser.getIdToken();
     const result = await secureCreateDocument(
+        idToken,
         'pending_users',
         userProfileWithStatus,
     );
@@ -107,8 +117,10 @@ export default function AdminUsersPage() {
     if (userData.photo === '') {
       delete (userData as Partial<AppUser>).photo;
     }
-
+    
+    const idToken = await currentUser.getIdToken();
     const result = await secureUpdateDocument(
+      idToken,
       'users',
       id,
       userData,
@@ -119,7 +131,7 @@ export default function AdminUsersPage() {
           title: 'Utilisateur modifié',
           description: `L'utilisateur ${getDisplayName(updatedUser)} a été mis à jour.`,
         });
-        setUsers(prev => prev.map(u => u.id === id ? { ...u, ...userData } : u));
+        await fetchUsers();
     } else {
         toast({ variant: 'destructive', title: 'Erreur de mise à jour', description: result.error });
     }
@@ -139,8 +151,9 @@ export default function AdminUsersPage() {
     if (!selectedUser || !currentUser) return;
     
     const userId = selectedUser.id;
-
+    const idToken = await currentUser.getIdToken();
     const result = await secureDeleteDocument(
+        idToken,
         'users',
         userId,
     );
@@ -151,7 +164,7 @@ export default function AdminUsersPage() {
             title: 'Utilisateur supprimé',
             description: `Le profil de ${getDisplayName(selectedUser)} a été supprimé.`,
         });
-        setUsers(prev => prev.filter(u => u.id !== userId));
+        await fetchUsers();
     } else {
         toast({ variant: 'destructive', title: 'Erreur de suppression', description: result.error });
     }
