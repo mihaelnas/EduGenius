@@ -63,6 +63,7 @@ export async function activateAccount(
           // Correctly set the custom claim to { admin: true }
           await adminAuth.setCustomUserClaims(input.newAuthUserId, { admin: true, role: 'admin' });
           await db.collection('users').doc(input.newAuthUserId).set(newAdminProfile);
+          // THIS IS THE CRITICAL FIX: return immediately after handling the admin case.
           return { success: true, userProfile: newAdminProfile };
       }
 

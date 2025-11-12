@@ -36,24 +36,29 @@ service cloud.firestore {
       return isSignedIn() && resource != null && resource.data.teacherId == request.auth.uid;
     }
 
+    // --- Admin-only collections ---
     match /pending_users/{pendingUserId} {
       allow read, create, update, delete: if isAdmin();
+    }
+    
+    match /classes/{classId} {
+      // Admins can do anything
+      allow read, list, create, update, delete: if isAdmin();
+    }
+    
+    match /subjects/{subjectId} {
+      // Admins can do anything
+      allow read, list, create, update, delete: if isAdmin();
     }
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isSignedIn(); // Initial creation by user is allowed, then secured by activateAccount
+      // Allow creation for self-activation, role is secured by server-side action
+      allow create: if isSignedIn();
+      // Allow update for own profile if not changing role, or if admin
       allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
       allow delete: if isAdmin();
-    }
-    
-    match /classes/{classId} {
-      allow get, list, create, update, delete: if isAdmin();
-    }
-
-    match /subjects/{subjectId} {
-      allow get, list, create, update, delete: if isAdmin();
     }
     
     match /courses/{courseId} {
@@ -61,14 +66,6 @@ service cloud.firestore {
       allow get, list: if isSignedIn();
       // Admins and assigned teachers can create/edit/delete
       allow create, update, delete: if isAdmin() || isTeacherForCourse() || isExistingTeacherForCourse();
-    }
-    
-     match /class_students/{classStudentId} {
-      allow get, list, create, update, delete: if isAdmin();
-    }
-
-    match /class_teachers/{classTeacherId} {
-      allow get, list, create, update, delete: if isAdmin();
     }
 
     match /schedule/{eventId} {
