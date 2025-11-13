@@ -26,29 +26,29 @@ type AssignSubjectTeacherDialogProps = {
     setIsOpen: (isOpen: boolean) => void;
     subject: Subject;
     allTeachers: AppUser[];
-    onAssign: (subjectId: string, teacherId: string | undefined) => void;
+    onAssign: (subjectId: number, teacherId: number | undefined) => void;
 }
 
 export function AssignSubjectTeacherDialog({ isOpen, setIsOpen, subject, allTeachers, onAssign }: AssignSubjectTeacherDialogProps) {
-  const [selectedTeacherId, setSelectedTeacherId] = React.useState<string | undefined>(subject.teacherId);
+  const [selectedTeacherId, setSelectedTeacherId] = React.useState<number | undefined>(subject.id_enseignant);
   
   React.useEffect(() => {
-    setSelectedTeacherId(subject.teacherId);
+    setSelectedTeacherId(subject.id_enseignant);
   }, [subject]);
 
   const handleSave = () => {
-    onAssign(subject.id, selectedTeacherId);
+    onAssign(subject.id_matiere, selectedTeacherId);
   }
   
   const handleRemove = () => {
-    onAssign(subject.id, undefined);
+    onAssign(subject.id_matiere, undefined);
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assigner un enseignant à "{subject.name}"</DialogTitle>
+          <DialogTitle>Assigner un enseignant à "{subject.nom_matiere}"</DialogTitle>
           <DialogDescription>
             Sélectionnez un enseignant dans la liste pour l'assigner à cette matière.
           </DialogDescription>
@@ -56,25 +56,30 @@ export function AssignSubjectTeacherDialog({ isOpen, setIsOpen, subject, allTeac
         <div className="grid gap-4 py-4">
             <div className="grid gap-2">
                 <Label htmlFor="teacher-select">Enseignant</Label>
-                <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId}>
+                <Select value={selectedTeacherId?.toString()} onValueChange={(value) => setSelectedTeacherId(Number(value))}>
                     <SelectTrigger id="teacher-select">
                         <SelectValue placeholder="Sélectionner un enseignant" />
                     </SelectTrigger>
                     <SelectContent>
                     {allTeachers.map(teacher => (
-                        <SelectItem key={teacher.id} value={teacher.id}>{getDisplayName(teacher)}</SelectItem>
+                        <SelectItem key={teacher.id} value={teacher.id.toString()}>{getDisplayName(teacher)}</SelectItem>
                     ))}
                     </SelectContent>
                 </Select>
             </div>
         </div>
-        <DialogFooter>
-          {subject.teacherId && (
-            <Button type="button" variant="destructive" onClick={handleRemove}>
-                Retirer l'enseignant
-            </Button>
-          )}
-          <Button type="button" onClick={handleSave}>Sauvegarder</Button>
+        <DialogFooter className="justify-between">
+            <div>
+              {subject.id_enseignant && (
+                <Button type="button" variant="destructive" onClick={handleRemove}>
+                    Retirer l'enseignant
+                </Button>
+              )}
+            </div>
+            <div className='flex gap-2'>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
+              <Button type="button" onClick={handleSave}>Sauvegarder</Button>
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

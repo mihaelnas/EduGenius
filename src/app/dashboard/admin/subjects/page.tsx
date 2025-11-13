@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getDisplayName, AppUser, Subject, Class } from '@/lib/placeholder-data';
+import { getDisplayName, AppUser, Subject } from '@/lib/placeholder-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Search } from 'lucide-react';
 import Image from 'next/image';
@@ -16,9 +16,12 @@ import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation
 import { AssignSubjectTeacherDialog } from '@/components/admin/assign-subject-teacher-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-
+import { apiFetch } from '@/lib/api';
 
 export default function AdminSubjectsPage() {
+  const [subjects, setSubjects] = React.useState<Subject[]>([]);
+  const [allTeachers, setAllTeachers] = React.useState<AppUser[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
@@ -28,24 +31,57 @@ export default function AdminSubjectsPage() {
 
   const { toast } = useToast();
 
-  // Data fetching logic is removed. Replace with calls to your new backend.
-  const subjects: Subject[] = [];
-  const users: AppUser[] = [];
-  const classes: Class[] = [];
-  const isLoading = false;
-  
-  const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
+  const fetchData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [subjectsData, teachersData] = await Promise.all([
+        apiFetch('/admin/matieres'),
+        apiFetch('/admin/professeurs'),
+      ]);
+      setSubjects(subjectsData || []);
+      setAllTeachers(teachersData || []);
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur de chargement',
+        description: error.message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
-  const handleAdd = async (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt' | 'creatorId' | 'teacherId'>) => {
-      // API call to your backend
-      console.log("Adding subject:", newSubject);
-      toast({ title: 'Matière ajoutée (Simulation)', description: `La matière ${newSubject.name} a été créée.` });
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleAdd = async (newSubject: Omit<Subject, 'id_matiere' | 'enseignant'>) => {
+    try {
+      await apiFetch('/admin/matieres/ajouter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSubject),
+      });
+      toast({ title: 'Matière ajoutée', description: `La matière ${newSubject.nom_matiere} a été créée.` });
+      fetchData();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    }
   };
 
-  const handleUpdate = async (updatedSubject: Subject) => {
-    // API call to your backend
-    console.log("Updating subject:", updatedSubject);
-    toast({ title: 'Matière modifiée (Simulation)', description: `La matière ${updatedSubject.name} a été mise à jour.` });
+  const handleUpdate = async (updatedSubjectData: Omit<Subject, 'id_matiere' | 'enseignant'>) => {
+    if (!selectedSubject) return;
+    try {
+      await apiFetch(`/admin/matieres/${selectedSubject.id_matiere}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSubjectData),
+      });
+      toast({ title: 'Matière modifiée', description: `La matière ${updatedSubjectData.nom_matiere} a été mise à jour.` });
+      fetchData();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    }
   };
 
   const handleEdit = (subject: Subject) => {
@@ -63,34 +99,42 @@ export default function AdminSubjectsPage() {
     setIsAssignTeacherDialogOpen(true);
   };
   
-  const handleAssignTeacherSave = async (subjectId: string, teacherId: string | undefined) => {
+  const handleAssignTeacherSave = async (subjectId: number, teacherId: number | undefined) => {
     if (!selectedSubject) return;
-    // API call to your backend
-    console.log("Assigning teacher:", teacherId, "to subject:", subjectId);
-    toast({ title: 'Assignation réussie (Simulation)', description: `L'enseignant a été mis à jour.` });
-    setIsAssignTeacherDialogOpen(false);
+    const currentTeacherId = selectedSubject.id_enseignant;
+
+    try {
+        if (teacherId && teacherId !== currentTeacherId) {
+            await apiFetch(`/admin/matieres/assigner_enseignant/${subjectId}/${teacherId}`, { method: 'POST' });
+        } else if (!teacherId && currentTeacherId) {
+            await apiFetch(`/admin/matieres/retirer_enseignant/${subjectId}/${currentTeacherId}`, { method: 'DELETE' });
+        }
+        toast({ title: 'Assignation réussie', description: `L'enseignant pour la matière a été mis à jour.` });
+        fetchData();
+    } catch(error: any) {
+        toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    } finally {
+        setIsAssignTeacherDialogOpen(false);
+    }
   };
 
   const confirmDelete = async () => {
     if (selectedSubject) {
-        // API call to your backend
-        console.log("Deleting subject:", selectedSubject.id);
-        toast({ variant: 'destructive', title: 'Matière supprimée (Simulation)', description: `La matière "${selectedSubject.name}" a été supprimée.` });
+        try {
+            await apiFetch(`/admin/matieres/${selectedSubject.id_matiere}`, { method: 'DELETE' });
+            toast({ variant: 'destructive', title: 'Matière supprimée', description: `La matière "${selectedSubject.nom_matiere}" a été supprimée.` });
+            fetchData();
+        } catch(error: any) {
+            toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+        }
         setIsDeleteDialogOpen(false);
         setSelectedSubject(null);
     }
   };
 
-  const getTeacherById = (id: string): AppUser | undefined => users?.find(u => u.id === id);
-
-  const filteredSubjects = React.useMemo(() => (subjects || []).map(subject => {
-      const assignedClassesCount = (classes || []).filter(c => 
-          c.teacherIds.some(tId => tId === subject.teacherId)
-      ).length;
-      return { ...subject, classCount: assignedClassesCount };
-  }).filter(subject =>
-    subject.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ), [subjects, classes, searchTerm]);
+  const filteredSubjects = React.useMemo(() => subjects.filter(subject =>
+    subject.nom_matiere.toLowerCase().includes(searchTerm.toLowerCase())
+  ), [subjects, searchTerm]);
 
   return (
     <>
@@ -115,6 +159,7 @@ export default function AdminSubjectsPage() {
                     isOpen={isAddDialogOpen}
                     setIsOpen={setIsAddDialogOpen}
                     onSubjectAdded={handleAdd}
+                    allTeachers={allTeachers}
                   />
               </div>
           </div>
@@ -127,7 +172,6 @@ export default function AdminSubjectsPage() {
                 <TableHead>Crédits</TableHead>
                 <TableHead>Semestre</TableHead>
                 <TableHead>Enseignant assigné</TableHead>
-                <TableHead>Classes</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -141,29 +185,27 @@ export default function AdminSubjectsPage() {
                     <TableCell><Skeleton className="h-6 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-10" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
               ) : filteredSubjects.length > 0 ? (
                 filteredSubjects.map((subject) => {
-                  const teacher = subject.teacherId ? getTeacherById(subject.teacherId) : undefined;
+                  const teacher = subject.enseignant;
                   return (
-                  <TableRow key={subject.id}>
+                  <TableRow key={subject.id_matiere}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-3">
-                        {subject.photo ? (
-                            <Image src={subject.photo} alt={subject.name} width={40} height={40} className="rounded-sm object-cover" />
+                        {subject.photo_url ? (
+                            <Image src={subject.photo_url} alt={subject.nom_matiere} width={40} height={40} className="rounded-sm object-cover" />
                         ) : (
                             <div className="w-10 h-10 rounded-sm bg-muted flex items-center justify-center text-muted-foreground text-xs">IMG</div>
                         )}
-                        <span>{subject.name}</span>
+                        <span>{subject.nom_matiere}</span>
                       </div>
                     </TableCell>
                     <TableCell>{subject.credit}</TableCell>
                     <TableCell>{subject.semestre}</TableCell>
                     <TableCell>{teacher ? getDisplayName(teacher) : 'Non assigné'}</TableCell>
-                    <TableCell>{subject.classCount}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -184,7 +226,7 @@ export default function AdminSubjectsPage() {
                 )})
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={5} className="h-24 text-center">
                     Aucune matière trouvée.
                   </TableCell>
                 </TableRow>
@@ -198,9 +240,7 @@ export default function AdminSubjectsPage() {
           isOpen={isEditDialogOpen}
           setIsOpen={setIsEditDialogOpen}
           subject={selectedSubject}
-          onSubjectUpdated={async (updatedData) => {
-            await handleUpdate({ ...selectedSubject, ...updatedData });
-          }}
+          onSubjectUpdated={handleUpdate}
         />
       )}
        {selectedSubject && (
@@ -216,7 +256,7 @@ export default function AdminSubjectsPage() {
         isOpen={isDeleteDialogOpen}
         setIsOpen={setIsDeleteDialogOpen}
         onConfirm={confirmDelete}
-        itemName={selectedSubject?.name}
+        itemName={selectedSubject?.nom_matiere}
         itemType="la matière"
       />
     </>

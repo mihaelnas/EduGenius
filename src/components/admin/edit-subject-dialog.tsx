@@ -29,16 +29,16 @@ import {
 import { Subject } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
 import React from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 const semestres = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10'] as const;
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: 'Le nom de la matière est requis.' }),
+  nom_matiere: z.string().min(1, { message: 'Le nom de la matière est requis.' }),
   credit: z.coerce.number().min(1, { message: 'Les crédits sont requis.' }),
-  semestre: z.enum(semestres),
-  photo: z.string().url({ message: 'Veuillez entrer une URL valide pour la photo.' }).optional().or(z.literal('')),
+  semestre: z.enum(semestres, { required_error: "Le semestre est requis." }),
+  photo_url: z.string().url({ message: 'Veuillez entrer une URL valide pour la photo.' }).optional().or(z.literal('')),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -47,44 +47,43 @@ type EditSubjectDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     subject: Subject;
-    onSubjectUpdated: (updatedSubject: FormValues) => void;
+    onSubjectUpdated: (updatedSubject: FormValues) => Promise<void>;
 }
 
 export function EditSubjectDialog({ isOpen, setIsOpen, subject, onSubjectUpdated }: EditSubjectDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: subject,
   });
 
   React.useEffect(() => {
-    if (isOpen) {
-      form.reset(subject);
+    if (subject && isOpen) {
+      form.reset({
+        nom_matiere: subject.nom_matiere,
+        credit: subject.credit,
+        semestre: subject.semestre,
+        photo_url: subject.photo_url || '',
+      });
     }
   }, [subject, form, isOpen]);
 
   async function onSubmit(values: FormValues) {
     const finalValues = {
         ...values,
-        name: values.name.toUpperCase(),
+        nom_matiere: values.nom_matiere.toUpperCase(),
     };
-
-    // TODO: Add API call to check for uniqueness before submitting if name changed
-    
-    onSubjectUpdated(finalValues);
+    await onSubjectUpdated(finalValues);
     setIsOpen(false);
   }
 
   const handleOpenChange = (open: boolean) => {
+    if (form.formState.isSubmitting) return;
     setIsOpen(open);
-    if (!open) {
-      form.reset(subject);
-    }
   }
 
   const handleNameBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value) {
-      form.setValue('name', value.toUpperCase(), { shouldValidate: true });
+      form.setValue('nom_matiere', value.toUpperCase(), { shouldValidate: true });
     }
   };
 
@@ -101,7 +100,7 @@ export function EditSubjectDialog({ isOpen, setIsOpen, subject, onSubjectUpdated
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
             <FormField
               control={form.control}
-              name="name"
+              name="nom_matiere"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nom de la matière</FormLabel>
@@ -132,10 +131,10 @@ export function EditSubjectDialog({ isOpen, setIsOpen, subject, onSubjectUpdated
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Semestre</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                             <SelectTrigger>
-                                <SelectValue placeholder="Sélectionner un semestre" />
+                                <SelectValue placeholder="Sélectionner..." />
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -149,7 +148,7 @@ export function EditSubjectDialog({ isOpen, setIsOpen, subject, onSubjectUpdated
             </div>
             <FormField
               control={form.control}
-              name="photo"
+              name="photo_url"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>URL de la photo (Optionnel)</FormLabel>
@@ -162,7 +161,9 @@ export function EditSubjectDialog({ isOpen, setIsOpen, subject, onSubjectUpdated
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
-              <Button type="submit">Sauvegarder</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Sauvegarde...' : 'Sauvegarder'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

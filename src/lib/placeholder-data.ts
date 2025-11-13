@@ -1,4 +1,5 @@
 
+
 // A REMPLACER PAR LES VRAIS SCHEMAS DE L'API
 
 // Ce fichier contient des types qui devraient correspondre à vos schémas Pydantic.
@@ -69,17 +70,15 @@ export type Class = {
   enseignants: AppUser[]; // FastAPI renverra probablement les objets enseignants
 };
 
-// Correspond au schéma Subject de placeholder, à adapter à FastAPI
+// Correspond au schéma MatiereResponse de FastAPI
 export type Subject = {
-  id: string;
-  name: string;
+  id_matiere: number;
+  nom_matiere: string;
   credit: number;
   semestre: 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7' | 'S8' | 'S9' | 'S10';
-  photo?: string;
-  teacherId?: string;
-  classCount: number;
-  createdAt: string;
-  creatorId?: string;
+  photo_url?: string;
+  id_enseignant?: number;
+  enseignant?: AppUser; // L'objet enseignant complet
 };
 
 // Correspond au schéma Resource de placeholder, à adapter à FastAPI

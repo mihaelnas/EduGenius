@@ -32,14 +32,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { PlusCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { AppUser, getDisplayName } from '@/lib/placeholder-data';
 
 const semestres = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10'] as const;
 
 const formSchema = z.object({
-  name: z.string().min(1, { message: 'Le nom de la matière est requis.' }),
+  nom_matiere: z.string().min(1, { message: 'Le nom de la matière est requis.' }),
   credit: z.coerce.number().min(1, { message: 'Les crédits sont requis.' }),
-  semestre: z.enum(semestres),
-  photo: z.string().url({ message: 'Veuillez entrer une URL valide pour la photo.' }).optional().or(z.literal('')),
+  semestre: z.enum(semestres, { required_error: "Le semestre est requis." }),
+  photo_url: z.string().url({ message: 'Veuillez entrer une URL valide pour la photo.' }).optional().or(z.literal('')),
+  id_enseignant: z.coerce.number().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -47,28 +49,27 @@ type FormValues = z.infer<typeof formSchema>;
 type AddSubjectDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onSubjectAdded: (newSubject: Omit<FormValues, 'teacherId'>) => void;
+    onSubjectAdded: (newSubject: FormValues) => Promise<void>;
+    allTeachers: AppUser[];
 }
 
-export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubjectDialogProps) {
+export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded, allTeachers }: AddSubjectDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
+      nom_matiere: '',
       credit: 1,
-      photo: '',
+      photo_url: '',
     },
   });
 
   async function onSubmit(values: FormValues) {
     const finalValues = {
         ...values,
-        name: values.name.toUpperCase(),
+        nom_matiere: values.nom_matiere.toUpperCase(),
     };
-    // TODO: Add API call to check for uniqueness before submitting
-    onSubjectAdded(finalValues);
+    await onSubjectAdded(finalValues);
     setIsOpen(false);
-    form.reset();
   }
 
   const handleOpenChange = (open: boolean) => {
@@ -81,7 +82,7 @@ export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubje
   const handleNameBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value) {
-      form.setValue('name', value.toUpperCase(), { shouldValidate: true });
+      form.setValue('nom_matiere', value.toUpperCase(), { shouldValidate: true });
     }
   };
 
@@ -93,7 +94,7 @@ export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubje
           Ajouter une matière
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Ajouter une nouvelle matière</DialogTitle>
           <DialogDescription>
@@ -104,7 +105,7 @@ export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubje
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
             <FormField
               control={form.control}
-              name="name"
+              name="nom_matiere"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nom de la matière</FormLabel>
@@ -138,7 +139,7 @@ export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubje
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                             <SelectTrigger>
-                                <SelectValue placeholder="Sélectionner un semestre" />
+                                <SelectValue placeholder="Sélectionner..." />
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -150,9 +151,31 @@ export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubje
                     )}
                 />
             </div>
+             <FormField
+                control={form.control}
+                name="id_enseignant"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Enseignant (Optionnel)</FormLabel>
+                    <Select onValueChange={(value) => field.onChange(Number(value))} defaultValue={field.value?.toString()}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner un enseignant" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {allTeachers.map(teacher => (
+                              <SelectItem key={teacher.id} value={teacher.id.toString()}>{getDisplayName(teacher)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
             <FormField
               control={form.control}
-              name="photo"
+              name="photo_url"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>URL de la photo (Optionnel)</FormLabel>
@@ -165,7 +188,9 @@ export function AddSubjectDialog({ isOpen, setIsOpen, onSubjectAdded }: AddSubje
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
-              <Button type="submit">Créer la matière</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Création...' : 'Créer la matière'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
