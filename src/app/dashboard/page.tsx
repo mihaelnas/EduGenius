@@ -5,24 +5,55 @@ import React from 'react';
 import { AdminDashboard } from '@/components/dashboards/admin-dashboard';
 import { TeacherDashboard } from '@/components/dashboards/teacher-dashboard';
 import { StudentDashboard } from '@/components/dashboards/student-dashboard';
-import type { AppUser, Class, Subject, Course } from '@/lib/placeholder-data';
+import type { AppUser, Class, Subject } from '@/lib/placeholder-data';
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-
+import { apiFetch } from '@/lib/api';
 
 export default function DashboardPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
 
+  const [adminData, setAdminData] = React.useState<{users: AppUser[], classes: Class[], subjects: Subject[]} | null>(null);
+  const [isDataLoading, setIsDataLoading] = React.useState(true);
+
   React.useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isAuthLoading && !user) {
       router.push('/login');
     }
-  }, [isLoading, user, router]);
+    
+    if (user?.role === 'admin') {
+      const fetchAdminData = async () => {
+        setIsDataLoading(true);
+        try {
+          const [students, teachers, classes, subjects] = await Promise.all([
+            apiFetch('/admin/etudiants'),
+            apiFetch('/admin/professeurs'),
+            apiFetch('/admin/classes'),
+            apiFetch('/admin/matieres'),
+          ]);
+          setAdminData({
+            users: [...(students || []), ...(teachers || [])],
+            classes: classes || [],
+            subjects: subjects || [],
+          });
+        } catch (error) {
+          console.error("Failed to fetch admin dashboard data", error);
+          // Gérer l'erreur, peut-être avec un toast
+        } finally {
+          setIsDataLoading(false);
+        }
+      };
+      fetchAdminData();
+    } else {
+        // Pour les autres rôles, nous n'avons pas besoin de charger des données supplémentaires ici pour l'instant
+        setIsDataLoading(false);
+    }
+  }, [isAuthLoading, user, router]);
 
-  if (isLoading || !user) {
+  if (isAuthLoading || isDataLoading || !user) {
     return (
         <div className="space-y-4">
             <Skeleton className="h-8 w-1/2" />
@@ -42,29 +73,34 @@ export default function DashboardPage() {
   }
 
   const renderDashboard = () => {
-    // Les données ici sont statiques pour l'instant.
-    // Vous devrez les remplacer par des appels à votre API FastAPI.
     switch (user.role) {
       case 'admin':
-        return <AdminDashboard userName={user.firstName} users={[]} classes={[]} subjects={[]} />;
-      case 'teacher':
+        return <AdminDashboard 
+                    userName={user.prenom} 
+                    users={adminData?.users || []} 
+                    classes={adminData?.classes || []} 
+                    subjects={adminData?.subjects || []} 
+                />;
+      case 'enseignant':
+        // Pour l'instant, les données sont statiques. Il faudra les charger comme pour l'admin.
         return <TeacherDashboard 
-            userName={user.firstName} 
+            userName={user.prenom} 
             classes={[]}
             subjects={[]}
             schedule={[]}
         />;
-      case 'student':
+      case 'etudiant':
+         // Pour l'instant, les données sont statiques.
         return <StudentDashboard 
-            userName={user.firstName}
+            userName={user.prenom}
             studentClass={null}
             subjects={[]}
             recentCourses={[]}
             getSubjectName={() => 'Matière Inconnue'}
         />;
       default:
-        // Redirige au cas où le rôle serait invalide
-        logout();
+        // Au cas où le rôle serait invalide
+        router.push('/login');
         return null;
     }
   };
