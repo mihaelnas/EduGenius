@@ -5,16 +5,23 @@ import React, { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getDisplayName, Student, Teacher, AppUser } from '@/lib/placeholder-data';
+import { getDisplayName, AppUser, EtudiantDetail, EnseignantDetail } from '@/lib/placeholder-data';
 import { AtSign, Cake, GraduationCap, Home, Mail, MapPin, Phone, School, User as UserIcon, Briefcase, Building, Camera, KeyRound, MailPlus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useParams } from 'next/navigation';
+import { useParams, notFound } from 'next/navigation';
 import { UpdatePhotoDialog } from '@/components/update-photo-dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ChangePasswordDialog } from '@/components/profile/change-password-dialog';
 import { ChangeEmailDialog } from '@/components/profile/change-email-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
+import { useAuth } from '@/contexts/auth-context';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+
+type UserProfile = AppUser & (EtudiantDetail | EnseignantDetail | {});
+
 
 const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string, value?: string | null }) => {
   if (!value) return null;
@@ -34,38 +41,50 @@ export default function ProfileDetailPage() {
   const userId = params.id as string;
   const { toast } = useToast();
   
-  // These would come from your auth context
-  const currentUserId = '1'; // Hardcoded current user ID for demo
-  const isOwnProfile = currentUserId === userId;
+  const { user: currentUser } = useAuth();
+  const isOwnProfile = currentUser?.id.toString() === userId;
 
-  const [user, setUser] = useState<AppUser | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Replace with your API call to fetch user profile
-    setIsLoading(true);
-    // Simulating API fetch
-    setTimeout(() => {
-        // Example: in a real app, you would fetch from `/api/users/${userId}`
-        // For now, we'll use some dummy data.
-        const dummyUser: AppUser = {
-            id: userId,
-            firstName: 'Jean',
-            lastName: 'DUPONT',
-            email: 'jean.dupont@example.com',
-            username: '@jeandupont',
-            role: 'student',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            matricule: 'E123456',
-            niveau: 'L3',
-            filiere: 'IG',
-            groupe: 1
-        };
-        setUser(dummyUser);
+    async function fetchUserData() {
+      if (!userId) return;
+      setIsLoading(true);
+
+      try {
+        // Cette première requête est juste pour connaître le rôle de l'utilisateur
+        // Une meilleure approche serait d'avoir une route unique `/admin/user/{id}` qui renvoie tout
+        const allUsers = [...(await apiFetch('/admin/professeurs')), ...(await apiFetch('/admin/etudiants'))];
+        const basicUserInfo = allUsers.find((u: AppUser) => u.id.toString() === userId);
+
+        if (!basicUserInfo) {
+          throw new Error("Utilisateur non trouvé.");
+        }
+        
+        let detailedInfo: EtudiantDetail | EnseignantDetail | {} = {};
+        if (basicUserInfo.role === 'etudiant') {
+          detailedInfo = await apiFetch(`/admin/etudiant/${userId}`);
+        } else if (basicUserInfo.role === 'enseignant') {
+          detailedInfo = await apiFetch(`/admin/professeur/${userId}`);
+        }
+
+        setUser({ ...basicUserInfo, ...detailedInfo });
+
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Erreur de chargement",
+          description: error.message
+        });
+        setUser(null); // Force l'affichage du message "non trouvé"
+      } finally {
         setIsLoading(false);
-    }, 1000);
-  }, [userId]);
+      }
+    }
+
+    fetchUserData();
+  }, [userId, toast]);
 
 
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = React.useState(false);
@@ -74,7 +93,8 @@ export default function ProfileDetailPage() {
 
   const handlePhotoUpdate = async (newPhotoUrl: string) => {
     if (user) {
-        // API call to update photo
+        // TODO: API call to update photo
+        // This should be part of the general user update endpoint
         console.log("Updating photo to:", newPhotoUrl);
         toast({
             title: 'Photo de profil mise à jour (Simulation)',
@@ -85,7 +105,7 @@ export default function ProfileDetailPage() {
 
   if (isLoading) {
     return (
-        <>
+        <div className="max-w-4xl mx-auto">
             <div className="flex items-center space-x-4 mb-8">
                 <Skeleton className="h-24 w-24 rounded-full" />
                 <div className="space-y-2">
@@ -103,20 +123,17 @@ export default function ProfileDetailPage() {
                     <Skeleton className="h-10 w-full" />
                 </CardContent>
             </Card>
-        </>
+        </div>
     );
   }
 
   if (!user) {
     return <p className="text-center text-muted-foreground">Profil non trouvé.</p>;
   }
-
-  const student = user.role === 'student' ? user as Student : null;
-  const teacher = user.role === 'teacher' ? user as Teacher : null;
-
+  
   const roleName = {
-    student: 'Étudiant',
-    teacher: 'Enseignant',
+    etudiant: 'Étudiant',
+    enseignant: 'Enseignant',
     admin: 'Administrateur',
   }[user.role];
 
@@ -126,9 +143,9 @@ export default function ProfileDetailPage() {
       <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
         <div className="relative group">
             <Avatar className="h-24 w-24 border-4 border-primary">
-            <AvatarImage src={user.photo} alt={getDisplayName(user)} />
+            <AvatarImage src={user.photo_url} alt={getDisplayName(user)} />
             <AvatarFallback className="text-3xl">
-                {(user.firstName || '').charAt(0)}{(user.lastName || '').charAt(0)}
+                {(user.prenom || '').charAt(0)}{(user.nom || '').charAt(0)}
             </AvatarFallback>
             </Avatar>
             {isOwnProfile && (
@@ -144,9 +161,11 @@ export default function ProfileDetailPage() {
           <h1 className="text-4xl font-bold font-headline">{getDisplayName(user)}</h1>
           <div className="flex items-center gap-2 mt-1">
              <Badge>{roleName}</Badge>
-             <Badge variant={user.status === 'active' ? 'default' : 'secondary'} className={user.status === 'active' ? 'bg-green-600' : 'bg-gray-400'}>
-                {user.status === 'active' ? 'Actif' : 'Inactif'}
-            </Badge>
+             {user.statut && (
+                <Badge variant={user.statut === 'actif' ? 'default' : 'secondary'} className={user.statut === 'actif' ? 'bg-green-600' : 'bg-gray-400'}>
+                    {user.statut === 'actif' ? 'Actif' : 'Inactif'}
+                </Badge>
+             )}
           </div>
         </div>
       </div>
@@ -157,7 +176,7 @@ export default function ProfileDetailPage() {
         </CardHeader>
         <CardContent className="grid md:grid-cols-2 gap-x-8 gap-y-6">
             <InfoRow icon={<Mail className="h-5 w-5"/>} label="Email de connexion" value={user.email} />
-            <InfoRow icon={<AtSign className="h-5 w-5"/>} label="Nom d'utilisateur" value={user.username} />
+            <InfoRow icon={<AtSign className="h-5 w-5"/>} label="Nom d'utilisateur" value={user.nom_utilisateur} />
             <InfoRow icon={<Phone className="h-5 w-5"/>} label="Téléphone" value={user.telephone} />
             <InfoRow icon={<Home className="h-5 w-5"/>} label="Adresse" value={user.adresse} />
             <InfoRow icon={<UserIcon className="h-5 w-5"/>} label="Genre" value={user.genre} />
@@ -179,29 +198,29 @@ export default function ProfileDetailPage() {
         )}
       </Card>
 
-      {student && (
+      {user.role === 'etudiant' && (
         <Card className="mt-6">
             <CardHeader>
                 <CardTitle className="font-headline flex items-center gap-2"><GraduationCap/> Informations Académiques</CardTitle>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-x-8 gap-y-6">
-                <InfoRow icon={<UserIcon className="h-5 w-5"/>} label="Matricule" value={student.matricule} />
-                <InfoRow icon={<Cake className="h-5 w-5"/>} label="Date de Naissance" value={student.dateDeNaissance} />
-                <InfoRow icon={<MapPin className="h-5 w-5"/>} label="Lieu de Naissance" value={student.lieuDeNaissance} />
-                <InfoRow icon={<School className="h-5 w-5"/>} label="Filière" value={student.filiere} />
-                <InfoRow icon={<Building className="h-5 w-5"/>} label="Niveau" value={student.niveau} />
+                <InfoRow icon={<UserIcon className="h-5 w-5"/>} label="Matricule" value={user.matricule} />
+                <InfoRow icon={<Cake className="h-5 w-5"/>} label="Date de Naissance" value={user.date_naissance ? format(new Date(user.date_naissance), 'd MMMM yyyy', { locale: fr }) : undefined} />
+                <InfoRow icon={<MapPin className="h-5 w-5"/>} label="Lieu de Naissance" value={user.lieu_naissance} />
+                <InfoRow icon={<School className="h-5 w-5"/>} label="Filière" value={user.filiere} />
+                <InfoRow icon={<Building className="h-5 w-5"/>} label="Niveau" value={(user as EtudiantDetail).niveau_etude} />
             </CardContent>
         </Card>
       )}
 
-      {teacher && (
+      {user.role === 'enseignant' && (
         <Card className="mt-6">
             <CardHeader>
                 <CardTitle className="font-headline flex items-center gap-2"><Briefcase/> Informations Professionnelles</CardTitle>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-x-8 gap-y-6">
-                <InfoRow icon={<Mail className="h-5 w-5"/>} label="Email Professionnel" value={teacher.emailPro} />
-                <InfoRow icon={<GraduationCap className="h-5 w-5"/>} label="Spécialité" value={teacher.specialite} />
+                <InfoRow icon={<Mail className="h-5 w-5"/>} label="Email Professionnel" value={user.email_professionnel} />
+                <InfoRow icon={<GraduationCap className="h-5 w-5"/>} label="Spécialité" value={user.specialite} />
             </CardContent>
         </Card>
       )}
@@ -212,7 +231,7 @@ export default function ProfileDetailPage() {
             <UpdatePhotoDialog 
                 isOpen={isPhotoDialogOpen}
                 setIsOpen={setIsPhotoDialogOpen}
-                currentPhotoUrl={user.photo}
+                currentPhotoUrl={user.photo_url}
                 onUpdate={handlePhotoUpdate}
             />
             {isOwnProfile && (

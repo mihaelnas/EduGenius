@@ -14,13 +14,48 @@ export type AppUser = {
   role: 'admin' | 'enseignant' | 'etudiant';
   statut: 'actif' | 'inactif';
   cree_a: string;
-  // Les champs spécifiques peuvent être ajoutés ici ou gérés dans des types étendus
-  // si on fait un appel à une route de détails comme /etudiant/{id}
+  photo_url?: string;
+  // Champs optionnels qui peuvent être présents dans des vues détaillées
   specialite?: string;
+  email_professionnel?: string;
   matricule?: string;
+  date_naissance?: string;
+  lieu_naissance?: string;
+  genre?: string;
+  adresse?: string;
+  telephone?: string;
+  niveau?: string;
+  filiere?: string;
 };
 
+// Schéma pour la mise à jour d'un utilisateur
 export type UserForUpdate = Partial<Omit<AppUser, 'id' | 'cree_a'>>;
+
+// Détails spécifiques à un étudiant
+export type EtudiantDetail = {
+  id_etudiant: number;
+  matricule: string;
+  date_naissance: string;
+  lieu_naissance: string;
+  genre: string;
+  adresse: string;
+  niveau_etude: string;
+  telephone: string;
+  filiere: string;
+  photo_url?: string;
+  id_classe?: number;
+};
+
+// Détails spécifiques à un enseignant
+export type EnseignantDetail = {
+  id_enseignant: number;
+  specialite: string;
+  email_professionnel: string;
+  genre: string;
+  telephone: string;
+  adresse: string;
+  photo_url?: string;
+};
 
 
 // Correspond au schéma ClasseResponse de FastAPI

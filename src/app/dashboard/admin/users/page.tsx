@@ -297,8 +297,8 @@ export default function AdminUsersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <ViewDetailsButton userId={user.id.toString()} />
                           <DropdownMenuItem onClick={() => handleEdit(user)}>Modifier</DropdownMenuItem>
-                          {/* <ViewDetailsButton userId={user.id} /> */}
                           <DropdownMenuItem 
                             className="text-destructive" 
                             onClick={() => handleDelete(user)}
