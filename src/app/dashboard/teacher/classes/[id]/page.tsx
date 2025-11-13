@@ -3,36 +3,54 @@
 
 import { ArrowLeft, Mail, Phone } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, notFound } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getDisplayName, Student, AppUser, Class } from '@/lib/placeholder-data';
+import { getDisplayName, AppUser, Class } from '@/lib/placeholder-data';
 import React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { apiFetch } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 export default function TeacherClassDetailPage() {
   const params = useParams();
   const classId = params.id as string;
+  const { toast } = useToast();
   
-  // Data fetching logic is removed. Replace with calls to your new backend.
   const [currentClass, setCurrentClass] = React.useState<Class | null>(null);
-  const [studentsInClass, setStudentsInClass] = React.useState<Student[]>([]);
+  const [studentsInClass, setStudentsInClass] = React.useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-      // TODO: Fetch class details and students from your API
-      // e.g., fetch(`/api/teacher/classes/${classId}`)
-      setIsLoading(true);
-      setTimeout(() => {
-          // Dummy data for demonstration
-          // setCurrentClass({ id: classId, name: "L3-IG-G1", ... });
-          // setStudentsInClass([...]);
-          setIsLoading(false);
-      }, 1000);
-  }, [classId]);
+    if (!classId) return;
+
+    const fetchClassDetails = async () => {
+        setIsLoading(true);
+        try {
+            // On récupère les détails de la classe et la liste des étudiants en parallèle
+            const [classData, studentsData] = await Promise.all([
+                apiFetch(`/enseignant/classe/${classId}`),
+                apiFetch(`/enseignant/etudiants/${classId}`)
+            ]);
+            setCurrentClass(classData);
+            setStudentsInClass(studentsData || []);
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Erreur de chargement',
+                description: "Impossible de charger les détails de la classe."
+            })
+            setCurrentClass(null); // Force l'affichage du message "non trouvé"
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    fetchClassDetails();
+  }, [classId, toast]);
 
   if (isLoading) {
     return (
@@ -75,7 +93,7 @@ export default function TeacherClassDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center">
         <p className="text-2xl font-bold">Classe non trouvée</p>
-        <p className="text-muted-foreground">La classe que vous recherchez n'existe pas.</p>
+        <p className="text-muted-foreground">La classe que vous recherchez n'existe pas ou vous n'y avez pas accès.</p>
         <Button asChild className="mt-4">
             <Link href="/dashboard/teacher/classes">
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -100,13 +118,14 @@ export default function TeacherClassDetailPage() {
         <div className="md:col-span-3">
             <Card>
                 <CardHeader>
-                <CardTitle className="font-headline text-2xl">{currentClass.name}</CardTitle>
+                <CardTitle className="font-headline text-2xl">{currentClass.nom_classe}</CardTitle>
                 <CardDescription>
-                    {currentClass.filiere} - {currentClass.niveau} | Année Scolaire: {currentClass.anneeScolaire}
+                    {currentClass.filiere} - {currentClass.niveau} | Année Scolaire: {currentClass.annee_scolaire}
                 </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <h3 className="font-semibold text-lg mb-4">Liste des Étudiants ({studentsInClass.length})</h3>
+                    <div className="border rounded-md">
                     <Table>
                         <TableHeader>
                         <TableRow>
@@ -122,12 +141,12 @@ export default function TeacherClassDetailPage() {
                             <TableCell className="font-medium">
                                 <div className="flex items-center gap-3">
                                 <Avatar className="h-9 w-9">
-                                    <AvatarImage src={student.photo} alt={getDisplayName(student)} />
-                                    <AvatarFallback>{(student.firstName || '').charAt(0)}{(student.lastName || '').charAt(0)}</AvatarFallback>
+                                    <AvatarImage src={student.photo_url} alt={getDisplayName(student)} />
+                                    <AvatarFallback>{(student.prenom || '').charAt(0)}{(student.nom || '').charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div className="grid gap-0.5">
                                     <span className="font-semibold">{getDisplayName(student)}</span>
-                                    <span className="text-xs text-muted-foreground">{student.username}</span>
+                                    <span className="text-xs text-muted-foreground">{student.nom_utilisateur}</span>
                                 </div>
                                 </div>
                             </TableCell>
@@ -153,6 +172,7 @@ export default function TeacherClassDetailPage() {
                         ))}
                         </TableBody>
                     </Table>
+                    </div>
                      {studentsInClass.length === 0 && (
                         <p className="text-center text-muted-foreground py-8">Aucun étudiant n'est inscrit dans cette classe pour le moment.</p>
                     )}

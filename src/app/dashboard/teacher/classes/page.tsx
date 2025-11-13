@@ -8,22 +8,33 @@ import { Users, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import type { Class } from '@/lib/placeholder-data';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
 export default function TeacherClassesPage() {
-
-  // Data fetching logic is removed. Replace with calls to your new backend.
   const [teacherClasses, setTeacherClasses] = React.useState<Class[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const { toast } = useToast();
 
   React.useEffect(() => {
-    // TODO: Fetch teacher's classes from your API
-    setIsLoading(true);
-    setTimeout(() => {
-        // Dummy data for demonstration
-        // setTeacherClasses([...]);
+    const fetchClasses = async () => {
+      setIsLoading(true);
+      try {
+        // On suppose une route qui renvoie les classes de l'enseignant connecté
+        const data = await apiFetch('/enseignant/classes');
+        setTeacherClasses(data || []);
+      } catch (error: any) {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur de chargement',
+          description: error.message,
+        });
+      } finally {
         setIsLoading(false);
-    }, 1000);
-  }, []);
+      }
+    };
+    fetchClasses();
+  }, [toast]);
 
   return (
     <>
@@ -50,20 +61,20 @@ export default function TeacherClassesPage() {
       ) : teacherClasses && teacherClasses.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {teacherClasses.map((c) => (
-            <Card key={c.id} className="flex flex-col">
+            <Card key={c.id_classe} className="flex flex-col">
               <CardHeader>
-                <CardTitle className="font-headline">{c.name}</CardTitle>
-                <CardDescription>Année Scolaire {c.anneeScolaire}</CardDescription>
+                <CardTitle className="font-headline">{c.nom_classe}</CardTitle>
+                <CardDescription>Année Scolaire {c.annee_scolaire}</CardDescription>
               </CardHeader>
               <CardContent className="flex-grow">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
-                  <span>{c.studentIds.length} étudiant(s)</span>
+                  <span>{c.effectif} étudiant(s)</span>
                 </div>
               </CardContent>
               <div className="p-6 pt-0">
                   <Button asChild className="w-full">
-                      <Link href={`/dashboard/teacher/classes/${c.id}`}>Voir la classe <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                      <Link href={`/dashboard/teacher/classes/${c.id_classe}`}>Voir la classe <ArrowRight className="ml-2 h-4 w-4" /></Link>
                   </Button>
               </div>
             </Card>
