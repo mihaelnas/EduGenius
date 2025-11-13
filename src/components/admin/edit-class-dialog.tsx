@@ -26,17 +26,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Class } from '@/lib/placeholder-data';
+import { AppUser, Class } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
 import React from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 const formSchema = z.object({
+  nom_classe: z.string().min(1, "Le nom de la classe est requis."),
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2'], { required_error: "Le niveau est requis." }),
   filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC'], { required_error: "La filière est requise." }),
-  groupe: z.coerce.number().min(1, { message: "Le groupe est requis."}),
-  anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
+  annee_scolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
+  effectif: z.coerce.number().min(0),
+  id_enseignant: z.array(z.number())
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -45,7 +47,8 @@ type EditClassDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     classData: Class;
-    onClassUpdated: (updatedClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt'>) => Promise<void>;
+    allTeachers: AppUser[];
+    onClassUpdated: (updatedClass: any) => Promise<void>;
 }
 
 export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }: EditClassDialogProps) {
@@ -53,30 +56,24 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
     resolver: zodResolver(formSchema),
   });
 
-  const { niveau, filiere, groupe } = useWatch({ control: form.control });
-  const className = React.useMemo(() => {
-    if (niveau && filiere && groupe > 0) {
-        return `${niveau}-${filiere}-G${groupe}`.toUpperCase();
-    }
-    return '';
-  }, [niveau, filiere, groupe]);
-
-
   React.useEffect(() => {
     if (classData) {
       form.reset({
+        nom_classe: classData.nom_classe,
         niveau: classData.niveau,
         filiere: classData.filiere,
-        groupe: classData.groupe,
-        anneeScolaire: classData.anneeScolaire,
+        annee_scolaire: classData.annee_scolaire,
+        effectif: classData.effectif,
+        id_enseignant: classData.enseignants.map(e => e.id)
       });
     }
   }, [classData, form]);
 
   async function onSubmit(values: FormValues) {
-     if (!className) return;
-    // TODO: Add API call to check for uniqueness before submitting
-    await onClassUpdated({ name: className, ...values });
+    await onClassUpdated({
+      ...values,
+      enseignants: values.id_enseignant.map(id => ({ id })) // API might need full object, adjust if needed
+    });
     setIsOpen(false);
   }
   
@@ -95,7 +92,20 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
-             <div className="grid grid-cols-2 gap-4">
+             <FormField
+              control={form.control}
+              name="nom_classe"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nom de la classe</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
                 name="niveau"
@@ -141,28 +151,10 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
                 )}
                 />
             </div>
-             <FormField
-                control={form.control}
-                name="groupe"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Groupe</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="1" placeholder="Ex: 1" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-             <FormItem>
-                <FormLabel>Nom de la classe (généré)</FormLabel>
-                <FormControl>
-                    <Input value={className} disabled placeholder="Ex: L1-IG-G1" />
-                </FormControl>
-             </FormItem>
+             
              <FormField
               control={form.control}
-              name="anneeScolaire"
+              name="annee_scolaire"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Année Scolaire</FormLabel>
@@ -175,7 +167,7 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting || !className}>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? "Sauvegarde..." : "Sauvegarder"}
               </Button>
             </DialogFooter>

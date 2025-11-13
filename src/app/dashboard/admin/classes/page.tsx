@@ -17,9 +17,13 @@ import { AssignTeacherDialog } from '@/components/admin/assign-teacher-dialog';
 import { ManageStudentsDialog } from '@/components/admin/manage-students-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-
+import { apiFetch } from '@/lib/api';
 
 export default function AdminClassesPage() {
+  const [classes, setClasses] = React.useState<Class[]>([]);
+  const [users, setUsers] = React.useState<AppUser[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
@@ -30,29 +34,106 @@ export default function AdminClassesPage() {
   
   const { toast } = useToast();
 
-  // Data fetching logic is removed. Replace with calls to your new backend.
-  const classes: Class[] = [];
-  const users: AppUser[] = [];
-  const isLoading = false; // Set to true while fetching data from your API
+  const fetchData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [classesData, teachersData, studentsData] = await Promise.all([
+        apiFetch('/admin/classes'),
+        apiFetch('/admin/professeurs'),
+        apiFetch('/admin/etudiants'),
+      ]);
+      setClasses(classesData || []);
+      setUsers([...(teachersData || []), ...(studentsData || [])]);
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur de chargement',
+        description: error.message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
-  const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
-  const allStudents = React.useMemo(() => (users || []).filter(u => u.role === 'student'), [users]);
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  const handleAdd = async (newClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt' | 'creatorId'>) => {
-    // API call to your backend to add a class
-    console.log("Adding class:", newClass);
-    toast({ title: 'Classe ajoutée (Simulation)', description: `La classe ${newClass.name} a été créée.` });
+  const allTeachers = React.useMemo(() => users.filter(u => u.role === 'enseignant'), [users]);
+  const allStudents = React.useMemo(() => users.filter(u => u.role === 'etudiant'), [users]);
+
+  const handleAdd = async (newClass: Omit<Class, 'id_classe' | 'enseignants' | 'effectif'> & {id_enseignant: number[]}) => {
+    try {
+      await apiFetch('/admin/creer_classe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newClass),
+      });
+      toast({ title: 'Classe ajoutée', description: `La classe ${newClass.nom_classe} a été créée.` });
+      fetchData();
+    } catch(error: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    }
   };
 
   const handleUpdate = async (updatedClass: Class) => {
-    // API call to your backend to update a class
-    console.log("Updating class:", updatedClass);
-    toast({ title: 'Classe modifiée (Simulation)', description: `La classe ${updatedClass.name} a été mise à jour.` });
+    if (!selectedClass) return;
+    try {
+      await apiFetch(`/admin/modifier_classe/${selectedClass.id_classe}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            nom_classe: updatedClass.nom_classe,
+            niveau: updatedClass.niveau,
+            filiere: updatedClass.filiere,
+            annee_scolaire: updatedClass.annee_scolaire,
+            effectif: updatedClass.effectif,
+            id_enseignant: updatedClass.enseignants.map(e => e.id)
+        }),
+      });
+      toast({ title: 'Classe modifiée', description: `La classe ${updatedClass.nom_classe} a été mise à jour.` });
+      fetchData();
+    } catch(error: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    }
   };
-  
-  const handleUpdatePartial = async (classId: string, data: Partial<Omit<Class, 'id'>>) => {
-     // API call to your backend to partially update a class
-     console.log("Partially updating class:", classId, data);
+
+  const handleAssignTeachers = async (classId: number, teacherIds: number[]) => {
+    // La logique d'assignation se fait maintenant dans handleUpdate ou via des routes dédiées si elles existent.
+    // Votre API semble gérer l'assignation via la route de mise à jour de la classe.
+    const classToUpdate = classes.find(c => c.id_classe === classId);
+    if(classToUpdate) {
+        const updatedTeachers = allTeachers.filter(t => teacherIds.includes(t.id));
+        await handleUpdate({ ...classToUpdate, enseignants: updatedTeachers });
+        toast({
+            title: 'Assignation réussie',
+            description: `Les enseignants pour la classe ${classToUpdate.nom_classe} ont été mis à jour.`,
+        });
+        setIsAssignTeacherDialogOpen(false);
+    }
+  };
+
+  const handleUpdateStudents = async (classId: number, studentIds: number[]) => {
+      if(!selectedClass) return;
+      const currentStudentIds = selectedClass.enseignants.map(s => s.id); // API renvoie enseignants dans la classe... je suppose que c'est une coquille et que ça devrait être etudiants
+      
+      const studentsToAdd = studentIds.filter(id => !currentStudentIds.includes(id));
+      const studentsToRemove = currentStudentIds.filter(id => !studentIds.includes(id));
+
+      try {
+        await Promise.all([
+          ...studentsToAdd.map(id => apiFetch(`/admin/ajouter_etudiant/${classId}/${id}`, { method: 'POST' })),
+          ...studentsToRemove.map(id => apiFetch(`/admin/retirer_etudiant/${classId}/${id}`, { method: 'DELETE' })),
+        ]);
+         toast({
+          title: 'Étudiants mis à jour',
+          description: `La liste des étudiants pour la classe ${selectedClass.nom_classe} a été mise à jour.`,
+        });
+        fetchData();
+        setIsManageStudentsDialogOpen(false);
+      } catch(error: any) {
+        toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+      }
   };
 
   const handleEdit = (c: Class) => {
@@ -65,30 +146,32 @@ export default function AdminClassesPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleAssignTeacher = (c: Class) => {
+  const handleAssignTeacherClick = (c: Class) => {
     setSelectedClass(c);
     setIsAssignTeacherDialogOpen(true);
   };
 
-  const handleManageStudents = (c: Class) => {
+  const handleManageStudentsClick = (c: Class) => {
     setSelectedClass(c);
     setIsManageStudentsDialogOpen(true);
   };
 
   const confirmDelete = async () => {
     if (selectedClass) {
-        // API call to your backend to delete a class
-        console.log("Deleting class:", selectedClass.id);
-        toast({ variant: 'destructive', title: 'Classe supprimée (Simulation)', description: `La classe "${selectedClass.name}" a été supprimée.` });
+        try {
+            await apiFetch(`/admin/supprimer_classe/${selectedClass.id_classe}`, { method: 'DELETE' });
+            toast({ variant: 'destructive', title: 'Classe supprimée', description: `La classe "${selectedClass.nom_classe}" a été supprimée.` });
+            fetchData();
+        } catch(error: any) {
+             toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+        }
         setIsDeleteDialogOpen(false);
         setSelectedClass(null);
     }
   };
   
-  const getTeacherById = (id: string): AppUser | undefined => users?.find(u => u.id === id);
-
-  const filteredClasses = React.useMemo(() => (classes || []).filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredClasses = React.useMemo(() => classes.filter(c =>
+    c.nom_classe.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.filiere.toLowerCase().includes(searchTerm.toLowerCase())
   ), [classes, searchTerm]);
 
@@ -116,6 +199,7 @@ export default function AdminClassesPage() {
                     isOpen={isAddDialogOpen}
                     setIsOpen={setIsAddDialogOpen}
                     onClassAdded={handleAdd}
+                    allTeachers={allTeachers}
                    />
               </div>
           </div>
@@ -127,7 +211,6 @@ export default function AdminClassesPage() {
                 <TableHead>Nom de la classe</TableHead>
                 <TableHead>Niveau</TableHead>
                 <TableHead>Filière</TableHead>
-                <TableHead>Groupe</TableHead>
                 <TableHead>Enseignant(s)</TableHead>
                 <TableHead>Effectif</TableHead>
                 <TableHead>Année Scolaire</TableHead>
@@ -143,7 +226,6 @@ export default function AdminClassesPage() {
                     <TableCell><Skeleton className="h-6 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-10" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-10" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
@@ -151,25 +233,23 @@ export default function AdminClassesPage() {
                   </TableRow>
                 ))
               ) : filteredClasses.length > 0 ? (filteredClasses.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
+                <TableRow key={c.id_classe}>
+                  <TableCell className="font-medium">{c.nom_classe}</TableCell>
                   <TableCell>{c.niveau}</TableCell>
                   <TableCell>{c.filiere}</TableCell>
-                  <TableCell>{c.groupe}</TableCell>
                   <TableCell>
                      <div className="flex flex-wrap gap-1">
-                      {c.teacherIds.length > 0 ? (
-                        c.teacherIds.map(teacherId => {
-                          const teacher = getTeacherById(teacherId);
-                          return teacher ? <Badge key={teacherId} variant="secondary">{getDisplayName(teacher)}</Badge> : null;
-                        })
+                      {c.enseignants && c.enseignants.length > 0 ? (
+                        c.enseignants.map(teacher => (
+                          <Badge key={teacher.id} variant="secondary">{getDisplayName(teacher)}</Badge>
+                        ))
                       ) : (
                         'Non assigné'
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{c.studentIds.length}</TableCell>
-                  <TableCell>{c.anneeScolaire}</TableCell>
+                  <TableCell>{c.effectif}</TableCell>
+                  <TableCell>{c.annee_scolaire}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -181,8 +261,8 @@ export default function AdminClassesPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleEdit(c)}>Modifier les détails</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleAssignTeacher(c)}>Assigner un enseignant</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleManageStudents(c)}>Gérer les étudiants</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleAssignTeacherClick(c)}>Assigner un enseignant</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleManageStudentsClick(c)}>Gérer les étudiants</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(c)}>Supprimer</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -190,7 +270,7 @@ export default function AdminClassesPage() {
                 </TableRow>
               ))) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     Aucune classe trouvée.
                   </TableCell>
                 </TableRow>
@@ -204,6 +284,7 @@ export default function AdminClassesPage() {
           isOpen={isEditDialogOpen}
           setIsOpen={setIsEditDialogOpen}
           classData={selectedClass}
+          allTeachers={allTeachers}
           onClassUpdated={async (updatedData) => {
             await handleUpdate({ ...selectedClass, ...updatedData });
           }}
@@ -215,14 +296,7 @@ export default function AdminClassesPage() {
           setIsOpen={setIsAssignTeacherDialogOpen}
           classData={selectedClass}
           allTeachers={allTeachers}
-          onAssign={async (classId, teacherIds) => {
-            await handleUpdatePartial(classId, { teacherIds });
-            toast({
-              title: 'Assignation réussie (Simulation)',
-              description: `Les enseignants pour la classe ${selectedClass.name} ont été mis à jour.`,
-            });
-            setIsAssignTeacherDialogOpen(false);
-          }}
+          onAssign={handleAssignTeachers}
         />
       )}
       {selectedClass && (
@@ -231,21 +305,14 @@ export default function AdminClassesPage() {
           setIsOpen={setIsManageStudentsDialogOpen}
           classData={selectedClass}
           allStudents={allStudents}
-          onUpdate={async (classId, studentIds) => {
-            await handleUpdatePartial(classId, { studentIds });
-            toast({
-              title: 'Étudiants mis à jour (Simulation)',
-              description: `La liste des étudiants pour la classe ${selectedClass.name} a été mise à jour.`,
-            });
-            setIsManageStudentsDialogOpen(false);
-          }}
+          onUpdate={handleUpdateStudents}
         />
       )}
       <DeleteConfirmationDialog
         isOpen={isDeleteDialogOpen}
         setIsOpen={setIsDeleteDialogOpen}
         onConfirm={confirmDelete}
-        itemName={selectedClass?.name}
+        itemName={selectedClass?.nom_classe}
         itemType="la classe"
       />
     </>

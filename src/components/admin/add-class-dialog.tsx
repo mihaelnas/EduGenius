@@ -28,18 +28,22 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Class } from '@/lib/placeholder-data';
+import { AppUser, Class, getDisplayName } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PlusCircle } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
-import { debounce } from 'lodash';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Checkbox } from '../ui/checkbox';
+import { Label } from '../ui/label';
+import { ScrollArea } from '../ui/scroll-area';
 
 const formSchema = z.object({
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2'], { required_error: "Le niveau est requis." }),
   filiere: z.enum(['IG', 'GB', 'ASR', 'GID', 'OCC'], { required_error: "La filière est requise." }),
-  groupe: z.coerce.number().min(1, { message: "Le groupe est requis."}),
-  anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
+  groupe: z.coerce.number().min(1, { message: "Le groupe est requis."}).optional(), // Groupe est optionnel, le nom sera généré
+  annee_scolaire: z.string().regex(/^\d{4}-\d{4}$/, { message: "Format attendu: AAAA-AAAA" }),
+  id_enseignant: z.array(z.number()).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -47,30 +51,39 @@ type FormValues = z.infer<typeof formSchema>;
 type AddClassDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onClassAdded: (newClass: Omit<Class, 'id'| 'teacherIds' | 'studentIds' | 'createdAt'>) => Promise<void>;
+    onClassAdded: (newClass: Omit<Class, 'id_classe' | 'enseignants' | 'effectif'> & {id_enseignant: number[]}) => Promise<void>;
+    allTeachers: AppUser[];
 };
 
-export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDialogProps) {
+export function AddClassDialog({ isOpen, setIsOpen, onClassAdded, allTeachers }: AddClassDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      groupe: 1,
-      anneeScolaire: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+      annee_scolaire: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+      id_enseignant: [],
     },
   });
 
-  const { niveau, filiere, groupe } = useWatch({ control: form.control });
+  const { niveau, filiere } = useWatch({ control: form.control });
   const className = React.useMemo(() => {
-    if (niveau && filiere && groupe > 0) {
-        return `${niveau}-${filiere}-G${groupe}`.toUpperCase();
+    if (niveau && filiere) {
+        return `${niveau}-${filiere}`.toUpperCase();
     }
     return '';
-  }, [niveau, filiere, groupe]);
+  }, [niveau, filiere]);
 
   async function onSubmit(values: FormValues) {
     if (!className) return;
-    // TODO: Add API call to check for uniqueness before submitting
-    await onClassAdded({ name: className, ...values });
+    
+    const payload = {
+        nom_classe: className,
+        niveau: values.niveau,
+        filiere: values.filiere,
+        annee_scolaire: values.annee_scolaire,
+        id_enseignant: values.id_enseignant || [],
+    };
+    // @ts-ignore
+    await onClassAdded(payload);
     setIsOpen(false);
   }
   
@@ -145,28 +158,16 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
                 )}
                 />
             </div>
-             <FormField
-                control={form.control}
-                name="groupe"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Groupe</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="1" placeholder="Ex: 1" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+             
              <FormItem>
                 <FormLabel>Nom de la classe (généré)</FormLabel>
                 <FormControl>
-                    <Input value={className} disabled placeholder="Ex: L1-IG-G1" />
+                    <Input value={className} disabled placeholder="Ex: L1-IG" />
                 </FormControl>
              </FormItem>
              <FormField
               control={form.control}
-              name="anneeScolaire"
+              name="annee_scolaire"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Année Scolaire</FormLabel>
