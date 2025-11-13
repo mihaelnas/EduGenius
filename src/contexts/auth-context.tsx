@@ -10,11 +10,11 @@ import Cookies from 'js-cookie';
 
 interface AuthContextType {
   user: AppUser | null;
-  token: string | null;
   isLoading: boolean;
   login: (email: string, pass: string) => Promise<void>;
   logout: () => void;
-  // TODO: Add a function to fetch user profile if token exists but user object is null
+  // La gestion du token est maintenant implicite via les cookies HttpOnly,
+  // donc plus besoin de l'exposer dans le contexte.
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,27 +23,23 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-const AUTH_TOKEN_COOKIE = 'authToken';
-const USER_DATA_COOKIE = 'user';
+const USER_DATA_COOKIE = 'user-data'; // Cookie accessible par le client
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<AppUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
+    // Au chargement, on vérifie si les informations de l'utilisateur sont dans un cookie
     try {
-      const storedToken = Cookies.get(AUTH_TOKEN_COOKIE);
       const storedUser = Cookies.get(USER_DATA_COOKIE);
-      if (storedToken && storedUser) {
-        setToken(storedToken);
+      if (storedUser) {
         setUser(JSON.parse(storedUser));
       }
     } catch (error) {
-        console.error("Failed to parse auth data from cookies", error);
-        Cookies.remove(AUTH_TOKEN_COOKIE);
+        console.error("Failed to parse user data from cookies", error);
         Cookies.remove(USER_DATA_COOKIE);
     }
     setIsLoading(false);
@@ -56,27 +52,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         formData.append('username', email);
         formData.append('password', pass);
 
-        // On suppose que l'API renvoie l'access_token et les infos utilisateur
-        const data = await apiFetch('/token', {
+        const data = await apiFetch('/auth/Connexion', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
             body: formData.toString(),
         });
-
-        // La réponse du backend doit contenir l'access_token et les infos de redirection
-        if (data.access_token && data.redirect_to && data.role) {
-            setToken(data.access_token);
-            Cookies.set(AUTH_TOKEN_COOKIE, data.access_token, { expires: 7, secure: process.env.NODE_ENV === 'production' });
-
-            // On crée un objet utilisateur à partir des données de l'API
-            // Note: C'est un profil partiel. Idéalement, vous auriez une autre route /users/me pour obtenir le profil complet.
+        
+        // Le backend place les tokens dans des cookies HttpOnly.
+        // Le frontend n'a qu'à lire la réponse JSON pour obtenir les infos utilisateur et la redirection.
+        if (data.role && data.redirect_to) {
+            // On peut créer un profil partiel pour l'UI, le profil complet
+            // serait idéalement récupéré via une route /users/me
             const userProfile: AppUser = {
-                id: 'temp-id', // Remplacer par l'ID utilisateur réel si l'API le renvoie
+                id: 'temp-id', // À remplacer par un vrai ID depuis une route /users/me
                 email: email,
                 role: data.role,
-                firstName: 'Utilisateur', // Ces valeurs devraient venir d'un appel à /users/me
+                firstName: 'Utilisateur',
                 lastName: '',
                 username: email,
                 status: 'active',
@@ -101,11 +94,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         toast({
             variant: 'destructive',
             title: 'Échec de la connexion',
-            description: error.message || "Une erreur inconnue est survenue.",
+            description: error.message || "Email ou mot de passe incorrect.",
         });
         setUser(null);
-        setToken(null);
-        Cookies.remove(AUTH_TOKEN_COOKIE);
         Cookies.remove(USER_DATA_COOKIE);
     } finally {
         setIsLoading(false);
@@ -113,14 +104,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [router, toast]);
 
   const logout = useCallback(() => {
+    // Le logout devrait aussi appeler une route backend pour invalider les tokens si possible
     setUser(null);
-    setToken(null);
-    Cookies.remove(AUTH_TOKEN_COOKIE);
     Cookies.remove(USER_DATA_COOKIE);
+    // Les cookies HttpOnly seront probablement supprimés par le backend ou expirés, mais on redirige
     router.push('/login');
   }, [router]);
 
-  const value = { user, token, isLoading, login, logout };
+  const value = { user, isLoading, login, logout };
 
   return (
     <AuthContext.Provider value={value}>

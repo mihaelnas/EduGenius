@@ -8,19 +8,21 @@ if (!API_BASE_URL) {
 
 /**
  * Une fonction fetch générique pour interagir avec votre API.
+ * Elle inclut automatiquement les cookies pour gérer les sessions d'authentification HttpOnly.
  * @param endpoint - La route de l'API à appeler (ex: '/users', '/login').
  * @param options - Les options de la requête fetch (method, headers, body, etc.).
  * @returns La réponse JSON de l'API.
  */
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   const defaultHeaders = {
-    'Content-Type': 'application/json',
+    // 'Content-Type': 'application/json', // Le content-type peut varier (ex: pour les formulaires)
     ...options.headers,
   };
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers: defaultHeaders,
+    credentials: 'include', // Essentiel pour envoyer les cookies HttpOnly au backend
   });
 
   if (!response.ok) {
