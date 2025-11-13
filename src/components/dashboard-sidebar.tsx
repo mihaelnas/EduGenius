@@ -17,32 +17,17 @@ import {
   studentNavLinks,
   type NavLink,
 } from '@/lib/nav-links';
-import { useUser, useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { Skeleton } from './ui/skeleton';
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-  const [role, setRole] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (user) {
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const unsubscribe = getDoc(userDocRef).then((docSnap) => {
-        if (docSnap.exists()) {
-          setRole(docSnap.data().role);
-        } else {
-          setRole('student'); // Default role
-        }
-      });
-    } else if (!isUserLoading) {
-       setRole('student'); // Default for non-logged-in users for demo
-    }
-  }, [user, firestore, isUserLoading]);
+  
+  // This would come from your new auth context/hook
+  const user = { role: 'admin' }; // Hardcoded for demonstration. Change to 'teacher' or 'student'.
+  const isLoading = false;
 
   let navLinks: NavLink[] = [];
-  switch (role) {
+  switch (user?.role) {
     case 'admin':
       navLinks = adminNavLinks;
       break;
@@ -55,7 +40,7 @@ export function DashboardSidebar() {
       break;
   }
 
-  if (isUserLoading || !role) {
+  if (isLoading || !user) {
     return (
       <>
         <SidebarHeader>
@@ -63,8 +48,10 @@ export function DashboardSidebar() {
             <Logo />
           </div>
         </SidebarHeader>
-        <SidebarContent>
-          {/* You can add a skeleton loader here if you want */}
+        <SidebarContent className='p-2'>
+           {Array.from({ length: 4 }).map((_, i) => (
+             <Skeleton key={i} className="h-8 w-full" />
+           ))}
         </SidebarContent>
       </>
     );

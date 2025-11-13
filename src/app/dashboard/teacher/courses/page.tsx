@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -14,8 +15,6 @@ import { BookOpen, PlusCircle, Paperclip, Video, Link as LinkIcon, Edit, Trash2,
 import { AddCourseDialog, AddCourseFormValues } from '@/components/teacher/add-course-dialog';
 import { EditCourseDialog } from '@/components/teacher/edit-course-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
-import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, Query, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -34,21 +33,27 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 };
 
 function SubjectCourses({ subject }: { subject: Subject }) {
-  const firestore = useFirestore();
-  const { user } = useUser();
   const { toast } = useToast();
   
-  const coursesQuery = useMemoFirebase(
-    () => firestore && user ? query(collection(firestore, `courses`), where('subjectId', '==', subject.id), where('teacherId', '==', user?.uid)) : null,
-    [firestore, subject.id, user]
-  );
-  const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery as Query<Course> | null);
-
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const [courses, setCourses] = React.useState<Course[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = React.useState(true);
 
   const [isAddCourseDialogOpen, setIsAddCourseDialogOpen] = React.useState(false);
   const [isEditCourseDialogOpen, setIsEditCourseDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedCourse, setSelectedCourse] = React.useState<Course | null>(null);
+
+  React.useEffect(() => {
+    // TODO: Fetch courses for this subject from your API
+    setIsLoadingCourses(true);
+    setTimeout(() => {
+        // Dummy data for demonstration
+        setCourses([]);
+        setIsLoadingCourses(false);
+    }, 1000);
+  }, [subject.id]);
+
 
   const handleOpenAddDialog = () => {
     setIsAddCourseDialogOpen(true);
@@ -66,11 +71,11 @@ function SubjectCourses({ subject }: { subject: Subject }) {
 
   const confirmDelete = async () => {
     if (selectedCourse) {
-      const courseDocRef = doc(firestore, `courses`, selectedCourse.id);
-      await deleteDoc(courseDocRef);
+      // API call to your backend
+      console.log("Deleting course:", selectedCourse.id);
       toast({
         variant: 'destructive',
-        title: 'Cours supprimé',
+        title: 'Cours supprimé (Simulation)',
         description: `Le cours "${selectedCourse.title}" a été supprimé.`,
       });
       setIsDeleteDialogOpen(false);
@@ -79,55 +84,20 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   };
 
   const handleAddCourse = async (values: AddCourseFormValues) => {
-    if (!user || !firestore) {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur ou service non disponible.' });
-      return;
-    }
-  
-    const courseCollectionRef = collection(firestore, 'courses');
-  
-    try {
-      const courseDocRef = await addDoc(courseCollectionRef, {
-        ...values,
-        subjectId: subject.id,
-        subjectName: subject.name,
-        teacherId: user.uid,
-        createdAt: new Date().toISOString(),
-        resources: values.resources.map(r => ({
-          ...r,
-          id: `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        })),
-      });
-  
-      await updateDoc(courseDocRef, {
-        id: courseDocRef.id
-      });
-  
-      toast({
-        title: 'Cours ajouté',
-        description: `Le cours "${values.title}" a été créé avec succès.`,
-      });
-    } catch (error) {
-      console.error("Failed to add course:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Échec de l\'ajout du cours',
-        description: "La création du cours a échoué. Veuillez réessayer.",
-      });
-    }
+    // API call to your backend
+    console.log("Adding course:", values);
+    toast({
+      title: 'Cours ajouté (Simulation)',
+      description: `Le cours "${values.title}" a été créé avec succès.`,
+    });
   };
 
 
   const handleUpdateCourse = async (updatedCourse: Course) => {
-     if (!updatedCourse.id) {
-        toast({ variant: "destructive", title: "Erreur", description: "ID de cours manquant." });
-        return;
-    }
-    const courseDocRef = doc(firestore, `courses`, updatedCourse.id);
-    const { id, ...courseData } = updatedCourse;
-    await updateDoc(courseDocRef, courseData);
+    // API call to your backend
+    console.log("Updating course:", updatedCourse);
     toast({
-      title: 'Cours modifié',
+      title: 'Cours modifié (Simulation)',
       description: `Le cours "${updatedCourse.title}" a été mis à jour.`,
     });
   };
@@ -227,17 +197,20 @@ function SubjectCourses({ subject }: { subject: Subject }) {
 }
 
 export default function TeacherCoursesPage() {
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-
-  const teacherSubjectsQuery = useMemoFirebase(() => 
-    user ? query(collection(firestore, 'subjects'), where('teacherId', '==', user.uid)) : null,
-    [user, firestore]
-  );
   
-  const { data: teacherSubjects, isLoading: isLoadingSubjects } = useCollection<Subject>(teacherSubjectsQuery as Query<Subject> | null);
-
-  const isLoading = isUserLoading || isLoadingSubjects;
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const [teacherSubjects, setTeacherSubjects] = React.useState<Subject[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  
+  React.useEffect(() => {
+      // TODO: Fetch subjects for the current teacher from your API
+      setIsLoading(true);
+      setTimeout(() => {
+          // Dummy data for demonstration
+          // setTeacherSubjects([...]);
+          setIsLoading(false);
+      }, 1000);
+  }, [])
   
   return (
     <>

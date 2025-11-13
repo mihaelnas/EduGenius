@@ -25,16 +25,10 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore } from '@/firebase';
-import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
-import { AppUser } from '@/lib/placeholder-data';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const formSchema = z.object({
@@ -45,8 +39,6 @@ const formSchema = z.object({
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const auth = useAuth();
-  const firestore = useFirestore();
   const [showPassword, setShowPassword] = React.useState(false);
   const [resetEmail, setResetEmail] = React.useState("");
   const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
@@ -68,86 +60,30 @@ export default function LoginPage() {
       });
       return;
     }
-    try {
-      await sendPasswordResetEmail(auth, resetEmail);
-      toast({
-        title: 'Email envoyé',
-        description: 'Un lien de réinitialisation de mot de passe a été envoyé à votre adresse e-mail.',
-      });
-      setIsResetDialogOpen(false);
-      setResetEmail("");
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: "Impossible d'envoyer l'e-mail. Vérifiez que l'adresse est correcte.",
-      });
-    }
+    // API call to your new backend would go here
+    toast({
+      title: 'Fonctionnalité non implémentée',
+      description: 'La réinitialisation du mot de passe sera bientôt disponible.',
+    });
+    setIsResetDialogOpen(false);
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
-
-      const userDocRef = doc(firestore, 'users', user.uid);
-      
-      try {
-        const userDoc = await getDoc(userDocRef);
-
-        if (!userDoc.exists()) {
-           toast({
-              variant: 'destructive',
-              title: 'Échec de la connexion',
-              description: "Profil utilisateur non trouvé. Votre compte a peut-être été supprimé.",
-          });
-          await signOut(auth);
-          return;
-        }
-        
-        const userProfile = userDoc.data() as AppUser;
-
-        if (userProfile.status !== 'active') {
-           toast({
-              variant: 'destructive',
-              title: 'Compte non activé',
-              description: "Votre compte est en attente ou inactif. Veuillez contacter un administrateur.",
-              duration: 7000
-          });
-          await signOut(auth);
-          return;
-        }
-        
-        router.push('/dashboard');
-
-      } catch (e) {
-          const permissionError = new FirestorePermissionError({
-            path: userDocRef.path,
-            operation: 'get',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-          await signOut(auth);
-          return;
-      }
-
-
-    } catch (error: any) {
-       let description = 'Identifiants incorrects. Veuillez réessayer.';
-       if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-            description = 'Email ou mot de passe invalide. Veuillez vérifier vos informations.';
-       } else if (error.code === 'auth/too-many-requests') {
-          description = 'Accès temporairement désactivé en raison de trop nombreuses tentatives. Réessayez plus tard.';
-       } else if (error instanceof FirestorePermissionError) {
-          // This type of error is handled by the global error listener, so we don't show a toast here.
-          return;
-       }
-
-      toast({
-        variant: 'destructive',
-        title: 'Échec de la connexion',
-        description: description,
-      });
-    }
+    toast({
+      title: 'Connexion en cours...',
+      description: 'Tentative de connexion avec votre backend.',
+    });
+    // TODO: Replace with your actual API call to FastAPI
+    console.log('Login values:', values);
+    
+    // Example of handling API response
+    // const response = await fetch('/api/login', { ... });
+    // const data = await response.json();
+    // if (data.success) {
+    //   router.push('/dashboard');
+    // } else {
+    //   toast({ variant: 'destructive', title: 'Erreur', description: data.error });
+    // }
   }
 
   return (

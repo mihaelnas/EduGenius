@@ -11,30 +11,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getDisplayName, Student, AppUser, Class } from '@/lib/placeholder-data';
 import React from 'react';
-import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function TeacherClassDetailPage() {
   const params = useParams();
   const classId = params.id as string;
-  const firestore = useFirestore();
-
-  const classDocRef = useMemoFirebase(() => classId ? doc(firestore, 'classes', classId) : null, [firestore, classId]);
-  const { data: currentClass, isLoading: isLoadingClass } = useDoc<Class>(classDocRef);
   
-  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: users, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const [currentClass, setCurrentClass] = React.useState<Class | null>(null);
+  const [studentsInClass, setStudentsInClass] = React.useState<Student[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const studentsInClass = React.useMemo(() => {
-    if (!currentClass || !users) return [];
-    const studentMap = new Map(users.map(u => [u.id, u]));
-    return currentClass.studentIds
-        .map(id => studentMap.get(id))
-        .filter(user => user && user.role === 'student') as Student[];
-  }, [currentClass, users]);
-
-  const isLoading = isLoadingClass || isLoadingUsers;
+  React.useEffect(() => {
+      // TODO: Fetch class details and students from your API
+      // e.g., fetch(`/api/teacher/classes/${classId}`)
+      setIsLoading(true);
+      setTimeout(() => {
+          // Dummy data for demonstration
+          // setCurrentClass({ id: classId, name: "L3-IG-G1", ... });
+          // setStudentsInClass([...]);
+          setIsLoading(false);
+      }, 1000);
+  }, [classId]);
 
   if (isLoading) {
     return (

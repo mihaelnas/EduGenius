@@ -5,41 +5,15 @@ import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { getDisplayName, Student, Class, AppUser } from '@/lib/placeholder-data';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users } from 'lucide-react';
 
 export default function StudentClassmatesPage() {
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-
-  // 1. Find the student's class
-  const studentClassQuery = useMemoFirebase(() =>
-    user ? query(collection(firestore, 'classes'), where('studentIds', 'array-contains', user.uid)) : null,
-    [user, firestore]
-  );
-  const { data: studentClasses, isLoading: isLoadingClass } = useCollection<Class>(studentClassQuery);
-  const studentClass = studentClasses?.[0];
-
-  // 2. Get all users
-  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
   
-  // 3. Determine classmates
-  const classmates = React.useMemo(() => {
-    if (!studentClass || !allUsers || !user) return [];
-    
-    // Filter out the current user and ensure they are students
-    return allUsers.filter(u => 
-      u.id !== user.uid && 
-      studentClass.studentIds.includes(u.id) &&
-      u.role === 'student'
-    ) as Student[];
-
-  }, [studentClass, allUsers, user]);
-
-  const isLoading = isUserLoading || isLoadingClass || isLoadingUsers;
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const studentClass: Class | null = null;
+  const classmates: Student[] = [];
+  const isLoading = true; // Set to true while fetching data from your API
 
   return (
     <>

@@ -6,7 +6,6 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
 import { Inter } from 'next/font/google';
-import { FirebaseClientProvider, UserProvider } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -62,12 +61,8 @@ export default function RootLayout({
         <meta name="description" content="La plateforme éducative du futur." />
       </head>
       <body className={cn('font-body antialiased', inter.variable)}>
-        <FirebaseClientProvider>
-          <UserProvider>
-            {children}
-          </UserProvider>
-          <Toaster />
-        </FirebaseClientProvider>
+        {children}
+        <Toaster />
       </body>
     </html>
   );

@@ -15,15 +15,11 @@ import { AddUserDialog } from '@/components/admin/add-user-dialog';
 import { EditUserDialog } from '@/components/admin/edit-user-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewDetailsButton } from '@/components/admin/view-details-button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 const roleNames: Record<AppUser['role'], string> = {
   admin: 'Administrateur',
@@ -45,60 +41,29 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = React.useState<AppUser | null>(null);
   
   const { toast } = useToast();
-  const { user: currentUser } = useUser();
-  const firestore = useFirestore();
-
-  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: users, isLoading } = useCollection<AppUser>(usersCollectionRef);
+  
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const users: AppUser[] = [];
+  const isLoading = false;
+  const currentUser = null; // This would come from your new auth context
 
   const handleUserAdded = async (userProfile: Omit<AppUser, 'id' | 'email' | 'username' | 'status' | 'createdAt' | 'creatorId'>) => {
-    if (!currentUser) return;
-    
-    const userProfileWithStatus = {
-      ...userProfile,
-      status: 'inactive' as const,
-      creatorId: currentUser.uid,
-      createdAt: new Date().toISOString(),
-    };
-
-    const pendingUsersRef = collection(firestore, 'pending_users');
-    addDoc(pendingUsersRef, userProfileWithStatus).then(() => {
-        toast({
-          title: 'Utilisateur pré-inscrit !',
-          description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
-        });
-    }).catch(e => {
-        const permissionError = new FirestorePermissionError({
-            path: pendingUsersRef.path,
-            operation: 'create',
-            requestResourceData: userProfileWithStatus,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+    // API call to your backend
+    console.log("Adding user:", userProfile);
+    toast({
+      title: 'Utilisateur pré-inscrit (Simulation)!',
+      description: `Le profil pour ${getDisplayName(userProfile)} a été créé. Il pourra s'inscrire pour l'activer.`,
     });
   };
 
 
   const handleUpdate = async (updatedUser: AppUser) => {
-    const { id, ...userData } = updatedUser;
-    
-    if (userData.photo === '') {
-      delete (userData as Partial<AppUser>).photo;
-    }
-    
-    const userDocRef = doc(firestore, 'users', id);
-    updateDoc(userDocRef, userData).then(() => {
-       toast({
-          title: 'Utilisateur modifié',
-          description: `L'utilisateur ${getDisplayName(updatedUser)} a été mis à jour.`,
-        });
-    }).catch(e => {
-        const permissionError = new FirestorePermissionError({
-            path: userDocRef.path,
-            operation: 'update',
-            requestResourceData: userData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    // API call to your backend
+    console.log("Updating user:", updatedUser);
+    toast({
+        title: 'Utilisateur modifié (Simulation)',
+        description: `L'utilisateur ${getDisplayName(updatedUser)} a été mis à jour.`,
+      });
   };
 
   const handleEdit = (user: AppUser) => {
@@ -114,19 +79,12 @@ export default function AdminUsersPage() {
   const confirmDelete = async () => {
     if (!selectedUser) return;
     
-    const userDocRef = doc(firestore, 'users', selectedUser.id);
-    deleteDoc(userDocRef).then(() => {
-        toast({
-            variant: 'destructive',
-            title: 'Utilisateur supprimé',
-            description: `Le profil de ${getDisplayName(selectedUser)} a été supprimé.`,
-        });
-    }).catch(e => {
-        const permissionError = new FirestorePermissionError({
-            path: userDocRef.path,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+    // API call to your backend
+    console.log("Deleting user:", selectedUser.id);
+    toast({
+        variant: 'destructive',
+        title: 'Utilisateur supprimé (Simulation)',
+        description: `Le profil de ${getDisplayName(selectedUser)} a été supprimé.`,
     });
     
     setIsDeleteDialogOpen(false);
@@ -145,7 +103,7 @@ export default function AdminUsersPage() {
         <ShieldAlert className="h-4 w-4" />
         <AlertTitle>Action de suppression limitée</AlertTitle>
         <AlertDescription>
-          La suppression d'un utilisateur est limitée à la base de données (Firestore). Le compte d'authentification ne sera pas supprimé.
+          La suppression d'un utilisateur dans cette UI ne supprime que l'enregistrement de la base de données. Vous devrez gérer la suppression du compte d'authentification séparément.
         </AlertDescription>
       </Alert>
       <Card>
@@ -199,7 +157,7 @@ export default function AdminUsersPage() {
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
-              ) : (
+              ) : filteredUsers.length > 0 ? (
                 filteredUsers.map((user) => {
                   const statusInfo = user.status === 'active' ? statusMap.active : statusMap.inactive;
                   return (
@@ -240,7 +198,7 @@ export default function AdminUsersPage() {
                           <DropdownMenuItem 
                             className="text-destructive" 
                             onClick={() => handleDelete(user)}
-                            disabled={currentUser?.uid === user.id}
+                            disabled={currentUser?.id === user.id}
                           >
                             Supprimer
                           </DropdownMenuItem>
@@ -249,6 +207,12 @@ export default function AdminUsersPage() {
                     </TableCell>
                   </TableRow>
                 )})
+              ) : (
+                <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                        Aucun utilisateur trouvé.
+                    </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>

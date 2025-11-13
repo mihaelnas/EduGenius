@@ -1,57 +1,23 @@
+
 'use client';
 
 import React from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { BookOpen, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Query, getDocs, limit } from 'firebase/firestore';
-import type { Subject, Course, Class } from '@/lib/placeholder-data';
+import type { Subject, Course } from '@/lib/placeholder-data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardHeader } from '@/components/ui/card';
 
 export default function StudentCoursesPage() {
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-  const [subjects, setSubjects] = React.useState<Subject[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const subjects: Subject[] = [];
+  const isLoading = true;
 
   React.useEffect(() => {
-    async function fetchStudentSubjects() {
-      if (isUserLoading || !user || !firestore) {
-        if (!isUserLoading) setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-
-      const classQuery = query(collection(firestore, 'classes'), where('studentIds', 'array-contains', user.uid), limit(1));
-      const classSnapshot = await getDocs(classQuery);
-
-      if (classSnapshot.empty) {
-        setSubjects([]);
-        setIsLoading(false);
-        return;
-      }
-      
-      const studentClassData = classSnapshot.docs[0].data() as Class;
-      const teacherIds = studentClassData.teacherIds;
-
-      if (!teacherIds || teacherIds.length === 0) {
-        setSubjects([]);
-        setIsLoading(false);
-        return;
-      }
-      
-      // La clause 'in' ne peut pas être utilisée avec un tableau vide, d'où la vérification ci-dessus.
-      const subjectsQuery = query(collection(firestore, 'subjects'), where('teacherId', 'in', teacherIds));
-      const subjectsSnapshot = await getDocs(subjectsQuery);
-      const subjectsData = subjectsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Subject));
-      
-      setSubjects(subjectsData);
-      setIsLoading(false);
-    }
-    fetchStudentSubjects();
-  }, [user, firestore, isUserLoading]);
+    // TODO: Fetch student subjects from your API
+  }, []);
 
   return (
     <>
@@ -82,14 +48,11 @@ export default function StudentCoursesPage() {
 
 
 function SubjectAccordionItem({ subject }: { subject: Subject }) {
-    const firestore = useFirestore();
     
-    const coursesQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'courses'), where('subjectId', '==', subject.id)) : null
-    , [firestore, subject.id]);
+    // Data fetching logic is removed. Replace with calls to your new backend.
+    const courses: Course[] | null = [];
+    const isLoadingCourses = true;
     
-    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery as Query<Course> | null);
-
     return (
         <AccordionItem value={`item-${subject.id}`} className="border-b-0 rounded-lg bg-card overflow-hidden">
             <AccordionTrigger className="text-lg font-semibold hover:no-underline px-6 py-4">

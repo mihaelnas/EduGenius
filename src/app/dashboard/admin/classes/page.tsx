@@ -16,11 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { AssignTeacherDialog } from '@/components/admin/assign-teacher-dialog';
 import { ManageStudentsDialog } from '@/components/admin/manage-students-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
-import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 
 export default function AdminClassesPage() {
@@ -33,69 +29,30 @@ export default function AdminClassesPage() {
   const [selectedClass, setSelectedClass] = React.useState<Class | null>(null);
   
   const { toast } = useToast();
-  const { user: currentUser } = useUser();
-  const firestore = useFirestore();
 
-  const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
-  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
-  
-  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: users, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
-
-  const isLoading = isLoadingClasses || isLoadingUsers;
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const classes: Class[] = [];
+  const users: AppUser[] = [];
+  const isLoading = false; // Set to true while fetching data from your API
 
   const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
   const allStudents = React.useMemo(() => (users || []).filter(u => u.role === 'student'), [users]);
 
   const handleAdd = async (newClass: Omit<Class, 'id' | 'teacherIds' | 'studentIds' | 'createdAt' | 'creatorId'>) => {
-    if (!currentUser) return;
-
-    const newClassData = {
-        ...newClass,
-        teacherIds: [],
-        studentIds: [],
-        creatorId: currentUser.uid,
-        createdAt: new Date().toISOString(),
-    };
-    
-    addDoc(collection(firestore, 'classes'), newClassData).then(() => {
-        toast({ title: 'Classe ajoutée', description: `La classe ${newClass.name} a été créée.` });
-    }).catch(e => {
-        const permissionError = new FirestorePermissionError({
-            path: 'classes',
-            operation: 'create',
-            requestResourceData: newClassData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    // API call to your backend to add a class
+    console.log("Adding class:", newClass);
+    toast({ title: 'Classe ajoutée (Simulation)', description: `La classe ${newClass.name} a été créée.` });
   };
 
   const handleUpdate = async (updatedClass: Class) => {
-    const { id, ...classData } = updatedClass;
-    const classDocRef = doc(firestore, 'classes', id);
-    
-    updateDoc(classDocRef, classData).then(() => {
-        toast({ title: 'Classe modifiée', description: `La classe ${updatedClass.name} a été mise à jour.` });
-    }).catch(e => {
-        const permissionError = new FirestorePermissionError({
-            path: classDocRef.path,
-            operation: 'update',
-            requestResourceData: classData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    // API call to your backend to update a class
+    console.log("Updating class:", updatedClass);
+    toast({ title: 'Classe modifiée (Simulation)', description: `La classe ${updatedClass.name} a été mise à jour.` });
   };
   
   const handleUpdatePartial = async (classId: string, data: Partial<Omit<Class, 'id'>>) => {
-     const classDocRef = doc(firestore, 'classes', classId);
-     updateDoc(classDocRef, data).catch(e => {
-        const permissionError = new FirestorePermissionError({
-            path: classDocRef.path,
-            operation: 'update',
-            requestResourceData: data,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-     });
+     // API call to your backend to partially update a class
+     console.log("Partially updating class:", classId, data);
   };
 
   const handleEdit = (c: Class) => {
@@ -120,16 +77,9 @@ export default function AdminClassesPage() {
 
   const confirmDelete = async () => {
     if (selectedClass) {
-        const classDocRef = doc(firestore, 'classes', selectedClass.id);
-        deleteDoc(classDocRef).then(() => {
-            toast({ variant: 'destructive', title: 'Classe supprimée', description: `La classe "${selectedClass.name}" a été supprimée.` });
-        }).catch(e => {
-            const permissionError = new FirestorePermissionError({
-                path: classDocRef.path,
-                operation: 'delete',
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        });
+        // API call to your backend to delete a class
+        console.log("Deleting class:", selectedClass.id);
+        toast({ variant: 'destructive', title: 'Classe supprimée (Simulation)', description: `La classe "${selectedClass.name}" a été supprimée.` });
         setIsDeleteDialogOpen(false);
         setSelectedClass(null);
     }
@@ -200,7 +150,7 @@ export default function AdminClassesPage() {
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
-              ) : (filteredClasses.map((c) => (
+              ) : filteredClasses.length > 0 ? (filteredClasses.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.niveau}</TableCell>
@@ -238,7 +188,13 @@ export default function AdminClassesPage() {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              )))}
+              ))) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-24 text-center">
+                    Aucune classe trouvée.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -262,7 +218,7 @@ export default function AdminClassesPage() {
           onAssign={async (classId, teacherIds) => {
             await handleUpdatePartial(classId, { teacherIds });
             toast({
-              title: 'Assignation réussie',
+              title: 'Assignation réussie (Simulation)',
               description: `Les enseignants pour la classe ${selectedClass.name} ont été mis à jour.`,
             });
             setIsAssignTeacherDialogOpen(false);
@@ -278,7 +234,7 @@ export default function AdminClassesPage() {
           onUpdate={async (classId, studentIds) => {
             await handleUpdatePartial(classId, { studentIds });
             toast({
-              title: 'Étudiants mis à jour',
+              title: 'Étudiants mis à jour (Simulation)',
               description: `La liste des étudiants pour la classe ${selectedClass.name} a été mise à jour.`,
             });
             setIsManageStudentsDialogOpen(false);

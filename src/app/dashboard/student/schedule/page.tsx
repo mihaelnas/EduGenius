@@ -10,16 +10,13 @@ import { Badge } from '@/components/ui/badge';
 import { User, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const DayColumn = ({ day, events, getTeacherName }: { day: Date; events: ScheduleEvent[]; getTeacherName: (id: string) => string; }) => {
   const dayEvents = events
     .filter(event => {
-        // Firebase stores date as 'YYYY-MM-DD'. We need to compare just the date part.
+        // Compare just the date part, ignoring time.
         const eventDate = new Date(event.date);
-        // Adjust for timezone differences by comparing year, month, and day
         return eventDate.getFullYear() === day.getFullYear() &&
                eventDate.getMonth() === day.getMonth() &&
                eventDate.getDate() === day.getDate();
@@ -67,27 +64,12 @@ const DayColumn = ({ day, events, getTeacherName }: { day: Date; events: Schedul
 
 export default function StudentSchedulePage() {
   const [week, setWeek] = React.useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-
-  // 1. Get all users to map teacher IDs to names later
-  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
-
-  // 2. Find the student's class
-  const studentClassQuery = useMemoFirebase(() =>
-    user ? query(collection(firestore, 'classes'), where('studentIds', 'array-contains', user.uid), limit(1)) : null,
-    [user, firestore]
-  );
-  const { data: studentClasses, isLoading: isLoadingClass } = useCollection<Class>(studentClassQuery);
-  const studentClass = studentClasses?.[0];
-
-  // 3. Get schedule events for that class
-  const scheduleQuery = useMemoFirebase(() =>
-    studentClass ? query(collection(firestore, 'schedule'), where('class', '==', studentClass.name)) : null,
-    [studentClass, firestore]
-  );
-  const { data: studentSchedule, isLoading: isLoadingSchedule } = useCollection<ScheduleEvent>(scheduleQuery);
+  
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const studentSchedule: ScheduleEvent[] = [];
+  const allUsers: AppUser[] = [];
+  const studentClass: Class | null = null;
+  const isLoading = true;
 
   const getTeacherName = (id: string): string => {
     if (!allUsers) return 'Chargement...';
@@ -96,8 +78,6 @@ export default function StudentSchedulePage() {
   };
 
   const daysOfWeek = Array.from({ length: 5 }, (_, i) => addDays(week, i));
-
-  const isLoading = isUserLoading || isLoadingUsers || isLoadingClass || isLoadingSchedule;
 
   return (
     <>

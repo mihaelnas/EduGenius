@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -20,11 +21,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { EmailAuthProvider, reauthenticateWithCredential, updateEmail, sendEmailVerification } from 'firebase/auth';
 
 const formSchema = z.object({
   newEmail: z.string().email({ message: 'Veuillez entrer une adresse e-mail valide.' }),
@@ -38,7 +37,6 @@ type ChangeEmailDialogProps = {
 };
 
 export function ChangeEmailDialog({ isOpen, setIsOpen, currentEmail }: ChangeEmailDialogProps) {
-  const auth = useAuth();
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,46 +44,19 @@ export function ChangeEmailDialog({ isOpen, setIsOpen, currentEmail }: ChangeEma
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    const user = auth.currentUser;
-    if (!user) {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur non connecté.' });
-      return;
-    }
+    // TODO: Replace with your API call to change email
+    console.log('Changing email:', values);
 
     if (values.newEmail === currentEmail) {
         toast({ variant: 'destructive', title: 'Erreur', description: 'La nouvelle adresse e-mail est identique à l\'ancienne.' });
         return;
     }
 
-    try {
-      const credential = EmailAuthProvider.credential(user.email!, values.password);
-      await reauthenticateWithCredential(user, credential);
-      
-      await updateEmail(user, values.newEmail);
-      await sendEmailVerification(user);
-
-      toast({
-        title: 'Email mis à jour avec succès',
-        description: 'Votre adresse e-mail a été modifiée. Veuillez vérifier votre nouvelle adresse en cliquant sur le lien que nous vous avons envoyé.',
-        duration: 8000
-      });
-      setIsOpen(false);
-      
-    } catch (error: any) {
-      let description = 'Une erreur est survenue.';
-      if (error.code === 'auth/invalid-credential') {
-        description = 'Le mot de passe que vous avez entré est incorrect.';
-      } else if (error.code === 'auth/email-already-in-use') {
-        description = 'Cette adresse e-mail est déjà utilisée par un autre compte.';
-      } else if (error.code === 'auth/requires-recent-login') {
-          description = 'Cette opération est sensible et nécessite une authentification récente. Veuillez vous déconnecter et vous reconnecter avant de réessayer.';
-      }
-      toast({
-        variant: 'destructive',
-        title: 'Échec de la mise à jour',
-        description: description,
-      });
-    }
+    toast({
+      title: 'Email mis à jour (Simulation)',
+      description: 'Votre adresse e-mail a été modifiée.',
+    });
+    setIsOpen(false);
   };
   
    const handleOpenChange = (open: boolean) => {

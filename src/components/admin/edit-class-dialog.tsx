@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -27,12 +28,9 @@ import {
 } from '@/components/ui/select';
 import { Class } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
-import React, { useCallback, useEffect } from 'react';
+import React from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
-import { useFirestore } from '@/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { debounce } from 'lodash';
 
 const formSchema = z.object({
   niveau: z.enum(['L1', 'L2', 'L3', 'M1', 'M2'], { required_error: "Le niveau est requis." }),
@@ -51,7 +49,6 @@ type EditClassDialogProps = {
 }
 
 export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }: EditClassDialogProps) {
-  const firestore = useFirestore();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
@@ -63,34 +60,6 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
     }
     return '';
   }, [niveau, filiere, groupe]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const checkClassNameUniqueness = useCallback(
-    debounce(async (name: string) => {
-        if (!name || name === classData.name) {
-            form.clearErrors('groupe');
-            return;
-        }
-      const classesRef = collection(firestore, 'classes');
-      const q = query(classesRef, where('name', '==', name));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        form.setError('groupe', {
-          type: 'manual',
-          message: 'Ce nom de classe existe déjà.',
-        });
-      } else {
-        form.clearErrors('groupe');
-      }
-    }, 500),
-    [firestore, form, classData.name]
-  );
-
-  useEffect(() => {
-    if (className) {
-      checkClassNameUniqueness(className);
-    }
-  }, [className, checkClassNameUniqueness]);
 
 
   React.useEffect(() => {
@@ -106,20 +75,7 @@ export function EditClassDialog({ isOpen, setIsOpen, classData, onClassUpdated }
 
   async function onSubmit(values: FormValues) {
      if (!className) return;
-
-    if (className !== classData.name) {
-        const classesRef = collection(firestore, 'classes');
-        const q = query(classesRef, where('name', '==', className));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            form.setError('groupe', {
-                type: 'manual',
-                message: 'Ce nom de classe existe déjà.',
-            });
-            return;
-        }
-    }
-
+    // TODO: Add API call to check for uniqueness before submitting
     await onClassUpdated({ name: className, ...values });
     setIsOpen(false);
   }

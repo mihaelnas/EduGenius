@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useCallback, useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -32,8 +33,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { PlusCircle } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
-import { useFirestore } from '@/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
 import { debounce } from 'lodash';
 
 const formSchema = z.object({
@@ -52,7 +51,6 @@ type AddClassDialogProps = {
 };
 
 export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDialogProps) {
-  const firestore = useFirestore();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -69,46 +67,9 @@ export function AddClassDialog({ isOpen, setIsOpen, onClassAdded }: AddClassDial
     return '';
   }, [niveau, filiere, groupe]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const checkClassNameUniqueness = useCallback(
-    debounce(async (name: string) => {
-      if (!name) return;
-      const classesRef = collection(firestore, 'classes');
-      const q = query(classesRef, where('name', '==', name));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        form.setError('groupe', {
-          type: 'manual',
-          message: 'Ce nom de classe existe déjà.',
-        });
-      } else {
-        form.clearErrors('groupe');
-      }
-    }, 500),
-    [firestore, form]
-  );
-  
-  useEffect(() => {
-    if(className) {
-      checkClassNameUniqueness(className);
-    }
-  }, [className, checkClassNameUniqueness]);
-
   async function onSubmit(values: FormValues) {
     if (!className) return;
-
-    const classesRef = collection(firestore, 'classes');
-    const q = query(classesRef, where('name', '==', className));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-        form.setError('groupe', {
-            type: 'manual',
-            message: 'Ce nom de classe existe déjà.',
-        });
-        return;
-    }
-
+    // TODO: Add API call to check for uniqueness before submitting
     await onClassAdded({ name: className, ...values });
     setIsOpen(false);
   }

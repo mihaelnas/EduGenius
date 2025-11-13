@@ -1,114 +1,188 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-  Query,
-  onSnapshot,
-  DocumentData,
-  FirestoreError,
-  QuerySnapshot,
-  CollectionReference,
-} from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { ScheduleEvent, Class, Subject, getDisplayName } from '@/lib/placeholder-data';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { format } from 'date-fns';
 
-/** Utility type to add an 'id' field to a given type T. */
-export type WithId<T> = T & { id: string };
+const formSchema = z.object({
+  date: z.string().min(1, 'La date est requise.'),
+  startTime: z.string().min(1, 'L\'heure de début est requise.'),
+  endTime: z.string().min(1, 'L\'heure de fin est requise.'),
+  subject: z.string().min(1, 'La matière est requise.'),
+  class: z.string().min(1, 'La classe est requise.'),
+  type: z.enum(['en-salle', 'en-ligne']),
+  status: z.enum(['planifié', 'reporté', 'annulé', 'effectué']),
+  conferenceLink: z.string().url({ message: "Veuillez entrer une URL valide." }).optional().or(z.literal('')),
+});
 
-/**
- * Interface for the return value of the useCollection hook.
- * @template T Type of the document data.
- */
-export interface UseCollectionResult<T> {
-  data: WithId<T>[] | null; // Document data with ID, or null.
-  isLoading: boolean;       // True if loading.
-  error: FirestoreError | Error | null; // Error object, or null.
+type FormValues = z.infer<typeof formSchema>;
+
+const defaultFormValues: FormValues = {
+  date: '',
+  startTime: '',
+  endTime: '',
+  subject: '',
+  class: '',
+  type: 'en-salle',
+  status: 'planifié',
+  conferenceLink: '',
+};
+
+type AddEventDialogProps = {
+    isOpen: boolean;
+    setIsOpen: (isOpen: boolean) => void;
+    onEventAdded: (newEvent: FormValues) => Promise<void>;
+    teacherClasses: Class[];
+    teacherSubjects: Subject[];
+    selectedDate?: Date;
 }
 
-/* Internal implementation of Query:
-  https://github.com/firebase/firebase-js-sdk/blob/c5f08a9bc5da0d2b0207802c972d53724ccef055/packages/firestore/src/lite-api/reference.ts#L143
-*/
-export interface InternalQuery extends Query<DocumentData> {
-  _query: {
-    path: {
-      canonicalString(): string;
-      toString(): string;
-    }
-  }
-}
+export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses, teacherSubjects, selectedDate }: AddEventDialogProps) {
+  
+  // This would come from your auth context
+  const user = { displayName: 'Professeur', email: 'teacher@example.com' };
 
-/**
- * React hook to subscribe to a Firestore collection or query in real-time.
- * Handles nullable references/queries.
- * 
- *
- * IMPORTANT! YOU MUST MEMOIZE the inputted memoizedTargetRefOrQuery or BAD THINGS WILL HAPPEN
- * use useMemo to memoize it per React guidence.  Also make sure that it's dependencies are stable
- * references
- *  
- * @template T Optional type for document data. Defaults to any.
- * @param {CollectionReference<DocumentData> | Query<DocumentData> | null | undefined} targetRefOrQuery -
- * The Firestore CollectionReference or Query. Waits if null/undefined.
- * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
- */
-export function useCollection<T = any>(
-    memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean})  | null | undefined,
-): UseCollectionResult<T> {
-  type ResultItemType = WithId<T>;
-  type StateDataType = ResultItemType[] | null;
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: defaultFormValues,
+  });
 
-  const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const eventType = form.watch('type');
 
-  useEffect(() => {
-    if (!memoizedTargetRefOrQuery) {
-      setData(null);
-      setIsLoading(false);
-      setError(null);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
-    const unsubscribe = onSnapshot(
-      memoizedTargetRefOrQuery,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = [];
-        for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
+  React.useEffect(() => {
+    if (isOpen) {
+        if (selectedDate) {
+            form.reset({
+                ...defaultFormValues,
+                date: format(selectedDate, 'yyyy-MM-dd')
+            });
+        } else {
+            form.reset(defaultFormValues);
         }
-        setData(results);
-        setError(null);
-        setIsLoading(false);
-      },
-      (error: FirestoreError) => {
-        // This logic extracts the path from either a ref or a query
-        const path: string =
-          memoizedTargetRefOrQuery.type === 'collection'
-            ? (memoizedTargetRefOrQuery as CollectionReference).path
-            : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
+    }
+  }, [selectedDate, isOpen, form]);
 
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path,
-        })
-
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
-
-        // trigger global error propagation
-        errorEmitter.emit('permission-error', contextualError);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
-  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
+  async function onSubmit(values: FormValues) {
+    await onEventAdded(values);
+    setIsOpen(false);
   }
-  return { data, isLoading, error };
+  
+  const handleOpenChange = (open: boolean) => {
+      if (form.formState.isSubmitting) return;
+      setIsOpen(open);
+      if (!open) {
+        form.reset();
+      }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Ajouter un événement</DialogTitle>
+          <DialogDescription>
+            Planifiez un nouveau cours ou événement dans votre emploi du temps.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={form.control} name="date" render={({ field }) => ( <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem> )} />
+            <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="startTime" render={({ field }) => ( <FormItem><FormLabel>Heure de début</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="endTime" render={({ field }) => ( <FormItem><FormLabel>Heure de fin</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem> )} />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="subject"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Matière</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner une matière..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {teacherSubjects.map(subject => (
+                        <SelectItem key={subject.id} value={subject.name}>{subject.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="class"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Classe</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner une classe..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {teacherClasses.map(c => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            {user && (
+                <FormItem>
+                    <FormLabel>Enseignant</FormLabel>
+                    <FormControl>
+                        <Input value={getDisplayName({firstName: user.displayName || '', lastName: ''}) || user.email || ''} disabled />
+                    </FormControl>
+                </FormItem>
+            )}
+            
+             <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="type" render={({ field }) => ( <FormItem><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="en-salle">En salle</SelectItem><SelectItem value="en-ligne">En ligne</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel>Statut</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="planifié">Planifié</SelectItem><SelectItem value="effectué">Effectué</SelectItem><SelectItem value="reporté">Reporté</SelectItem><SelectItem value="annulé">Annulé</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+            </div>
+             {eventType === 'en-ligne' && (
+              <FormField
+                control={form.control}
+                name="conferenceLink"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Lien de la visioconférence</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://meet.google.com/..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={form.formState.isSubmitting}>Annuler</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? "Ajout..." : "Ajouter l'événement"}
+                </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
 }

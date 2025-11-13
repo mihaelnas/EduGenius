@@ -1,8 +1,7 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirestore, useUser } from '@/firebase';
-import { doc, onSnapshot, DocumentData } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import type { Course, Resource } from '@/lib/placeholder-data';
@@ -28,50 +27,41 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 
 
 function CourseDetailContent({ courseId }: { courseId: string }) {
-    const firestore = useFirestore();
-    const { user, isUserLoading } = useUser();
     const [course, setCourse] = useState<WithId<Course> | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
+    
+    // This would come from your auth context
+    const currentUserId = 'teacher1'; // hardcoded for demo
 
     useEffect(() => {
-        if (!user || !firestore || !courseId) {
-            // Wait for user and firestore to be available
-            if (!isUserLoading && !user) {
-                router.push('/login');
-            }
-            return;
-        }
-
+        // TODO: Replace with your API call to fetch course data
         setIsLoading(true);
-        const courseDocRef = doc(firestore, 'courses', courseId);
-
-        const unsubscribe = onSnapshot(courseDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data() as Course;
-                if (data.teacherId !== user.uid) {
-                     setError("Vous n'avez pas la permission de voir ce cours.");
-                } else {
-                    setCourse({ ...data, id: docSnap.id });
-                    setError(null);
-                }
+        setTimeout(() => {
+            // Dummy data for demonstration. In a real app, you'd fetch from your backend
+            // and check if the fetched course's teacherId matches the current user's ID.
+            const dummyCourse = {
+                id: courseId,
+                title: "Exemple de cours",
+                content: "Ceci est le contenu d'un cours de démonstration.",
+                teacherId: 'teacher1',
+                subjectName: "Exemple Matière",
+                createdAt: new Date().toISOString(),
+                resources: [],
+            };
+            
+            if (dummyCourse.teacherId === currentUserId) {
+                 setCourse(dummyCourse);
             } else {
-                setError("Le cours demandé n'a pas été trouvé.");
+                setError("Vous n'avez pas la permission de voir ce cours.");
             }
+            
             setIsLoading(false);
-        }, (err) => {
-            console.error("Erreur de récupération Firestore:", err);
-            setError("Une erreur est survenue lors du chargement du cours.");
-            setIsLoading(false);
-        });
+        }, 1000);
+    }, [courseId, currentUserId]);
 
-        // Cleanup subscription on unmount
-        return () => unsubscribe();
-
-    }, [firestore, courseId, user, isUserLoading, router]);
-
-    if (isLoading || isUserLoading) {
+    if (isLoading) {
         return (
             <div>
                 <Skeleton className="h-9 w-40 mb-6" />

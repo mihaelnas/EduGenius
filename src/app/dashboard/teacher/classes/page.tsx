@@ -6,23 +6,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
 import type { Class } from '@/lib/placeholder-data';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function TeacherClassesPage() {
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
 
-  const teacherClassesQuery = useMemoFirebase(() => 
-    user ? query(collection(firestore, 'classes'), where('teacherIds', 'array-contains', user.uid)) : null,
-    [user, firestore]
-  );
-  
-  const { data: teacherClasses, isLoading: isLoadingClasses } = useCollection<Class>(teacherClassesQuery);
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const [teacherClasses, setTeacherClasses] = React.useState<Class[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const isLoading = isUserLoading || isLoadingClasses;
+  React.useEffect(() => {
+    // TODO: Fetch teacher's classes from your API
+    setIsLoading(true);
+    setTimeout(() => {
+        // Dummy data for demonstration
+        // setTeacherClasses([...]);
+        setIsLoading(false);
+    }, 1000);
+  }, []);
 
   return (
     <>

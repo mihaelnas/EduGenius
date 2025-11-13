@@ -11,7 +11,6 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ScheduleEvent, Class, Subject, getDisplayName } from '@/lib/placeholder-data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { useUser } from '@/firebase';
 import { format } from 'date-fns';
 
 const formSchema = z.object({
@@ -48,7 +47,9 @@ type AddEventDialogProps = {
 }
 
 export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses, teacherSubjects, selectedDate }: AddEventDialogProps) {
-  const { user } = useUser();
+  
+  // This would come from your auth context
+  const user = { displayName: 'Professeur', email: 'teacher@example.com' };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),

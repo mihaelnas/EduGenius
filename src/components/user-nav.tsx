@@ -16,49 +16,39 @@ import {
 import { LogIn, LogOut, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useUser, useFirestore, useAuth } from '@/firebase';
-import { signOut } from 'firebase/auth';
 import type { AppUser } from '@/lib/placeholder-data';
-import { doc, getDoc } from 'firebase/firestore';
 
 export function UserNav() {
   const router = useRouter();
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-  const [userProfile, setUserProfile] = React.useState<AppUser | null>(null);
 
-  React.useEffect(() => {
-    if (user) {
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const unsubscribe = getDoc(userDocRef).then((docSnap) => {
-        if (docSnap.exists()) {
-          setUserProfile(docSnap.data() as AppUser);
-        }
-      });
-    } else if (!isUserLoading) {
-      setUserProfile(null);
-    }
-  }, [user, firestore, isUserLoading]);
+  // This would come from your new auth context
+  const user: (AppUser & { uid: string }) | null = {
+      uid: '1',
+      id: '1',
+      firstName: 'Admin',
+      lastName: 'User',
+      email: 'admin@example.com',
+      username: '@admin',
+      role: 'admin',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+  }; 
+  const isUserLoading = false;
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      // No need to clear session cookie manually as it's not used anymore.
-      router.push('/login');
-    } catch (error) {
-      console.error('Logout Error:', error);
-    }
+    // API call to your backend logout endpoint
+    console.log('Logging out...');
+    router.push('/login');
   };
   
   if (isUserLoading) {
     return <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />;
   }
 
-  const displayName = userProfile?.firstName ? `${userProfile.firstName} ${userProfile.lastName}` : user?.displayName || 'Utilisateur';
-  const displayEmail = userProfile?.email || user?.email || '';
-  const photoURL = userProfile?.photo || user?.photoURL;
-  const fallback = (userProfile?.firstName?.charAt(0) || '') + (userProfile?.lastName?.charAt(0) || '') || displayName.charAt(0);
+  const displayName = user ? `${user.firstName} ${user.lastName}` : 'Utilisateur';
+  const displayEmail = user?.email || '';
+  const photoURL = user?.photo;
+  const fallback = user ? (user.firstName?.charAt(0) || '') + (user.lastName?.charAt(0) || '') : 'U';
 
 
   return (

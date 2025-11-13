@@ -9,8 +9,6 @@ import {
 } from '@/lib/placeholder-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Paperclip, Video, Link as LinkIcon, ChevronRight, ArrowLeft } from 'lucide-react';
-import { useFirestore, useUser } from '@/firebase';
-import { doc, onSnapshot, DocumentData } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { notFound, useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -31,42 +29,28 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 };
 
 function CourseDetailContent({ courseId }: { courseId: string }) {
-    const firestore = useFirestore();
-    const { user, isUserLoading } = useUser();
     const [course, setCourse] = useState<WithId<Course> | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
-        if (!user || !firestore || !courseId) {
-            if (!isUserLoading && !user) {
-                router.push('/login');
-            }
-            return;
-        }
-
+        // TODO: Replace with your actual API call to fetch course data
         setIsLoading(true);
-        const courseDocRef = doc(firestore, 'courses', courseId);
-
-        const unsubscribe = onSnapshot(courseDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                setCourse({ ...(docSnap.data() as Course), id: docSnap.id });
-                setError(null);
-            } else {
-                setError("Le cours demandé n'a pas été trouvé.");
-            }
+        // Simulating API fetch
+        setTimeout(() => {
+            // In a real app, you would fetch from `/api/courses/${courseId}`
+            // For now, let's simulate not found.
+            // setCourse({ id: courseId, title: "Titre du Cours", content: "Contenu...", ...});
+            setError("Le cours demandé n'a pas été trouvé (simulation).");
             setIsLoading(false);
-        }, (err) => {
-            console.error("Erreur de récupération Firestore:", err);
-            setError("Vous n'avez pas les permissions pour voir ce cours, ou une erreur est survenue.");
-            setIsLoading(false);
-        });
+        }, 1000);
+    }, [courseId]);
+    
+    // This would come from your auth context
+    const userRole = 'student'; 
 
-        return () => unsubscribe();
-    }, [firestore, courseId, user, isUserLoading, router]);
-
-    if (isLoading || isUserLoading) {
+    if (isLoading) {
         return (
             <div>
                 <Skeleton className="h-9 w-40 mb-6" />
@@ -111,7 +95,7 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
         return null; 
     }
     
-    const breadcrumbBase = user?.uid === course.teacherId 
+    const breadcrumbBase = userRole === 'teacher' 
     ? { href: '/dashboard/teacher/courses', label: 'Mes Cours' }
     : { href: '/dashboard/student/courses', label: 'Mes Cours' };
 
@@ -171,16 +155,6 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
 export default function CourseDetailPage() {
   const params = useParams();
   const courseId = params.courseId as string;
-  const { user, isUserLoading } = useUser();
-
-  if (isUserLoading) {
-    return (
-      <div>
-        <Skeleton className="h-9 w-40 mb-6" />
-        <Skeleton className="w-full h-[400px]" />
-      </div>
-    )
-  }
   
   return <CourseDetailContent courseId={courseId} />;
 }

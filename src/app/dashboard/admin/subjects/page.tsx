@@ -15,11 +15,7 @@ import { EditSubjectDialog } from '@/components/admin/edit-subject-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { AssignSubjectTeacherDialog } from '@/components/admin/assign-subject-teacher-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
-import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 
 export default function AdminSubjectsPage() {
@@ -31,58 +27,25 @@ export default function AdminSubjectsPage() {
   const [selectedSubject, setSelectedSubject] = React.useState<Subject | null>(null);
 
   const { toast } = useToast();
-  const { user: currentUser } = useUser();
-  const firestore = useFirestore();
 
-  const subjectsCollectionRef = useMemoFirebase(() => collection(firestore, 'subjects'), [firestore]);
-  const { data: subjects, isLoading: isLoadingSubjects } = useCollection<Subject>(subjectsCollectionRef);
-
-  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: users, isLoading: isLoadingUsers } = useCollection<AppUser>(usersCollectionRef);
-
-  const classesCollectionRef = useMemoFirebase(() => collection(firestore, 'classes'), [firestore]);
-  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesCollectionRef);
-  
-  const isLoading = isLoadingSubjects || isLoadingUsers || isLoadingClasses;
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const subjects: Subject[] = [];
+  const users: AppUser[] = [];
+  const classes: Class[] = [];
+  const isLoading = false;
   
   const allTeachers = React.useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
 
   const handleAdd = async (newSubject: Omit<Subject, 'id' | 'classCount' | 'createdAt' | 'creatorId' | 'teacherId'>) => {
-      if (!currentUser) return;
-      const newSubjectData = { 
-        ...newSubject,
-        teacherId: '',
-        classCount: 0,
-        creatorId: currentUser.uid,
-        createdAt: new Date().toISOString(),
-      };
-      
-      addDoc(collection(firestore, 'subjects'), newSubjectData).then(() => {
-          toast({ title: 'Matière ajoutée', description: `La matière ${newSubject.name} a été créée.` });
-      }).catch(e => {
-        const permissionError = new FirestorePermissionError({
-            path: 'subjects',
-            operation: 'create',
-            requestResourceData: newSubjectData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      });
+      // API call to your backend
+      console.log("Adding subject:", newSubject);
+      toast({ title: 'Matière ajoutée (Simulation)', description: `La matière ${newSubject.name} a été créée.` });
   };
 
   const handleUpdate = async (updatedSubject: Subject) => {
-    const { id, ...subjectData } = updatedSubject;
-    const subjectDocRef = doc(firestore, 'subjects', id);
-
-    updateDoc(subjectDocRef, subjectData).then(() => {
-      toast({ title: 'Matière modifiée', description: `La matière ${updatedSubject.name} a été mise à jour.` });
-    }).catch(e => {
-      const permissionError = new FirestorePermissionError({
-          path: subjectDocRef.path,
-          operation: 'update',
-          requestResourceData: subjectData,
-      });
-      errorEmitter.emit('permission-error', permissionError);
-    });
+    // API call to your backend
+    console.log("Updating subject:", updatedSubject);
+    toast({ title: 'Matière modifiée (Simulation)', description: `La matière ${updatedSubject.name} a été mise à jour.` });
   };
 
   const handleEdit = (subject: Subject) => {
@@ -102,34 +65,17 @@ export default function AdminSubjectsPage() {
   
   const handleAssignTeacherSave = async (subjectId: string, teacherId: string | undefined) => {
     if (!selectedSubject) return;
-    const subjectDocRef = doc(firestore, 'subjects', subjectId);
-    
-    updateDoc(subjectDocRef, { teacherId: teacherId || '' }).then(() => {
-        toast({ title: 'Assignation réussie', description: `L'enseignant a été mis à jour.` });
-        setIsAssignTeacherDialogOpen(false);
-    }).catch(e => {
-      const permissionError = new FirestorePermissionError({
-          path: subjectDocRef.path,
-          operation: 'update',
-          requestResourceData: { teacherId: teacherId || '' },
-      });
-      errorEmitter.emit('permission-error', permissionError);
-    });
+    // API call to your backend
+    console.log("Assigning teacher:", teacherId, "to subject:", subjectId);
+    toast({ title: 'Assignation réussie (Simulation)', description: `L'enseignant a été mis à jour.` });
+    setIsAssignTeacherDialogOpen(false);
   };
 
   const confirmDelete = async () => {
     if (selectedSubject) {
-        const subjectDocRef = doc(firestore, 'subjects', selectedSubject.id);
-        deleteDoc(subjectDocRef).then(() => {
-            toast({ variant: 'destructive', title: 'Matière supprimée', description: `La matière "${selectedSubject.name}" a été supprimée.` });
-        }).catch(e => {
-          const permissionError = new FirestorePermissionError({
-              path: subjectDocRef.path,
-              operation: 'delete',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
-
+        // API call to your backend
+        console.log("Deleting subject:", selectedSubject.id);
+        toast({ variant: 'destructive', title: 'Matière supprimée (Simulation)', description: `La matière "${selectedSubject.name}" a été supprimée.` });
         setIsDeleteDialogOpen(false);
         setSelectedSubject(null);
     }
@@ -199,7 +145,7 @@ export default function AdminSubjectsPage() {
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
-              ) : (
+              ) : filteredSubjects.length > 0 ? (
                 filteredSubjects.map((subject) => {
                   const teacher = subject.teacherId ? getTeacherById(subject.teacherId) : undefined;
                   return (
@@ -236,6 +182,12 @@ export default function AdminSubjectsPage() {
                     </TableCell>
                   </TableRow>
                 )})
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    Aucune matière trouvée.
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>

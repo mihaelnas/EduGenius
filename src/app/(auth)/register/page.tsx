@@ -25,12 +25,9 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase';
-import { createUserWithEmailAndPassword, signOut, User } from 'firebase/auth';
 import React from 'react';
 import { Eye, EyeOff, UserCog } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { activateAccount } from '@/app/actions';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
@@ -68,8 +65,7 @@ const formSchema = z.discriminatedUnion("isRegisteringAsAdmin", [
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { toast, dismiss } = useToast();
-  const auth = useAuth();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [isRegisteringAsAdmin, setIsRegisteringAsAdmin] = React.useState(false);
@@ -94,109 +90,23 @@ export default function RegisterPage() {
     form.setValue('isRegisteringAsAdmin', isRegisteringAsAdmin);
   }, [isRegisteringAsAdmin, form]);
 
-
-  const createAdminAccount = async (values: z.infer<typeof formSchema>, newAuthUser: User) => {
-      const result = await activateAccount({
-        matricule: '', // Non requis pour l'admin
-        firstName: values.firstName,
-        lastName: values.lastName,
-        email: values.email,
-        newAuthUserId: newAuthUser.uid,
-        isAdminCreation: true,
-      });
-
-      if (!result.success) {
-        throw new Error(result.error || "La création du compte admin a échoué.");
-      }
-      
-      // Force le rafraîchissement du token pour obtenir les droits admin immédiatement
-      await newAuthUser.getIdToken(true);
-      
-      toast({ 
-          title: 'Compte Administrateur Créé !', 
-          description: 'Vous avez maintenant tous les droits. Redirection vers le tableau de bord...',
-          duration: 5000 
-      });
-
-      router.push('/dashboard');
-  }
-
-  const activateStandardAccount = async (values: z.infer<typeof formSchema>, newAuthUser: User) => {
-      if (!values.matricule) {
-          throw new Error("Le matricule est requis pour l'activation.");
-      }
-
-      const result = await activateAccount({
-        matricule: values.matricule,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        email: values.email,
-        newAuthUserId: newAuthUser.uid,
-        isAdminCreation: false,
-      });
-
-       if (!result.success) {
-        throw new Error(result.error || "La transaction de base de données a échoué.");
-      }
-
-      // Déconnecter l'utilisateur standard après l'activation pour qu'il se connecte
-      await signOut(auth);
-
-      toast({ 
-          title: 'Compte activé avec succès !', 
-          description: 'Vous pouvez maintenant vous connecter avec vos identifiants.',
-          duration: 8000 
-      });
-      
-      router.push('/login');
-  }
-
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    let toastId: string | undefined;
-    let newAuthUser: User | null = null;
+    toast({
+        title: 'Création de compte en cours...',
+        description: "Envoi des données à votre backend.",
+    });
 
-    try {
-      toastId = toast({
-        title: 'Vérification en cours...',
-        description: 'Finalisation de votre compte...',
-        duration: Infinity
-      }).id;
-
-      // 1. Créer l'utilisateur Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      newAuthUser = userCredential.user;
-
-      // 2. Choisir la bonne logique en fonction du switch
-      if (values.isRegisteringAsAdmin) {
-        await createAdminAccount(values, newAuthUser);
-      } else {
-        await activateStandardAccount(values, newAuthUser);
-      }
-      
-      if (toastId) dismiss(toastId);
-
-    } catch (error: any) {
-      if (toastId) dismiss(toastId);
-      
-      // Si l'utilisateur Auth a été créé mais que l'action serveur a échoué, le supprimer
-      if (newAuthUser) {
-        await newAuthUser.delete().catch(e => console.error("Failed to delete auth user after error:", e));
-      }
-
-      let errorMessage = 'Une erreur est survenue. Vérifiez vos informations et réessayez.';
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'Cette adresse e-mail est déjà utilisée. Veuillez vous connecter ou utiliser une autre adresse.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-          variant: 'destructive',
-          title: "Échec de l'opération",
-          description: errorMessage,
-          duration: 8000
-      });
+    // TODO: Replace with your actual API call to FastAPI
+    console.log('Registration values:', values);
+    
+    if (values.isRegisteringAsAdmin) {
+        // Handle admin registration
+        toast({ title: "Compte Admin créé (simulation)", description: "Redirection vers le tableau de bord." });
+        router.push('/dashboard');
+    } else {
+        // Handle standard user registration
+        toast({ title: "Compte activé (simulation)", description: "Vous pouvez maintenant vous connecter." });
+        router.push('/login');
     }
   }
 

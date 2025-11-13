@@ -1,13 +1,15 @@
 
 'use client';
 
-import { useUser } from '@/firebase';
 import { redirect } from 'next/navigation';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function MyProfilePage() {
-  const { user, isUserLoading } = useUser();
+  
+  // This would come from your new auth context
+  const user = { uid: '1' }; // Hardcoded for demonstration
+  const isUserLoading = false;
 
   useEffect(() => {
     if (!isUserLoading && user) {

@@ -14,8 +14,6 @@ import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -90,39 +88,24 @@ export default function TeacherSchedulePage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedEvent, setSelectedEvent] = React.useState<ScheduleEvent | null>(null);
 
-  const { user } = useUser();
-  const firestore = useFirestore();
   const { toast } = useToast();
-
-  const scheduleQuery = useMemoFirebase(() => 
-    user ? query(collection(firestore, 'schedule'), where('teacherId', '==', user.uid)) : null,
-    [user, firestore]
-  );
-  const { data: schedule, isLoading: isLoadingSchedule } = useCollection<ScheduleEvent>(scheduleQuery);
   
-  const teacherClassesQuery = useMemoFirebase(() => 
-    user ? query(collection(firestore, 'classes'), where('teacherIds', 'array-contains', user.uid)) : null,
-    [user, firestore]
-  );
-  const { data: teacherClasses, isLoading: isLoadingClasses } = useCollection<Class>(teacherClassesQuery);
-
-  const teacherSubjectsQuery = useMemoFirebase(() => 
-    user ? query(collection(firestore, 'subjects'), where('teacherId', '==', user.uid)) : null,
-    [user, firestore]
-  );
-  const { data: teacherSubjects, isLoading: isLoadingSubjects } = useCollection<Subject>(teacherSubjectsQuery);
+  // Data fetching logic is removed. Replace with calls to your new backend.
+  const schedule: ScheduleEvent[] = [];
+  const teacherClasses: Class[] = [];
+  const teacherSubjects: Subject[] = [];
+  const isLoading = true;
 
   const handleEventAdded = async (newEventData: Omit<ScheduleEvent, 'id' | 'teacherId'>) => {
-    if (!user) return;
-    const scheduleCollectionRef = collection(firestore, 'schedule');
-    await addDoc(scheduleCollectionRef, { ...newEventData, teacherId: user.uid });
-    toast({ title: 'Événement ajouté avec succès.' });
+    // API call to your backend
+    console.log("Adding event:", newEventData);
+    toast({ title: 'Événement ajouté avec succès (Simulation).' });
   };
   
   const handleEventUpdated = async (updatedEventData: ScheduleEvent) => {
-    const eventDocRef = doc(firestore, 'schedule', updatedEventData.id);
-    await updateDoc(eventDocRef, updatedEventData);
-    toast({ title: 'Événement mis à jour avec succès.' });
+    // API call to your backend
+    console.log("Updating event:", updatedEventData);
+    toast({ title: 'Événement mis à jour avec succès (Simulation).' });
   };
 
   const handleOpenEdit = (event: ScheduleEvent) => {
@@ -137,20 +120,19 @@ export default function TeacherSchedulePage() {
 
   const confirmDelete = async () => {
     if (!selectedEvent) return;
-    const eventDocRef = doc(firestore, 'schedule', selectedEvent.id);
-    await deleteDoc(eventDocRef);
-    toast({ variant: 'destructive', title: 'Événement supprimé.' });
+    // API call to your backend
+    console.log("Deleting event:", selectedEvent.id);
+    toast({ variant: 'destructive', title: 'Événement supprimé (Simulation).' });
     setIsDeleteDialogOpen(false);
     setSelectedEvent(null);
   };
 
   const getTeacherName = (id: string): string => {
     // Since this is the teacher's own schedule, we can just return their name.
-    return user?.displayName || 'Moi';
+    return 'Moi';
   };
 
   const daysOfWeek = Array.from({ length: 5 }, (_, i) => addDays(week, i));
-  const isLoading = isLoadingSchedule || isLoadingClasses || isLoadingSubjects;
 
   return (
     <>

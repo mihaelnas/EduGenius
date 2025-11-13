@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -27,12 +28,9 @@ import {
 } from '@/components/ui/select';
 import { Subject } from '@/lib/placeholder-data';
 import { zodResolver } from '@hookform/resolvers/zod';
-import React, { useCallback, useEffect } from 'react';
+import React from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
-import { useFirestore } from '@/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { debounce } from 'lodash';
 
 const semestres = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10'] as const;
 
@@ -53,46 +51,10 @@ type EditSubjectDialogProps = {
 }
 
 export function EditSubjectDialog({ isOpen, setIsOpen, subject, onSubjectUpdated }: EditSubjectDialogProps) {
-  const firestore = useFirestore();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: subject,
   });
-
-  const subjectNameValue = useWatch({
-    control: form.control,
-    name: 'name',
-  });
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const checkSubjectNameUniqueness = useCallback(
-    debounce(async (name: string) => {
-      if (!name || name.toUpperCase() === subject.name.toUpperCase()) {
-        form.clearErrors('name');
-        return;
-      };
-      const subjectsRef = collection(firestore, 'subjects');
-      const q = query(subjectsRef, where('name', '==', name.toUpperCase()));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-         form.setError('name', {
-            type: 'manual',
-            message: 'Ce nom de matière existe déjà.',
-          });
-      } else {
-        form.clearErrors('name');
-      }
-    }, 500),
-    [firestore, form, subject.name]
-  );
-  
-  useEffect(() => {
-    if (subjectNameValue) {
-      checkSubjectNameUniqueness(subjectNameValue);
-    }
-  }, [subjectNameValue, checkSubjectNameUniqueness]);
-
 
   React.useEffect(() => {
     if (isOpen) {
@@ -106,19 +68,7 @@ export function EditSubjectDialog({ isOpen, setIsOpen, subject, onSubjectUpdated
         name: values.name.toUpperCase(),
     };
 
-    if (finalValues.name !== subject.name.toUpperCase()) {
-        const subjectsRef = collection(firestore, 'subjects');
-        const q = query(subjectsRef, where('name', '==', finalValues.name));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-            form.setError('name', {
-                type: 'manual',
-                message: 'Ce nom de matière existe déjà.',
-            });
-            return;
-        }
-    }
+    // TODO: Add API call to check for uniqueness before submitting if name changed
     
     onSubjectUpdated(finalValues);
     setIsOpen(false);

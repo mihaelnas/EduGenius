@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -31,10 +32,8 @@ import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { ScrollArea } from '../ui/scroll-area';
 import { AppUser, Student, Teacher } from '@/lib/placeholder-data';
-import { useAuth, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { KeyRound } from 'lucide-react';
-import { sendPasswordResetEmail } from 'firebase/auth';
 
 const baseSchema = z.object({
   role: z.enum(['student', 'teacher', 'admin']),
@@ -105,20 +104,19 @@ const initialFormValues: Partial<FormValues> = {
 };
 
 export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditUserDialogProps) {
-  const auth = useAuth();
-  const { user: currentUser } = useUser();
+  
+  // This would come from your auth context
+  const currentUser = { id: '1', role: 'admin' };
   const { toast } = useToast();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialFormValues,
   });
 
-  const isCurrentUserAdmin = currentUser?.uid === user.id && (user as any).role === 'admin';
+  const isCurrentUserAdmin = currentUser?.id === user.id && user.role === 'admin';
 
   React.useEffect(() => {
     if (user && isOpen) {
-      // Create a full default object and merge the user data into it.
-      // This ensures all fields are controlled from the start.
       const valuesToSet = {
         ...initialFormValues,
         ...user,
@@ -148,19 +146,12 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
   }
 
   const handlePasswordReset = async () => {
-    try {
-      await sendPasswordResetEmail(auth, user.email);
-      toast({
-        title: 'Email de réinitialisation envoyé',
-        description: `Un e-mail a été envoyé à ${user.email}.`,
-      });
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: `Impossible d'envoyer l'e-mail : ${error.message}`,
-      });
-    }
+    // API call to your backend
+    console.log("Requesting password reset for:", user.email);
+    toast({
+      title: 'Email de réinitialisation envoyé (Simulation)',
+      description: `Un e-mail a été envoyé à ${user.email}.`,
+    });
   };
   
   const handleOpenChange = (open: boolean) => {
@@ -300,5 +291,3 @@ export function EditUserDialog({ isOpen, setIsOpen, user, onUserUpdated }: EditU
     </Dialog>
   );
 }
-
-    

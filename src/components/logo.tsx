@@ -1,12 +1,12 @@
+
 'use client';
 
 import Link from 'next/link';
 import { GraduationCap } from 'lucide-react';
-import { useUser } from '@/firebase';
 
 export function Logo() {
-  const { user } = useUser();
-  const href = user ? '/dashboard' : '/';
+  // As Firebase is removed, always link to the homepage.
+  const href = '/';
 
   return (
     <Link href={href} className="flex items-center gap-2 group" prefetch={false}>
