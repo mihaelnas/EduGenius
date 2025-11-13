@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
@@ -5,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { AppUser } from '@/lib/placeholder-data';
+import Cookies from 'js-cookie';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -21,6 +23,9 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+const AUTH_TOKEN_COOKIE = 'authToken';
+const USER_DATA_COOKIE = 'user';
+
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -30,16 +35,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     try {
-      const storedToken = localStorage.getItem('authToken');
-      const storedUser = localStorage.getItem('user');
+      const storedToken = Cookies.get(AUTH_TOKEN_COOKIE);
+      const storedUser = Cookies.get(USER_DATA_COOKIE);
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
       }
     } catch (error) {
-        console.error("Failed to parse auth data from localStorage", error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
+        console.error("Failed to parse auth data from cookies", error);
+        Cookies.remove(AUTH_TOKEN_COOKIE);
+        Cookies.remove(USER_DATA_COOKIE);
     }
     setIsLoading(false);
   }, []);
@@ -62,7 +67,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         if (data.access_token) {
             setToken(data.access_token);
-            localStorage.setItem('authToken', data.access_token);
+            Cookies.set(AUTH_TOKEN_COOKIE, data.access_token, { expires: 7, secure: true, sameSite: 'strict' });
             
             // TODO: Fetch user profile after getting the token
             // For now, we'll create a placeholder user object
@@ -77,7 +82,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 createdAt: new Date().toISOString()
             };
             setUser(placeholderUser);
-            localStorage.setItem('user', JSON.stringify(placeholderUser));
+            Cookies.set(USER_DATA_COOKIE, JSON.stringify(placeholderUser), { expires: 7, secure: true, sameSite: 'strict' });
+
 
             toast({
                 title: 'Connexion réussie !',
@@ -97,8 +103,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // Clear any potentially stale data
         setUser(null);
         setToken(null);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
+        Cookies.remove(AUTH_TOKEN_COOKIE);
+        Cookies.remove(USER_DATA_COOKIE);
     } finally {
         setIsLoading(false);
     }
@@ -107,8 +113,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const logout = useCallback(() => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
+    Cookies.remove(AUTH_TOKEN_COOKIE);
+    Cookies.remove(USER_DATA_COOKIE);
     router.push('/login');
   }, [router]);
 
