@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Inter } from 'next/font/google';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { AuthProvider } from '@/contexts/auth-context';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -61,7 +62,9 @@ export default function RootLayout({
         <meta name="description" content="La plateforme éducative du futur." />
       </head>
       <body className={cn('font-body antialiased', inter.variable)}>
-        {children}
+        <AuthProvider>
+            {children}
+        </AuthProvider>
         <Toaster />
       </body>
     </html>
