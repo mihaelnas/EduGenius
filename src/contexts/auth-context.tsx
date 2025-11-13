@@ -52,11 +52,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = useCallback(async (email: string, pass: string) => {
     setIsLoading(true);
     try {
-        // FastAPI's default token endpoint expects form data
         const formData = new URLSearchParams();
         formData.append('username', email);
         formData.append('password', pass);
 
+        // On suppose que l'API renvoie l'access_token et les infos utilisateur
         const data = await apiFetch('/token', {
             method: 'POST',
             headers: {
@@ -65,33 +65,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             body: formData.toString(),
         });
 
-        if (data.access_token) {
+        // La réponse du backend doit contenir l'access_token et les infos de redirection
+        if (data.access_token && data.redirect_to && data.role) {
             setToken(data.access_token);
-            Cookies.set(AUTH_TOKEN_COOKIE, data.access_token, { expires: 7, secure: true, sameSite: 'strict' });
-            
-            // TODO: Fetch user profile after getting the token
-            // For now, we'll create a placeholder user object
-            const placeholderUser: AppUser = {
-                id: 'temp-id',
+            Cookies.set(AUTH_TOKEN_COOKIE, data.access_token, { expires: 7, secure: process.env.NODE_ENV === 'production' });
+
+            // On crée un objet utilisateur à partir des données de l'API
+            // Note: C'est un profil partiel. Idéalement, vous auriez une autre route /users/me pour obtenir le profil complet.
+            const userProfile: AppUser = {
+                id: 'temp-id', // Remplacer par l'ID utilisateur réel si l'API le renvoie
                 email: email,
-                role: 'admin', // Assume admin for now, but should come from a /users/me endpoint
-                firstName: 'Admin',
-                lastName: 'User',
+                role: data.role,
+                firstName: 'Utilisateur', // Ces valeurs devraient venir d'un appel à /users/me
+                lastName: '',
                 username: email,
                 status: 'active',
                 createdAt: new Date().toISOString()
             };
-            setUser(placeholderUser);
-            Cookies.set(USER_DATA_COOKIE, JSON.stringify(placeholderUser), { expires: 7, secure: true, sameSite: 'strict' });
 
+            setUser(userProfile);
+            Cookies.set(USER_DATA_COOKIE, JSON.stringify(userProfile), { expires: 7, secure: process.env.NODE_ENV === 'production' });
 
             toast({
                 title: 'Connexion réussie !',
-                description: 'Vous allez être redirigé vers votre tableau de bord.',
+                description: 'Vous allez être redirigé...',
             });
-            router.push('/dashboard');
+            
+            // On utilise le chemin de redirection fourni par le backend
+            router.push(data.redirect_to);
         } else {
-            throw new Error(data.detail || 'Impossible de récupérer le jeton d\'accès.');
+            throw new Error(data.detail || 'La réponse de l\'API est invalide.');
         }
     } catch (error: any) {
         console.error("Login failed:", error);
@@ -100,7 +103,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             title: 'Échec de la connexion',
             description: error.message || "Une erreur inconnue est survenue.",
         });
-        // Clear any potentially stale data
         setUser(null);
         setToken(null);
         Cookies.remove(AUTH_TOKEN_COOKIE);
