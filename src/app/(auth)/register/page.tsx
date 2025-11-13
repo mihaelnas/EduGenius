@@ -26,38 +26,17 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
-import { Eye, EyeOff, UserCog } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 
-// Schéma de base commun
-const baseSchema = z.object({
+const formSchema = z.object({
   firstName: z.string().min(1, { message: 'Le prénom est requis.' }),
   lastName: z.string().min(1, { message: 'Le nom est requis.' }),
   email: z.string().email({ message: 'Veuillez entrer un email valide.' }),
   password: z.string().min(8, { message: 'Le mot de passe doit contenir au moins 8 caractères.' }),
   confirmPassword: z.string(),
-});
-
-// Schéma pour l'utilisateur standard (avec matricule)
-const userSchema = baseSchema.extend({
   matricule: z.string().min(1, { message: 'Le matricule est requis.' }),
-  isRegisteringAsAdmin: z.literal(false),
-});
-
-// Schéma pour l'admin (sans matricule)
-const adminSchema = baseSchema.extend({
-  matricule: z.string().optional(),
-  isRegisteringAsAdmin: z.literal(true),
-});
-
-
-// Combine les schémas
-const formSchema = z.discriminatedUnion("isRegisteringAsAdmin", [
-    userSchema,
-    adminSchema
-]).refine(data => data.password === data.confirmPassword, {
+}).refine(data => data.password === data.confirmPassword, {
   message: 'Les mots de passe ne correspondent pas.',
   path: ['confirmPassword'],
 });
@@ -68,7 +47,6 @@ export default function RegisterPage() {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
-  const [isRegisteringAsAdmin, setIsRegisteringAsAdmin] = React.useState(false);
 
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -80,34 +58,22 @@ export default function RegisterPage() {
       email: '',
       password: '',
       confirmPassword: '',
-      isRegisteringAsAdmin: false,
     },
     mode: 'onBlur',
   });
-  
-  // Mettre à jour la valeur dans le formulaire lorsque l'état change
-  React.useEffect(() => {
-    form.setValue('isRegisteringAsAdmin', isRegisteringAsAdmin);
-  }, [isRegisteringAsAdmin, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     toast({
-        title: 'Création de compte en cours...',
+        title: 'Activation de compte en cours...',
         description: "Envoi des données à votre backend.",
     });
 
     // TODO: Replace with your actual API call to FastAPI
     console.log('Registration values:', values);
     
-    if (values.isRegisteringAsAdmin) {
-        // Handle admin registration
-        toast({ title: "Compte Admin créé (simulation)", description: "Redirection vers le tableau de bord." });
-        router.push('/dashboard');
-    } else {
-        // Handle standard user registration
-        toast({ title: "Compte activé (simulation)", description: "Vous pouvez maintenant vous connecter." });
-        router.push('/login');
-    }
+    // Handle standard user registration
+    toast({ title: "Compte activé (simulation)", description: "Vous pouvez maintenant vous connecter." });
+    router.push('/login');
   }
 
 
@@ -134,22 +100,8 @@ export default function RegisterPage() {
             <div>
                  <CardTitle className="text-2xl font-headline">Activer votre compte</CardTitle>
                 <CardDescription>
-                  {isRegisteringAsAdmin 
-                    ? "Remplissez les champs pour créer un compte administrateur."
-                    : "Finalisez votre inscription pour activer votre compte pré-créé."
-                  }
+                  Finalisez votre inscription pour activer votre compte pré-créé.
                 </CardDescription>
-            </div>
-             <div className="flex items-center space-x-2 pt-1">
-                <Label htmlFor="admin-mode" className="text-sm font-medium flex items-center gap-2">
-                    <UserCog className="h-4 w-4"/>
-                    Admin
-                </Label>
-                <Switch 
-                    id="admin-mode" 
-                    checked={isRegisteringAsAdmin}
-                    onCheckedChange={setIsRegisteringAsAdmin}
-                />
             </div>
         </div>
       </CardHeader>
@@ -157,9 +109,7 @@ export default function RegisterPage() {
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
           <ScrollArea className="h-auto max-h-[60vh]">
             <CardContent className="grid gap-4 px-6">
-                {!isRegisteringAsAdmin && (
-                    <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="Ex: 1814 H-F" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                )}
+                <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="Ex: 1814 H-F" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="Jean" {...field} onBlur={handlePrenomBlur} /></FormControl><FormMessage /></FormItem> )} />
                     <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Nom</FormLabel><FormControl><Input placeholder="DUPONT" {...field} onBlur={handleNomBlur} /></FormControl><FormMessage /></FormItem> )} />
@@ -175,7 +125,7 @@ export default function RegisterPage() {
           </ScrollArea>
           <CardFooter className="flex flex-col gap-4 px-6 pb-6 pt-4">
             <Button className="w-full" type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Opération en cours..." : (isRegisteringAsAdmin ? "Créer le compte Admin" : "Activer mon compte")}
+              {form.formState.isSubmitting ? "Opération en cours..." : "Activer mon compte"}
             </Button>
             <div className="text-center text-sm text-muted-foreground">
               Vous avez déjà un compte ?{' '}
