@@ -87,7 +87,6 @@ export default function AdminClassesPage() {
             niveau: updatedClass.niveau,
             filiere: updatedClass.filiere,
             annee_scolaire: updatedClass.annee_scolaire,
-            effectif: updatedClass.effectif,
             id_enseignant: updatedClass.enseignants.map(e => e.id)
         }),
       });
@@ -99,23 +98,34 @@ export default function AdminClassesPage() {
   };
 
   const handleAssignTeachers = async (classId: number, teacherIds: number[]) => {
-    // La logique d'assignation se fait maintenant dans handleUpdate ou via des routes dédiées si elles existent.
-    // Votre API semble gérer l'assignation via la route de mise à jour de la classe.
-    const classToUpdate = classes.find(c => c.id_classe === classId);
-    if(classToUpdate) {
-        const updatedTeachers = allTeachers.filter(t => teacherIds.includes(t.id));
-        await handleUpdate({ ...classToUpdate, enseignants: updatedTeachers });
+    if(!selectedClass) return;
+    
+    const initialTeacherIds = selectedClass.enseignants.map(t => t.id);
+    const teachersToAdd = teacherIds.filter(id => !initialTeacherIds.includes(id));
+    const teachersToRemove = initialTeacherIds.filter(id => !teacherIds.includes(id));
+
+    try {
+        await Promise.all([
+            ...teachersToAdd.map(id => apiFetch(`/admin/assigner_enseignant/${classId}/${id}`, { method: 'POST' })),
+            ...teachersToRemove.map(id => apiFetch(`/admin/retirer_enseignant/${classId}/${id}`, { method: 'DELETE' })),
+        ]);
+
         toast({
             title: 'Assignation réussie',
-            description: `Les enseignants pour la classe ${classToUpdate.nom_classe} ont été mis à jour.`,
+            description: `Les enseignants pour la classe ${selectedClass.nom_classe} ont été mis à jour.`,
         });
+        fetchData();
         setIsAssignTeacherDialogOpen(false);
+    } catch(error: any) {
+        toast({ variant: 'destructive', title: 'Erreur', description: error.message });
     }
   };
 
   const handleUpdateStudents = async (classId: number, studentIds: number[]) => {
       if(!selectedClass) return;
-      const currentStudentIds = selectedClass.enseignants.map(s => s.id); // API renvoie enseignants dans la classe... je suppose que c'est une coquille et que ça devrait être etudiants
+      // Fetch current students of the class to be sure
+      const currentStudentsInClass = await apiFetch(`/admin/etudiants_classe/${classId}`);
+      const currentStudentIds = currentStudentsInClass.map((s: AppUser) => s.id);
       
       const studentsToAdd = studentIds.filter(id => !currentStudentIds.includes(id));
       const studentsToRemove = currentStudentIds.filter(id => !studentIds.includes(id));
@@ -261,7 +271,7 @@ export default function AdminClassesPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleEdit(c)}>Modifier les détails</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleAssignTeacherClick(c)}>Assigner un enseignant</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleAssignTeacherClick(c)}>Gérer les enseignants</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleManageStudentsClick(c)}>Gérer les étudiants</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(c)}>Supprimer</DropdownMenuItem>
                       </DropdownMenuContent>

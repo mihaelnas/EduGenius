@@ -25,10 +25,13 @@ type AssignTeacherDialogProps = {
 }
 
 export function AssignTeacherDialog({ isOpen, setIsOpen, classData, allTeachers, onAssign }: AssignTeacherDialogProps) {
-  const [selectedTeacherIds, setSelectedTeacherIds] = React.useState<number[]>(classData.enseignants.map(t => t.id));
+  const [selectedTeacherIds, setSelectedTeacherIds] = React.useState<number[]>([]);
 
   React.useEffect(() => {
-    setSelectedTeacherIds(classData.enseignants.map(t => t.id));
+    // Initialise les enseignants sélectionnés avec ceux déjà dans la classe
+    if (classData) {
+      setSelectedTeacherIds(classData.enseignants.map(t => t.id));
+    }
   }, [classData]);
 
   const handleCheckboxChange = (teacherId: number, checked: boolean) => {
@@ -42,12 +45,20 @@ export function AssignTeacherDialog({ isOpen, setIsOpen, classData, allTeachers,
   const handleSave = () => {
     onAssign(classData.id_classe, selectedTeacherIds);
   };
+  
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    // Réinitialise l'état si on ferme la boite de dialogue
+    if (!open && classData) {
+       setSelectedTeacherIds(classData.enseignants.map(t => t.id));
+    }
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assigner des enseignants à "{classData.nom_classe}"</DialogTitle>
+          <DialogTitle>Gérer les enseignants pour "{classData.nom_classe}"</DialogTitle>
           <DialogDescription>
             Cochez les enseignants que vous souhaitez assigner à cette classe.
           </DialogDescription>

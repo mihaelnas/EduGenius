@@ -17,8 +17,9 @@ import { Label } from '../ui/label';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 type ManageStudentsDialogProps = {
     isOpen: boolean;
@@ -29,23 +30,29 @@ type ManageStudentsDialogProps = {
 }
 
 export function ManageStudentsDialog({ isOpen, setIsOpen, classData, allStudents, onUpdate }: ManageStudentsDialogProps) {
-  const [currentStudents, setCurrentStudents] = React.useState<AppUser[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = React.useState<number[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+  const { toast } = useToast();
 
   React.useEffect(() => {
     async function fetchStudentsInClass() {
-      if (isOpen) {
-        // Supposons une route qui retourne les étudiants d'une classe.
-        // À créer dans votre API FastAPI si elle n'existe pas.
-        // Pour l'instant, on filtre la liste complète.
-        // Dans l'idéal : const students = await apiFetch(`/admin/classe/${classData.id_classe}/etudiants`);
-        const studentIdsInClass: number[] = []; // à remplir avec la réponse de l'API
-        setSelectedStudentIds(studentIdsInClass);
+      if (isOpen && classData) {
+        setIsLoading(true);
+        try {
+          // Utilise la nouvelle route pour obtenir les étudiants actuels de la classe
+          const studentsInClass: AppUser[] = await apiFetch(`/admin/etudiants_classe/${classData.id_classe}`);
+          const studentIds = studentsInClass.map(student => student.id);
+          setSelectedStudentIds(studentIds);
+        } catch (error: any) {
+           toast({ variant: 'destructive', title: 'Erreur', description: "Impossible de charger les étudiants de la classe." });
+        } finally {
+            setIsLoading(false);
+        }
       }
     }
     fetchStudentsInClass();
-  }, [classData, isOpen]);
+  }, [classData, isOpen, toast]);
 
   const handleCheckboxChange = (studentId: number, checked: boolean) => {
     if (checked) {
@@ -59,14 +66,13 @@ export function ManageStudentsDialog({ isOpen, setIsOpen, classData, allStudents
     onUpdate(classData.id_classe, selectedStudentIds);
   };
   
-  const filteredStudents = allStudents.filter(student =>
-    student.role === 'etudiant' &&
-    // @ts-ignore - On suppose que le niveau est dans l'objet student détaillé
-    (student.niveau === classData.niveau || !student.niveau) &&
-    (getDisplayName(student).toLowerCase().includes(searchTerm.toLowerCase()) || 
-     // @ts-ignore
-     (student.matricule && student.matricule.toLowerCase().includes(searchTerm.toLowerCase())))
-  );
+  // Filtre les étudiants en fonction de la recherche et de leur niveau (s'il est disponible)
+  const filteredStudents = allStudents.filter(student => {
+    const searchTermLower = searchTerm.toLowerCase();
+    const matchesSearch = getDisplayName(student).toLowerCase().includes(searchTermLower) || 
+                          (student.matricule && student.matricule.toLowerCase().includes(searchTermLower));
+    return matchesSearch;
+  });
 
 
   return (
@@ -90,27 +96,31 @@ export function ManageStudentsDialog({ isOpen, setIsOpen, classData, allStudents
         </div>
 
         <ScrollArea className="h-80 border rounded-md">
-            <div className="space-y-1 p-2">
-            {filteredStudents.map(student => (
-                <div key={student.id} className="flex items-center gap-3 rounded-md p-2 hover:bg-muted">
-                    <Checkbox
-                        id={`student-${student.id}`}
-                        checked={selectedStudentIds.includes(student.id)}
-                        onCheckedChange={(checked) => handleCheckboxChange(student.id, !!checked)}
-                    />
-                    <Label htmlFor={`student-${student.id}`} className="font-normal w-full cursor-pointer flex justify-between items-center">
-                        <span>{getDisplayName(student)}</span>
-                         {/* @ts-ignore */}
-                        <Badge variant="outline">{student.matricule}</Badge>
-                    </Label>
+            {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
-            ))}
-            {filteredStudents.length === 0 && (
-              <div className="text-center text-sm text-muted-foreground p-4">
-                Aucun étudiant de niveau {classData.niveau} trouvé.
-              </div>
+            ) : (
+                <div className="space-y-1 p-2">
+                {filteredStudents.length > 0 ? filteredStudents.map(student => (
+                    <div key={student.id} className="flex items-center gap-3 rounded-md p-2 hover:bg-muted">
+                        <Checkbox
+                            id={`student-${student.id}`}
+                            checked={selectedStudentIds.includes(student.id)}
+                            onCheckedChange={(checked) => handleCheckboxChange(student.id, !!checked)}
+                        />
+                        <Label htmlFor={`student-${student.id}`} className="font-normal w-full cursor-pointer flex justify-between items-center">
+                            <span>{getDisplayName(student)}</span>
+                            {student.matricule && <Badge variant="outline">{student.matricule}</Badge>}
+                        </Label>
+                    </div>
+                )) : (
+                     <div className="text-center text-sm text-muted-foreground p-4">
+                        Aucun étudiant trouvé pour cette recherche.
+                     </div>
+                )}
+                </div>
             )}
-            </div>
         </ScrollArea>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
