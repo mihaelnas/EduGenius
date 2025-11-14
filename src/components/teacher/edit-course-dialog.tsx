@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -15,15 +16,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 const resourceSchema = z.object({
   id: z.string().optional(),
-  type: z.enum(['pdf', 'video', 'link']),
-  title: z.string().min(1, 'Le titre est requis.'),
+  type_resource: z.enum(['pdf', 'video', 'link']),
+  titre: z.string().min(1, 'Le titre est requis.'),
   url: z.string().url("Veuillez fournir une URL valide.").optional().or(z.literal('')),
 });
 
 const formSchema = z.object({
-  title: z.string().min(1, 'Le titre est requis.'),
-  content: z.string().min(1, 'Le contenu est requis.'),
-  resources: z.array(resourceSchema),
+  titre: z.string().min(1, 'Le titre est requis.'),
+  contenu: z.string().min(1, 'Le contenu est requis.'),
+  // resources: z.array(resourceSchema),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -32,7 +33,7 @@ type EditCourseDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     course: Course;
-    onCourseUpdated: (updatedCourse: Course) => void;
+    onCourseUpdated: (updatedCourse: FormValues) => void;
 }
 
 export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }: EditCourseDialogProps) {
@@ -40,39 +41,29 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }:
     resolver: zodResolver(formSchema),
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "resources"
-  });
+  // const { fields, append, remove } = useFieldArray({
+  //   control: form.control,
+  //   name: "resources"
+  // });
   
   React.useEffect(() => {
     if (course) {
       form.reset({
-        title: course.title,
-        content: course.content,
-        resources: course.resources?.map(r => ({ ...r, url: r.url || '' })) || []
+        titre: course.titre,
+        contenu: course.contenu,
+        // resources: course.resources?.map(r => ({ ...r, url: r.url || '' })) || []
       });
     }
   }, [course, form]);
 
 
   function onSubmit(values: FormValues) {
-    const updatedCourse: Course = {
-      ...course,
-      title: values.title,
-      content: values.content,
-      resources: values.resources.map(r => ({ 
-        id: r.id || `res_${Date.now()}_${Math.random()}`,
-        type: r.type,
-        title: r.title,
-        url: r.url || '',
-      }))
-    };
-    onCourseUpdated(updatedCourse);
+    onCourseUpdated(values);
     setIsOpen(false);
   }
 
   const handleOpenChange = (open: boolean) => {
+    if (form.formState.isSubmitting) return;
     setIsOpen(open);
     if (!open) {
       form.reset();
@@ -90,10 +81,10 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }:
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Titre du cours</FormLabel><FormControl><Input placeholder="Ex: Introduction à l'Algèbre" {...field} /></FormControl><FormMessage /></FormItem> )} />
-            <FormField control={form.control} name="content" render={({ field }) => ( <FormItem><FormLabel>Contenu / Description</FormLabel><FormControl><Textarea placeholder="Décrivez le contenu de ce cours..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+            <FormField control={form.control} name="titre" render={({ field }) => ( <FormItem><FormLabel>Titre du cours</FormLabel><FormControl><Input placeholder="Ex: Introduction à l'Algèbre" {...field} /></FormControl><FormMessage /></FormItem> )} />
+            <FormField control={form.control} name="contenu" render={({ field }) => ( <FormItem><FormLabel>Contenu / Description</FormLabel><FormControl><Textarea placeholder="Décrivez le contenu de ce cours..." {...field} /></FormControl><FormMessage /></FormItem> )} />
             
-            <div>
+            {/* <div>
               <h4 className="text-sm font-medium mb-2">Ressources</h4>
               <div className="space-y-4">
                 {fields.map((field, index) => (
@@ -108,11 +99,11 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }:
                   <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une ressource
                 </Button>
               </div>
-            </div>
+            </div> */}
 
             <DialogFooter className='pt-4'>
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Annuler</Button>
-              <Button type="submit">Sauvegarder les modifications</Button>
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={form.formState.isSubmitting}>Annuler</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>Sauvegarder</Button>
             </DialogFooter>
           </form>
         </Form>

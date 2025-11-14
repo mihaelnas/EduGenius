@@ -18,8 +18,10 @@ import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api';
+import { useAuth } from '@/contexts/auth-context';
 
-const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
+const ResourceIcon = ({ type }: { type: Resource['type_resource'] }) => {
   switch (type) {
     case 'pdf':
       return <Paperclip className="h-4 w-4 text-muted-foreground" />;
@@ -34,8 +36,8 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 
 function SubjectCourses({ subject }: { subject: Subject }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   
-  // Data fetching logic is removed. Replace with calls to your new backend.
   const [courses, setCourses] = React.useState<Course[]>([]);
   const [isLoadingCourses, setIsLoadingCourses] = React.useState(true);
 
@@ -44,15 +46,28 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedCourse, setSelectedCourse] = React.useState<Course | null>(null);
 
-  React.useEffect(() => {
-    // TODO: Fetch courses for this subject from your API
+  const fetchCourses = React.useCallback(async () => {
+    if (!user) return;
     setIsLoadingCourses(true);
-    setTimeout(() => {
-        // Dummy data for demonstration
-        setCourses([]);
-        setIsLoadingCourses(false);
-    }, 1000);
-  }, [subject.id]);
+    try {
+      // Suppose que cette route renvoie tous les cours de l'enseignant
+      const allCourses: Course[] = await apiFetch(`/cours/${user.id}`);
+      // On filtre côté client
+      setCourses(allCourses.filter(c => c.id_matiere === subject.id_matiere));
+    } catch (error: any) {
+        if (error.message.includes('404')) {
+            setCourses([]);
+        } else {
+            toast({ variant: 'destructive', title: 'Erreur', description: "Impossible de charger les cours pour cette matière." });
+        }
+    } finally {
+      setIsLoadingCourses(false);
+    }
+  }, [subject.id_matiere, user, toast]);
+
+  React.useEffect(() => {
+    fetchCourses();
+  }, [fetchCourses]);
 
 
   const handleOpenAddDialog = () => {
@@ -71,35 +86,63 @@ function SubjectCourses({ subject }: { subject: Subject }) {
 
   const confirmDelete = async () => {
     if (selectedCourse) {
-      // API call to your backend
-      console.log("Deleting course:", selectedCourse.id);
-      toast({
-        variant: 'destructive',
-        title: 'Cours supprimé (Simulation)',
-        description: `Le cours "${selectedCourse.title}" a été supprimé.`,
-      });
+      try {
+        await apiFetch(`/cours/${selectedCourse.id_cours}`, { method: 'DELETE' });
+        toast({
+          variant: 'destructive',
+          title: 'Cours supprimé',
+          description: `Le cours "${selectedCourse.titre}" a été supprimé.`,
+        });
+        fetchCourses();
+      } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+      }
       setIsDeleteDialogOpen(false);
       setSelectedCourse(null);
     }
   };
 
   const handleAddCourse = async (values: AddCourseFormValues) => {
-    // API call to your backend
-    console.log("Adding course:", values);
-    toast({
-      title: 'Cours ajouté (Simulation)',
-      description: `Le cours "${values.title}" a été créé avec succès.`,
-    });
+    if (!user) return;
+    try {
+      const payload = { ...values, id_matiere: subject.id_matiere, id_enseignant: user.id };
+      await apiFetch('/cours/ajouter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      toast({
+        title: 'Cours ajouté',
+        description: `Le cours "${values.titre}" a été créé avec succès.`,
+      });
+      fetchCourses();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    }
   };
 
 
-  const handleUpdateCourse = async (updatedCourse: Course) => {
-    // API call to your backend
-    console.log("Updating course:", updatedCourse);
-    toast({
-      title: 'Cours modifié (Simulation)',
-      description: `Le cours "${updatedCourse.title}" a été mis à jour.`,
-    });
+  const handleUpdateCourse = async (updatedCourseData: AddCourseFormValues) => {
+    if (!selectedCourse) return;
+    try {
+      const payload = {
+        ...updatedCourseData,
+        id_matiere: selectedCourse.id_matiere,
+        id_enseignant: selectedCourse.id_enseignant,
+      };
+      await apiFetch(`/cours/${selectedCourse.id_cours}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      toast({
+        title: 'Cours modifié',
+        description: `Le cours "${updatedCourseData.titre}" a été mis à jour.`,
+      });
+      fetchCourses();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    }
   };
 
   return (
@@ -107,7 +150,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
       <CardContent className="p-6 pt-0">
         <div className="flex items-center justify-between mb-4">
           <div className="text-muted-foreground">
-              {isLoadingCourses ? <Skeleton className="h-4 w-20"/> : `${(courses || []).length} cours publiés.`}
+              {isLoadingCourses ? <Skeleton className="h-4 w-20"/> : `${courses.length} cours publiés.`}
           </div>
           <Button variant="outline" size="sm" onClick={handleOpenAddDialog}>
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -117,16 +160,16 @@ function SubjectCourses({ subject }: { subject: Subject }) {
         <div className="space-y-4">
           {isLoadingCourses ? (
             <Skeleton className="h-24 w-full" />
-          ) : (courses || []).map(course => (
-            <div key={course.id} className="rounded-lg border bg-card p-4">
+          ) : courses.map(course => (
+            <div key={course.id_cours} className="rounded-lg border bg-card p-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                    <Link href={`/dashboard/teacher/courses/${course.id}`} className="font-semibold text-base hover:underline">{course.title}</Link>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{course.content}</p>
+                    <Link href={`/dashboard/teacher/courses/${course.id_cours}`} className="font-semibold text-base hover:underline">{course.titre}</Link>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{course.contenu}</p>
                 </div>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                        <Link href={`/dashboard/teacher/courses/${course.id}`}>
+                        <Link href={`/dashboard/teacher/courses/${course.id_cours}`}>
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">Voir</span>
                         </Link>
@@ -142,26 +185,26 @@ function SubjectCourses({ subject }: { subject: Subject }) {
                 </div>
               </div>
 
-              {course.resources && course.resources.length > 0 && (
+              {/* {course.resources && course.resources.length > 0 && (
                 <div className="mt-3 space-y-2 border-t pt-3">
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ressources</h4>
                   {course.resources.map((resource, index) => (
                     <a
-                      key={resource.id || index}
+                      key={resource.id_resource || index}
                       href={resource.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 text-sm text-primary hover:underline"
                     >
-                      <ResourceIcon type={resource.type} />
-                      <span>{resource.title}</span>
+                      <ResourceIcon type={resource.type_resource} />
+                      <span>{resource.titre}</span>
                     </a>
                   ))}
                 </div>
-              )}
+              )} */}
             </div>
           ))}
-          {!isLoadingCourses && (courses || []).length === 0 && (
+          {!isLoadingCourses && courses.length === 0 && (
             <p className="text-center text-sm text-muted-foreground py-4">
               Aucun cours dans cette matière pour le moment.
             </p>
@@ -173,7 +216,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
         isOpen={isAddCourseDialogOpen}
         setIsOpen={setIsAddCourseDialogOpen}
         onCourseAdded={handleAddCourse}
-        subjectName={subject.name}
+        subjectName={subject.nom_matiere}
       />
 
       {selectedCourse && (
@@ -189,7 +232,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
         isOpen={isDeleteDialogOpen}
         setIsOpen={setIsDeleteDialogOpen}
         onConfirm={confirmDelete}
-        itemName={selectedCourse?.title}
+        itemName={selectedCourse?.titre}
         itemType="le cours"
       />
     </>
@@ -197,20 +240,31 @@ function SubjectCourses({ subject }: { subject: Subject }) {
 }
 
 export default function TeacherCoursesPage() {
-  
-  // Data fetching logic is removed. Replace with calls to your new backend.
+  const { toast } = useToast();
+  const { user } = useAuth();
   const [teacherSubjects, setTeacherSubjects] = React.useState<Subject[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   
   React.useEffect(() => {
-      // TODO: Fetch subjects for the current teacher from your API
-      setIsLoading(true);
-      setTimeout(() => {
-          // Dummy data for demonstration
-          // setTeacherSubjects([...]);
-          setIsLoading(false);
-      }, 1000);
-  }, [])
+    if (!user) return;
+    const fetchTeacherSubjects = async () => {
+        setIsLoading(true);
+        try {
+            // Suppose une route /enseignant/matieres qui renvoie les matières de l'enseignant loggé
+            const data = await apiFetch('/enseignant/matieres'); 
+            setTeacherSubjects(data || []);
+        } catch (error: any) {
+             if (error.message.includes('404')) {
+                setTeacherSubjects([]);
+             } else {
+                toast({ variant: 'destructive', title: 'Erreur', description: "Impossible de charger vos matières." });
+             }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchTeacherSubjects();
+  }, [user, toast]);
   
   return (
     <>
@@ -229,11 +283,11 @@ export default function TeacherCoursesPage() {
             ))
           ) : teacherSubjects && teacherSubjects.length > 0 ? (
             teacherSubjects.map(subject => (
-              <AccordionItem key={subject.id} value={`subject-${subject.id}`} className="border-b-0">
+              <AccordionItem key={subject.id_matiere} value={`subject-${subject.id_matiere}`} className="border-b-0">
                 <Card>
                   <CardHeader className="p-0">
                     <AccordionTrigger className="flex w-full items-center justify-between p-6 text-lg font-semibold hover:no-underline">
-                      {subject.name}
+                      {subject.nom_matiere}
                     </AccordionTrigger>
                   </CardHeader>
                   <AccordionContent>

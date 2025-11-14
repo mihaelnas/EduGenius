@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -14,15 +15,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 const resourceSchema = z.object({
   id: z.string().optional(),
-  type: z.enum(['pdf', 'video', 'link']),
-  title: z.string().min(1, 'Le titre est requis.'),
+  type_resource: z.enum(['pdf', 'video', 'link']),
+  titre: z.string().min(1, 'Le titre est requis.'),
   url: z.string().url("Veuillez fournir une URL valide.").or(z.literal('')),
 });
 
 const formSchema = z.object({
-  title: z.string().min(1, 'Le titre est requis.'),
-  content: z.string().min(1, 'Le contenu est requis.'),
-  resources: z.array(resourceSchema),
+  titre: z.string().min(1, 'Le titre est requis.'),
+  contenu: z.string().min(1, 'Le contenu est requis.'),
+  // resources: z.array(resourceSchema), // La gestion des ressources sera gérée séparément
 });
 
 export type AddCourseFormValues = z.infer<typeof formSchema>;
@@ -39,21 +40,20 @@ export function AddCourseDialog({ isOpen, setIsOpen, onCourseAdded, subjectName 
   const form = useForm<AddCourseFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: '',
-      content: '',
-      resources: [],
+      titre: '',
+      contenu: '',
+      // resources: [],
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "resources"
-  });
+  // const { fields, append, remove } = useFieldArray({
+  //   control: form.control,
+  //   name: "resources"
+  // });
   
   async function onSubmit(values: AddCourseFormValues) {
     await onCourseAdded(values);
     setIsOpen(false);
-    form.reset();
   }
   
    const handleOpenChange = (open: boolean) => {
@@ -75,10 +75,10 @@ export function AddCourseDialog({ isOpen, setIsOpen, onCourseAdded, subjectName 
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel>Titre du cours</FormLabel><FormControl><Input placeholder="Ex: Introduction à l'Algèbre" {...field} /></FormControl><FormMessage /></FormItem> )} />
-            <FormField control={form.control} name="content" render={({ field }) => ( <FormItem><FormLabel>Contenu / Description</FormLabel><FormControl><Textarea placeholder="Décrivez le contenu de ce cours..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+            <FormField control={form.control} name="titre" render={({ field }) => ( <FormItem><FormLabel>Titre du cours</FormLabel><FormControl><Input placeholder="Ex: Introduction à l'Algèbre" {...field} /></FormControl><FormMessage /></FormItem> )} />
+            <FormField control={form.control} name="contenu" render={({ field }) => ( <FormItem><FormLabel>Contenu / Description</FormLabel><FormControl><Textarea placeholder="Décrivez le contenu de ce cours..." {...field} /></FormControl><FormMessage /></FormItem> )} />
             
-            <div>
+            {/* <div>
               <h4 className="text-sm font-medium mb-2">Ressources</h4>
               <div className="space-y-4">
                 {fields.map((field, index) => (
@@ -94,7 +94,7 @@ export function AddCourseDialog({ isOpen, setIsOpen, onCourseAdded, subjectName 
                   <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une ressource
                 </Button>
               </div>
-            </div>
+            </div> */}
 
             <DialogFooter className='pt-4'>
                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={form.formState.isSubmitting}>Annuler</Button>

@@ -83,22 +83,25 @@ export type Subject = {
 
 // Correspond au schéma Resource de placeholder, à adapter à FastAPI
 export type Resource = {
-  id: string;
-  type: 'pdf' | 'video' | 'link';
-  title: string;
+  id_resource: number;
+  type_resource: 'pdf' | 'video' | 'link';
+  titre: string;
   url: string;
 };
 
-// Correspond au schéma Course de placeholder, à adapter à FastAPI
+// Correspond au schéma CoursResponse de FastAPI
 export type Course = {
-  id: string;
-  title: string;
-  content: string;
-  subjectId: string;
-  subjectName: string;
-  teacherId: string;
-  resources: Resource[];
-  createdAt: string;
+  id_cours: number;
+  titre: string;
+  contenu: string;
+  id_matiere: number;
+  id_enseignant: number;
+  cree_a: string;
+  matiere?: Subject;
+  enseignant?: AppUser;
+  // À ajouter si votre API les renvoie
+  // resources?: Resource[];
+  [key: string]: any; // Pour permettre d'autres champs
 };
 
 // Correspond au schéma ScheduleEvent de placeholder, à adapter à FastAPI
