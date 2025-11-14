@@ -10,17 +10,20 @@ import type { Class } from '@/lib/placeholder-data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/api';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function TeacherClassesPage() {
   const [teacherClasses, setTeacherClasses] = React.useState<Class[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   React.useEffect(() => {
+    if (!user) return;
+
     const fetchClasses = async () => {
       setIsLoading(true);
       try {
-        // On suppose une route qui renvoie les classes de l'enseignant connecté
         const data = await apiFetch('/enseignant/classes');
         setTeacherClasses(data || []);
       } catch (error: any) {
@@ -34,7 +37,7 @@ export default function TeacherClassesPage() {
       }
     };
     fetchClasses();
-  }, [toast]);
+  }, [toast, user]);
 
   return (
     <>

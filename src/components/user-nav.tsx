@@ -16,39 +16,27 @@ import {
 import { LogIn, LogOut, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { AppUser } from '@/lib/placeholder-data';
+import { useAuth } from '@/contexts/auth-context';
+import { getDisplayName } from '@/lib/placeholder-data';
+import { Skeleton } from './ui/skeleton';
 
 export function UserNav() {
   const router = useRouter();
+  const { user, isLoading, logout } = useAuth();
 
-  // This would come from your new auth context
-  const user: (AppUser & { uid: string }) | null = {
-      uid: '1',
-      id: '1',
-      firstName: 'Admin',
-      lastName: 'User',
-      email: 'admin@example.com',
-      username: '@admin',
-      role: 'admin',
-      status: 'active',
-      createdAt: new Date().toISOString(),
-  }; 
-  const isUserLoading = false;
 
   const handleLogout = async () => {
-    // API call to your backend logout endpoint
-    console.log('Logging out...');
-    router.push('/login');
+    await logout();
   };
   
-  if (isUserLoading) {
-    return <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />;
+  if (isLoading) {
+    return <Skeleton className="h-9 w-9 rounded-full" />;
   }
 
-  const displayName = user ? `${user.firstName} ${user.lastName}` : 'Utilisateur';
+  const displayName = user ? getDisplayName(user) : 'Utilisateur';
   const displayEmail = user?.email || '';
-  const photoURL = user?.photo;
-  const fallback = user ? (user.firstName?.charAt(0) || '') + (user.lastName?.charAt(0) || '') : 'U';
+  const photoURL = user?.photo_url;
+  const fallback = user ? (user.prenom?.charAt(0) || '') + (user.nom?.charAt(0) || '') : 'U';
 
 
   return (
@@ -75,7 +63,7 @@ export function UserNav() {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link href="/dashboard/profile">
+                <Link href={`/dashboard/profile/${user.id}`}>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profil</span>
                 </Link>

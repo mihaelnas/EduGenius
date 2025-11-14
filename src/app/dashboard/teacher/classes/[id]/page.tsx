@@ -14,23 +14,24 @@ import React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function TeacherClassDetailPage() {
   const params = useParams();
   const classId = params.id as string;
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [currentClass, setCurrentClass] = React.useState<Class | null>(null);
   const [studentsInClass, setStudentsInClass] = React.useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!classId) return;
+    if (!classId || !user) return;
 
     const fetchClassDetails = async () => {
         setIsLoading(true);
         try {
-            // On récupère les détails de la classe et la liste des étudiants en parallèle
             const [classData, studentsData] = await Promise.all([
                 apiFetch(`/enseignant/classe/${classId}`),
                 apiFetch(`/enseignant/etudiants/${classId}`)
@@ -41,8 +42,8 @@ export default function TeacherClassDetailPage() {
             toast({
                 variant: 'destructive',
                 title: 'Erreur de chargement',
-                description: "Impossible de charger les détails de la classe."
-            })
+                description: error.message || "Impossible de charger les détails de la classe.",
+            });
             setCurrentClass(null); // Force l'affichage du message "non trouvé"
         } finally {
             setIsLoading(false);
@@ -50,7 +51,7 @@ export default function TeacherClassDetailPage() {
     };
 
     fetchClassDetails();
-  }, [classId, toast]);
+  }, [classId, toast, user]);
 
   if (isLoading) {
     return (

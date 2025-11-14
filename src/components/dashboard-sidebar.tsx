@@ -18,24 +18,22 @@ import {
   type NavLink,
 } from '@/lib/nav-links';
 import { Skeleton } from './ui/skeleton';
+import { useAuth } from '@/contexts/auth-context';
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  
-  // This would come from your new auth context/hook
-  const user = { role: 'admin' }; // Hardcoded for demonstration. Change to 'teacher' or 'student'.
-  const isLoading = false;
+  const { user, isLoading } = useAuth();
 
   let navLinks: NavLink[] = [];
   switch (user?.role) {
     case 'admin':
       navLinks = adminNavLinks;
       break;
-    case 'teacher':
+    case 'enseignant':
       navLinks = teacherNavLinks;
       break;
-    case 'student':
-    default:
+    case 'etudiant':
+    default: // Affiche le menu étudiant par défaut ou si le rôle n'est pas encore chargé
       navLinks = studentNavLinks;
       break;
   }
@@ -48,7 +46,7 @@ export function DashboardSidebar() {
             <Logo />
           </div>
         </SidebarHeader>
-        <SidebarContent className='p-2'>
+        <SidebarContent className='p-4 space-y-2'>
            {Array.from({ length: 4 }).map((_, i) => (
              <Skeleton key={i} className="h-8 w-full" />
            ))}

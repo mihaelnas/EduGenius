@@ -4,16 +4,15 @@
 import { redirect } from 'next/navigation';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function MyProfilePage() {
   
-  // This would come from your new auth context
-  const user = { uid: '1' }; // Hardcoded for demonstration
-  const isUserLoading = false;
+  const { user, isLoading: isUserLoading } = useAuth();
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      redirect(`/dashboard/profile/${user.uid}`);
+      redirect(`/dashboard/profile/${user.id}`);
     }
     if (!isUserLoading && !user) {
       redirect('/login');
