@@ -50,9 +50,9 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     if (!user) return;
     setIsLoadingCourses(true);
     try {
-      // Suppose que cette route renvoie tous les cours de l'enseignant
+      // Cette route récupère tous les cours de l'enseignant.
       const allCourses: Course[] = await apiFetch(`/cours/${user.id}`);
-      // On filtre côté client
+      // Nous filtrons côté client pour cette matière spécifique.
       setCourses(allCourses.filter(c => c.id_matiere === subject.id_matiere));
     } catch (error: any) {
         if (error.message.includes('404')) {
@@ -250,8 +250,7 @@ export default function TeacherCoursesPage() {
     const fetchTeacherSubjects = async () => {
         setIsLoading(true);
         try {
-            // Suppose une route /enseignant/matieres qui renvoie les matières de l'enseignant loggé
-            const data = await apiFetch('/enseignant/matieres'); 
+            const data = await apiFetch(`/enseignant/${user.id}/matieres`); 
             setTeacherSubjects(data || []);
         } catch (error: any) {
              if (error.message.includes('404')) {

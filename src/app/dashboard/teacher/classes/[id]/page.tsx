@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getDisplayName, AppUser, Class } from '@/lib/placeholder-data';
+import { getDisplayName, AppUser, Class, EtudiantDetail } from '@/lib/placeholder-data';
 import React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
@@ -23,7 +23,7 @@ export default function TeacherClassDetailPage() {
   const { user } = useAuth();
   
   const [currentClass, setCurrentClass] = React.useState<Class | null>(null);
-  const [studentsInClass, setStudentsInClass] = React.useState<AppUser[]>([]);
+  const [studentsInClass, setStudentsInClass] = React.useState<EtudiantDetail[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -33,8 +33,8 @@ export default function TeacherClassDetailPage() {
         setIsLoading(true);
         try {
             const [classData, studentsData] = await Promise.all([
-                apiFetch(`/enseignant/classe/${classId}`),
-                apiFetch(`/enseignant/etudiants/${classId}`)
+                apiFetch(`/enseignant/${user.id}/classes/${classId}`),
+                apiFetch(`/enseignant/${user.id}/classes/${classId}/etudiants`)
             ]);
             setCurrentClass(classData);
             setStudentsInClass(studentsData || []);
@@ -138,16 +138,16 @@ export default function TeacherClassDetailPage() {
                         </TableHeader>
                         <TableBody>
                         {studentsInClass.map((student) => (
-                            <TableRow key={student.id}>
+                            <TableRow key={student.id_etudiant}>
                             <TableCell className="font-medium">
                                 <div className="flex items-center gap-3">
                                 <Avatar className="h-9 w-9">
-                                    <AvatarImage src={student.photo_url} alt={getDisplayName(student)} />
-                                    <AvatarFallback>{(student.prenom || '').charAt(0)}{(student.nom || '').charAt(0)}</AvatarFallback>
+                                    <AvatarImage src={student.photo_url} alt={getDisplayName(student as unknown as AppUser)} />
+                                    <AvatarFallback>{((student as unknown as AppUser).prenom || '').charAt(0)}{((student as unknown as AppUser).nom || '').charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div className="grid gap-0.5">
-                                    <span className="font-semibold">{getDisplayName(student)}</span>
-                                    <span className="text-xs text-muted-foreground">{student.nom_utilisateur}</span>
+                                    <span className="font-semibold">{getDisplayName(student as unknown as AppUser)}</span>
+                                    <span className="text-xs text-muted-foreground">{(student as unknown as AppUser).nom_utilisateur}</span>
                                 </div>
                                 </div>
                             </TableCell>
@@ -158,7 +158,7 @@ export default function TeacherClassDetailPage() {
                                 <div className="flex flex-col gap-1 text-xs">
                                    <div className="flex items-center gap-2">
                                      <Mail className="h-3 w-3 text-muted-foreground" />
-                                     <a href={`mailto:${student.email}`} className="hover:underline">{student.email}</a>
+                                     <a href={`mailto:${(student as unknown as AppUser).email}`} className="hover:underline">{(student as unknown as AppUser).email}</a>
                                    </div>
                                    {student.telephone && (
                                     <div className="flex items-center gap-2">

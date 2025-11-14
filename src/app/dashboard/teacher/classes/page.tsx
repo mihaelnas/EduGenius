@@ -24,14 +24,18 @@ export default function TeacherClassesPage() {
     const fetchClasses = async () => {
       setIsLoading(true);
       try {
-        const data = await apiFetch('/enseignant/classes');
+        const data = await apiFetch(`/enseignant/${user.id}/classes`);
         setTeacherClasses(data || []);
       } catch (error: any) {
-        toast({
-          variant: 'destructive',
-          title: 'Erreur de chargement',
-          description: error.message,
-        });
+        if (error.message.includes('404')) {
+            setTeacherClasses([]);
+        } else {
+            toast({
+              variant: 'destructive',
+              title: 'Erreur de chargement',
+              description: error.message,
+            });
+        }
       } finally {
         setIsLoading(false);
       }
