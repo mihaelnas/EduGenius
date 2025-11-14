@@ -1,3 +1,4 @@
+
 // Ce fichier contient des types qui devraient correspondre à vos schémas Pydantic.
 // Il est crucial de les garder synchronisés avec l'API FastAPI.
 
@@ -50,7 +51,7 @@ export type Class = {
   filiere: 'IG' | 'GB' | 'ASR' | 'GID' | 'OCC';
   annee_scolaire: string;
   effectif: number;
-  enseignants: AppUser[]; // FastAPI renverra probablement les objets enseignants
+  enseignants: AppUser[];
 };
 
 // Correspond au schéma MatiereResponse de FastAPI
@@ -64,7 +65,7 @@ export type Subject = {
   enseignant?: AppUser; // L'objet enseignant complet
 };
 
-// Correspond au schéma Resource de placeholder, à adapter à FastAPI
+// Correspond au schéma Resource de votre future API
 export type Resource = {
   id_resource: number;
   type_resource: 'pdf' | 'video' | 'link';
@@ -82,6 +83,7 @@ export type Course = {
   cree_a: string;
   matiere?: Subject; // Peut être inclus dans certaines réponses
   enseignant?: AppUser; // Peut être inclus
+  resources?: Resource[]; // Liste des ressources associées
 };
 
 // Correspond au schéma ScheduleEvent de placeholder, à adapter à FastAPI

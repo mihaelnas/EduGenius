@@ -23,7 +23,7 @@ const resourceSchema = z.object({
 const formSchema = z.object({
   titre: z.string().min(1, 'Le titre est requis.'),
   contenu: z.string().min(1, 'Le contenu est requis.'),
-  // resources: z.array(resourceSchema), // La gestion des ressources sera gérée séparément
+  resources: z.array(resourceSchema),
 });
 
 export type AddCourseFormValues = z.infer<typeof formSchema>;
@@ -42,16 +42,17 @@ export function AddCourseDialog({ isOpen, setIsOpen, onCourseAdded, subjectName 
     defaultValues: {
       titre: '',
       contenu: '',
-      // resources: [],
+      resources: [],
     },
   });
 
-  // const { fields, append, remove } = useFieldArray({
-  //   control: form.control,
-  //   name: "resources"
-  // });
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "resources"
+  });
   
   async function onSubmit(values: AddCourseFormValues) {
+    // Note: L'API devra gérer la création des ressources associées au cours.
     await onCourseAdded(values);
     setIsOpen(false);
   }
@@ -78,23 +79,23 @@ export function AddCourseDialog({ isOpen, setIsOpen, onCourseAdded, subjectName 
             <FormField control={form.control} name="titre" render={({ field }) => ( <FormItem><FormLabel>Titre du cours</FormLabel><FormControl><Input placeholder="Ex: Introduction à l'Algèbre" {...field} /></FormControl><FormMessage /></FormItem> )} />
             <FormField control={form.control} name="contenu" render={({ field }) => ( <FormItem><FormLabel>Contenu / Description</FormLabel><FormControl><Textarea placeholder="Décrivez le contenu de ce cours..." {...field} /></FormControl><FormMessage /></FormItem> )} />
             
-            {/* <div>
+            <div>
               <h4 className="text-sm font-medium mb-2">Ressources</h4>
               <div className="space-y-4">
                 {fields.map((field, index) => (
                     <div key={field.id} className="flex gap-2 items-end p-3 border rounded-md">
-                      <FormField control={form.control} name={`resources.${index}.type`} render={({ field }) => ( <FormItem className="w-32"><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="pdf">PDF</SelectItem><SelectItem value="video">Vidéo</SelectItem><SelectItem value="link">Lien</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                      <FormField control={form.control} name={`resources.${index}.title`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>Titre</FormLabel><FormControl><Input placeholder="Titre de la ressource" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                      <FormField control={form.control} name={`resources.${index}.type_resource`} render={({ field }) => ( <FormItem className="w-32"><FormLabel>Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Choisir..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="pdf">PDF</SelectItem><SelectItem value="video">Vidéo</SelectItem><SelectItem value="link">Lien</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                      <FormField control={form.control} name={`resources.${index}.titre`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>Titre</FormLabel><FormControl><Input placeholder="Titre de la ressource" {...field} /></FormControl><FormMessage /></FormItem> )} />
                       <FormField control={form.control} name={`resources.${index}.url`} render={({ field }) => ( <FormItem className="flex-1"><FormLabel>URL</FormLabel><FormControl><Input placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem> )} />
                       <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   )
                 )}
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ type: 'link', title: '', url: '' })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ type_resource: 'link', titre: '', url: '' })}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une ressource
                 </Button>
               </div>
-            </div> */}
+            </div>
 
             <DialogFooter className='pt-4'>
                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={form.formState.isSubmitting}>Annuler</Button>
