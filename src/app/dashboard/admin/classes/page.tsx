@@ -124,8 +124,8 @@ export default function AdminClassesPage() {
   const handleUpdateStudents = async (classId: number, studentIds: number[]) => {
       if(!selectedClass) return;
       // Fetch current students of the class to be sure
-      const currentStudentsInClass = await apiFetch(`/admin/etudiants_classe/${classId}`);
-      const currentStudentIds = currentStudentsInClass.map((s: AppUser) => s.id);
+      const currentStudentsInClass: AppUser[] = await apiFetch(`/admin/etudiants_classe/${classId}`);
+      const currentStudentIds = currentStudentsInClass.map(s => s.id);
       
       const studentsToAdd = studentIds.filter(id => !currentStudentIds.includes(id));
       const studentsToRemove = currentStudentIds.filter(id => !studentIds.includes(id));

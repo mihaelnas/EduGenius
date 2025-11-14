@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AppUser, Class, Subject } from '@/lib/placeholder-data';
+import { AppUser, Class, Subject, getDisplayName } from '@/lib/placeholder-data';
 import { Users, School, Book, BarChart3, Activity, UserPlus, FolderPlus, BookPlus } from 'lucide-react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '../ui/chart';
@@ -39,8 +39,8 @@ export function AdminDashboard({ userName, users, classes, subjects }: AdminDash
 
     const chartData = React.useMemo(() => [
       { name: 'Admins', value: roleCounts.admin || 0 },
-      { name: 'Enseignants', value: roleCounts.teacher || 0 },
-      { name: 'Étudiants', value: roleCounts.student || 0 },
+      { name: 'Enseignants', value: roleCounts.enseignant || 0 },
+      { name: 'Étudiants', value: roleCounts.etudiant || 0 },
     ], [roleCounts]);
 
 
@@ -48,14 +48,14 @@ export function AdminDashboard({ userName, users, classes, subjects }: AdminDash
         { title: "Total Utilisateurs", value: users.length, icon: <Users className="h-4 w-4 text-muted-foreground" />, description: "+2% depuis hier" },
         { title: "Total Classes", value: classes.length, icon: <School className="h-4 w-4 text-muted-foreground" />, description: "+5 depuis la semaine dernière" },
         { title: "Total Matières", value: subjects.length, icon: <Book className="h-4 w-4 text-muted-foreground" />, description: "Stable" },
-        { title: "Enseignants Actifs", value: users.filter(u => u.role === 'teacher' && u.status === 'active').length, icon: <Users className="h-4 w-4 text-muted-foreground" />, description: "" },
+        { title: "Enseignants Actifs", value: users.filter(u => u.role === 'enseignant' && u.statut === 'actif').length, icon: <Users className="h-4 w-4 text-muted-foreground" />, description: "" },
     ], [users, classes, subjects]);
 
     const recentActivity = React.useMemo(() => {
         const allActivity: ActivityItem[] = [
-            ...users.map(u => ({ type: 'user' as const, data: u, createdAt: new Date(u.createdAt) })),
-            ...classes.map(c => ({ type: 'class' as const, data: c, createdAt: new Date(c.createdAt) })),
-            ...subjects.map(s => ({ type: 'subject' as const, data: s, createdAt: new Date(s.createdAt) }))
+            ...users.map(u => ({ type: 'user' as const, data: u, createdAt: new Date(u.cree_a) })),
+            ...classes.map(c => ({ type: 'class' as const, data: c, createdAt: new Date() })), // Note: Class schema has no 'cree_a'
+            ...subjects.map(s => ({ type: 'subject' as const, data: s, createdAt: new Date() })) // Note: Subject schema has no 'cree_a'
         ];
         
         return allActivity
@@ -71,6 +71,21 @@ export function AdminDashboard({ userName, users, classes, subjects }: AdminDash
             default: return <Activity className="h-5 w-5 text-primary" />;
         }
     }
+    
+    const getActivityTitle = (item: ActivityItem) => {
+        if(item.type === 'user') return `Nouvel utilisateur : ${getDisplayName(item.data as AppUser)}`;
+        if(item.type === 'class') return `Nouvelle classe : ${(item.data as Class).nom_classe}`;
+        if(item.type === 'subject') return `Nouvelle matière : ${(item.data as Subject).nom_matiere}`;
+        return 'Activité inconnue';
+    }
+    
+    const getActivityId = (item: ActivityItem) => {
+        if(item.type === 'user') return (item.data as AppUser).id;
+        if(item.type === 'class') return (item.data as Class).id_classe;
+        if(item.type === 'subject') return (item.data as Subject).id_matiere;
+        return Math.random();
+    }
+
 
     return (
         <>
@@ -88,7 +103,7 @@ export function AdminDashboard({ userName, users, classes, subjects }: AdminDash
                         </CardHeader>
                         <CardContent>
                         <div className="text-2xl font-bold">{stat.value}</div>
-                        <p className="text-xs text-muted-foreground">{stat.description}</p>
+                        {/* <p className="text-xs text-muted-foreground">{stat.description}</p> */}
                         </CardContent>
                     </Card>
                 ))}
@@ -124,13 +139,11 @@ export function AdminDashboard({ userName, users, classes, subjects }: AdminDash
                     <CardContent>
                        <div className="space-y-4">
                             {recentActivity.map((item) => (
-                                <div key={`${item.type}-${item.data.id}`} className="flex items-start gap-4">
+                                <div key={`${item.type}-${getActivityId(item)}`} className="flex items-start gap-4">
                                     <ActivityIcon type={item.type} />
                                     <div className="text-sm">
                                         <p className="text-foreground">
-                                           {item.type === 'user' && `Nouvel utilisateur : ${(item.data as AppUser).firstName} ${(item.data as AppUser).lastName}`}
-                                           {item.type === 'class' && `Nouvelle classe : ${(item.data as Class).name}`}
-                                           {item.type === 'subject' && `Nouvelle matière : ${(item.data as Subject).name}`}
+                                           {getActivityTitle(item)}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
                                            {formatDistanceToNow(item.createdAt, { addSuffix: true, locale: fr })}

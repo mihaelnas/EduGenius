@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { ScheduleEvent, Class, Subject, getDisplayName } from '@/lib/placeholder-data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { format } from 'date-fns';
+import { useAuth } from '@/contexts/auth-context';
 
 const formSchema = z.object({
   date: z.string().min(1, 'La date est requise.'),
@@ -48,8 +49,7 @@ type AddEventDialogProps = {
 
 export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses, teacherSubjects, selectedDate }: AddEventDialogProps) {
   
-  // This would come from your auth context
-  const user = { displayName: 'Professeur', email: 'teacher@example.com' };
+  const { user } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -115,7 +115,7 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
                     </FormControl>
                     <SelectContent>
                       {teacherSubjects.map(subject => (
-                        <SelectItem key={subject.id} value={subject.name}>{subject.name}</SelectItem>
+                        <SelectItem key={subject.id_matiere} value={subject.nom_matiere}>{subject.nom_matiere}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -138,7 +138,7 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
                     </FormControl>
                     <SelectContent>
                       {teacherClasses.map(c => (
-                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                        <SelectItem key={c.id_classe} value={c.nom_classe}>{c.nom_classe}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -151,7 +151,7 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
                 <FormItem>
                     <FormLabel>Enseignant</FormLabel>
                     <FormControl>
-                        <Input value={getDisplayName({firstName: user.displayName || '', lastName: ''}) || user.email || ''} disabled />
+                        <Input value={getDisplayName(user) || user.email} disabled />
                     </FormControl>
                 </FormItem>
             )}

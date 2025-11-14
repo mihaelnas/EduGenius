@@ -85,7 +85,7 @@ export function EditEventDialog({ isOpen, setIsOpen, onEventUpdated, eventData, 
                     </FormControl>
                     <SelectContent>
                       {teacherSubjects.map(subject => (
-                        <SelectItem key={subject.id} value={subject.name}>{subject.name}</SelectItem>
+                        <SelectItem key={subject.id_matiere} value={subject.nom_matiere}>{subject.nom_matiere}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -108,7 +108,7 @@ export function EditEventDialog({ isOpen, setIsOpen, onEventUpdated, eventData, 
                     </FormControl>
                     <SelectContent>
                       {teacherClasses.map(c => (
-                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                        <SelectItem key={c.id_classe} value={c.nom_classe}>{c.nom_classe}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -146,4 +146,3 @@ export function EditEventDialog({ isOpen, setIsOpen, onEventUpdated, eventData, 
     </Dialog>
   );
 }
-

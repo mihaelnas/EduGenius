@@ -1,6 +1,3 @@
-
-// A REMPLACER PAR LES VRAIS SCHEMAS DE L'API
-
 // Ce fichier contient des types qui devraient correspondre à vos schémas Pydantic.
 // Il est crucial de les garder synchronisés avec l'API FastAPI.
 
@@ -13,19 +10,9 @@ export type AppUser = {
   email: string;
   role: 'admin' | 'enseignant' | 'etudiant';
   statut: 'actif' | 'inactif';
-  cree_a: string;
+  cree_a: string; // Devrait être un format de date ISO, ex: "2023-10-27T10:00:00"
   photo_url?: string;
-  // Champs optionnels qui peuvent être présents dans des vues détaillées
-  specialite?: string;
-  email_professionnel?: string;
-  matricule?: string;
-  date_naissance?: string;
-  lieu_naissance?: string;
-  genre?: string;
-  adresse?: string;
-  telephone?: string;
-  niveau?: string;
-  filiere?: string;
+  matricule?: string; // Spécifique à l'étudiant
 };
 
 // Schéma pour la mise à jour d'un utilisateur
@@ -34,27 +21,24 @@ export type UserForUpdate = Partial<Omit<AppUser, 'id' | 'cree_a'>>;
 // Détails spécifiques à un étudiant, correspond à EtudiantDetail de FastAPI
 export type EtudiantDetail = AppUser & {
   id_etudiant: number;
-  matricule: string;
-  date_naissance: string;
-  lieu_naissance: string;
-  genre: string;
-  adresse: string;
-  niveau_etude: string;
-  telephone: string;
-  filiere: string;
-  photo_url?: string;
+  date_naissance?: string;
+  lieu_naissance?: string;
+  genre?: string;
+  adresse?: string;
+  niveau_etude?: string;
+  telephone?: string;
+  filiere?: string;
   id_classe?: number;
 };
 
 // Détails spécifiques à un enseignant, correspond à EnseignantDetail de FastAPI
 export type EnseignantDetail = AppUser & {
   id_enseignant: number;
-  specialite: string;
-  email_professionnel: string;
-  genre: string;
-  telephone: string;
-  adresse: string;
-  photo_url?: string;
+  specialite?: string;
+  email_professionnel?: string;
+  genre?: string;
+  telephone?: string;
+  adresse?: string;
 };
 
 
@@ -96,11 +80,8 @@ export type Course = {
   id_matiere: number;
   id_enseignant: number;
   cree_a: string;
-  matiere?: Subject;
-  enseignant?: AppUser;
-  // À ajouter si votre API les renvoie
-  // resources?: Resource[];
-  [key: string]: any; // Pour permettre d'autres champs
+  matiere?: Subject; // Peut être inclus dans certaines réponses
+  enseignant?: AppUser; // Peut être inclus
 };
 
 // Correspond au schéma ScheduleEvent de placeholder, à adapter à FastAPI
@@ -119,7 +100,8 @@ export type ScheduleEvent = {
 
 
 // Combine nom and prenom for display name
-export function getDisplayName(user: { prenom?: string, nom?: string }): string {
+export function getDisplayName(user?: { prenom?: string, nom?: string } | null): string {
+    if (!user) return '';
     const firstName = user.prenom || '';
     const lastName = user.nom || '';
     return `${firstName} ${lastName}`.trim();
