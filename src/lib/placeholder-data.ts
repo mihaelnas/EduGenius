@@ -1,5 +1,4 @@
 
-
 // A REMPLACER PAR LES VRAIS SCHEMAS DE L'API
 
 // Ce fichier contient des types qui devraient correspondre à vos schémas Pydantic.
@@ -32,8 +31,8 @@ export type AppUser = {
 // Schéma pour la mise à jour d'un utilisateur
 export type UserForUpdate = Partial<Omit<AppUser, 'id' | 'cree_a'>>;
 
-// Détails spécifiques à un étudiant
-export type EtudiantDetail = {
+// Détails spécifiques à un étudiant, correspond à EtudiantDetail de FastAPI
+export type EtudiantDetail = AppUser & {
   id_etudiant: number;
   matricule: string;
   date_naissance: string;
@@ -47,8 +46,8 @@ export type EtudiantDetail = {
   id_classe?: number;
 };
 
-// Détails spécifiques à un enseignant
-export type EnseignantDetail = {
+// Détails spécifiques à un enseignant, correspond à EnseignantDetail de FastAPI
+export type EnseignantDetail = AppUser & {
   id_enseignant: number;
   specialite: string;
   email_professionnel: string;

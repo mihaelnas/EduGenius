@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -12,14 +13,14 @@ type StudentDashboardProps = {
     studentClass: Class | null | undefined;
     subjects: Subject[];
     recentCourses: Course[];
-    getSubjectName: (subjectId: string) => string;
+    getSubjectName: (subjectId: number) => string;
 }
 
 export function StudentDashboard({ userName, studentClass, subjects, recentCourses, getSubjectName }: StudentDashboardProps) {
 
     const stats = [
         { title: "Matières Inscrites", value: subjects.length, icon: <BookOpen className="h-6 w-6 text-primary" />, href: "/dashboard/student/courses" },
-        { title: "Camarades de classe", value: studentClass ? studentClass.studentIds.length - 1 : 0, icon: <Users className="h-6 w-6 text-primary" />, href: "/dashboard/student/classmates" },
+        { title: "Camarades de classe", value: studentClass ? studentClass.effectif - 1 : 0, icon: <Users className="h-6 w-6 text-primary" />, href: "/dashboard/student/classmates" },
     ];
     
     return (
@@ -62,11 +63,11 @@ export function StudentDashboard({ userName, studentClass, subjects, recentCours
                         {recentCourses.length > 0 ? (
                             <div className="space-y-4">
                                 {recentCourses.map(course => (
-                                    <Link key={course.id} href={`/dashboard/courses/${course.id}`} className="block p-4 rounded-lg border hover:bg-muted transition-colors">
+                                    <Link key={course.id_cours} href={`/dashboard/courses/${course.id_cours}`} className="block p-4 rounded-lg border hover:bg-muted transition-colors">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="font-semibold">{course.title}</p>
-                                                <p className="text-sm text-muted-foreground">{getSubjectName(course.subjectId)}</p>
+                                                <p className="font-semibold">{course.titre}</p>
+                                                <p className="text-sm text-muted-foreground">{getSubjectName(course.id_matiere)}</p>
                                             </div>
                                             <Button variant="ghost" size="sm">Voir le cours</Button>
                                         </div>

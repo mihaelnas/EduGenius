@@ -8,16 +8,34 @@ import Link from 'next/link';
 import type { Subject, Course } from '@/lib/placeholder-data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardHeader } from '@/components/ui/card';
+import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
 export default function StudentCoursesPage() {
-  
-  // Data fetching logic is removed. Replace with calls to your new backend.
-  const subjects: Subject[] = [];
-  const isLoading = true;
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [subjects, setSubjects] = React.useState<Subject[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    // TODO: Fetch student subjects from your API
-  }, []);
+    if (!user) return;
+    const fetchSubjects = async () => {
+        setIsLoading(true);
+        try {
+            const data = await apiFetch(`/etudiant/${user.id}/matieres`);
+            setSubjects(data || []);
+        } catch (error: any) {
+            if (!error.message.includes('404')) {
+                toast({ variant: 'destructive', title: 'Erreur', description: "Impossible de charger vos matières." });
+            }
+            setSubjects([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchSubjects();
+  }, [user, toast]);
 
   return (
     <>
@@ -31,7 +49,7 @@ export default function StudentCoursesPage() {
              ))
           ) : subjects.length > 0 ? (
             subjects.map(subject => (
-              <SubjectAccordionItem key={subject.id} subject={subject} />
+              <SubjectAccordionItem key={subject.id_matiere} subject={subject} />
             ))
           ) : (
             <div className="flex flex-col items-center justify-center h-64 border rounded-lg">
@@ -48,15 +66,31 @@ export default function StudentCoursesPage() {
 
 
 function SubjectAccordionItem({ subject }: { subject: Subject }) {
+    const { user } = useAuth();
+    const [courses, setCourses] = React.useState<Course[] | null>(null);
+    const [isLoadingCourses, setIsLoadingCourses] = React.useState(true);
     
-    // Data fetching logic is removed. Replace with calls to your new backend.
-    const courses: Course[] | null = [];
-    const isLoadingCourses = true;
+     React.useEffect(() => {
+        if (!user) return;
+        const fetchCourses = async () => {
+            setIsLoadingCourses(true);
+            try {
+                // On récupère tous les cours de l'étudiant et on filtre côté client
+                const allCourses: Course[] = await apiFetch(`/etudiant/${user.id}/cours`);
+                setCourses(allCourses.filter(c => c.id_matiere === subject.id_matiere));
+            } catch (error) {
+                setCourses([]);
+            } finally {
+                setIsLoadingCourses(false);
+            }
+        };
+        fetchCourses();
+    }, [user, subject.id_matiere]);
     
     return (
-        <AccordionItem value={`item-${subject.id}`} className="border-b-0 rounded-lg bg-card overflow-hidden">
+        <AccordionItem value={`item-${subject.id_matiere}`} className="border-b-0 rounded-lg bg-card overflow-hidden">
             <AccordionTrigger className="text-lg font-semibold hover:no-underline px-6 py-4">
-                {subject.name}
+                {subject.nom_matiere}
             </AccordionTrigger>
             <AccordionContent>
                 <div className="space-y-1 pt-2 border-t">
@@ -67,16 +101,16 @@ function SubjectAccordionItem({ subject }: { subject: Subject }) {
                     </div>
                 ) : courses && courses.length > 0 ? (
                     courses.map(course => {
-                      const href = `/dashboard/courses/${course.id}`;
+                      const href = `/dashboard/courses/${course.id_cours}`;
                       return (
                         <Link
-                          key={course.id}
+                          key={course.id_cours}
                           href={href}
                           className="flex items-center justify-between gap-3 p-4 mx-2 rounded-md hover:bg-muted"
                         >
                           <div className="flex items-center gap-3">
                             <BookOpen className="h-5 w-5 text-primary" />
-                            <span className="font-medium text-foreground/80">{course.title}</span>
+                            <span className="font-medium text-foreground/80">{course.titre}</span>
                           </div>
                           <ChevronRight className="h-5 w-5 text-muted-foreground" />
                         </Link>

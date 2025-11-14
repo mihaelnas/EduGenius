@@ -12,10 +12,11 @@ import { Paperclip, Video, Link as LinkIcon, ChevronRight, ArrowLeft } from 'luc
 import { Skeleton } from '@/components/ui/skeleton';
 import { notFound, useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
-type WithId<T> = T & { id: string };
-
-const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
+const ResourceIcon = ({ type }: { type: Resource['type_resource'] }) => {
   switch (type) {
     case 'pdf':
       return <Paperclip className="h-5 w-5 text-primary" />;
@@ -29,27 +30,45 @@ const ResourceIcon = ({ type }: { type: Resource['type'] }) => {
 };
 
 function CourseDetailContent({ courseId }: { courseId: string }) {
-    const [course, setCourse] = useState<WithId<Course> | null>(null);
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [course, setCourse] = useState<Course | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
-        // TODO: Replace with your actual API call to fetch course data
+        if (!user) return;
+        
         setIsLoading(true);
-        // Simulating API fetch
-        setTimeout(() => {
-            // In a real app, you would fetch from `/api/courses/${courseId}`
-            // For now, let's simulate not found.
-            // setCourse({ id: courseId, title: "Titre du Cours", content: "Contenu...", ...});
-            setError("Le cours demandé n'a pas été trouvé (simulation).");
-            setIsLoading(false);
-        }, 1000);
-    }, [courseId]);
-    
-    // This would come from your auth context
-    const userRole = 'student'; 
+        const fetchCourseData = async () => {
+            try {
+                let courseData: Course;
+                if (user.role === 'etudiant') {
+                    courseData = await apiFetch(`/etudiant/${user.id}/cours/${courseId}`);
+                } else if (user.role === 'enseignant') {
+                    // Les enseignants utilisent une route différente
+                    courseData = await apiFetch(`/cours/${courseId}`);
+                    // Validation côté client pour plus de sécurité
+                    if (courseData.id_enseignant !== user.id) {
+                        throw new Error("Vous n'êtes pas autorisé à voir ce cours.");
+                    }
+                } else {
+                     // Les admins pourraient avoir leur propre route ou être gérés côté serveur
+                     throw new Error("Rôle non pris en charge pour l'affichage des cours.");
+                }
+                setCourse(courseData);
+            } catch (err: any) {
+                setError(err.message || `Le cours avec l'ID ${courseId} n'a pas été trouvé.`);
+                toast({ variant: 'destructive', title: 'Erreur', description: err.message });
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
+        fetchCourseData();
+    }, [courseId, user, toast]);
+    
     if (isLoading) {
         return (
             <div>
@@ -62,26 +81,23 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
                     </CardHeader>
                     <CardContent>
                         <Skeleton className="h-20 w-full" />
-                        <div className="mt-8">
-                            <Skeleton className="h-6 w-1/3 mb-4" />
-                            <div className="space-y-3">
-                                <Skeleton className="h-12 w-full" />
-                                <Skeleton className="h-12 w-full" />
-                            </div>
-                        </div>
                     </CardContent>
                 </Card>
             </div>
         );
     }
     
-    if (error) {
+    if (error || !course) {
+        const breadcrumbBase = user?.role === 'enseignant'
+            ? { href: '/dashboard/teacher/courses', label: 'Mes Cours' }
+            : { href: '/dashboard/student/courses', label: 'Mes Cours' };
+        
         return (
              <div className="text-center py-10">
                 <h2 className="text-2xl font-bold text-destructive">Erreur</h2>
                 <p className="text-muted-foreground mt-2">{error}</p>
                  <Button asChild variant="outline" size="sm" className="mt-6">
-                    <Link href="/dashboard/student/courses">
+                    <Link href={breadcrumbBase.href}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Retour à mes cours
                     </Link>
@@ -89,13 +105,8 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
             </div>
         )
     }
-
-    if (!course) {
-        notFound();
-        return null; 
-    }
     
-    const breadcrumbBase = userRole === 'teacher' 
+    const breadcrumbBase = user?.role === 'enseignant'
     ? { href: '/dashboard/teacher/courses', label: 'Mes Cours' }
     : { href: '/dashboard/student/courses', label: 'Mes Cours' };
 
@@ -112,39 +123,37 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
 
             <Card>
                 <CardHeader>
-                <p className="text-sm font-semibold text-primary">{course.subjectName}</p>
-                <CardTitle className="text-3xl font-headline">{course.title}</CardTitle>
-                {course.createdAt && (
-                    <CardDescription>Publié le {new Date(course.createdAt).toLocaleDateString('fr-FR')}</CardDescription>
-                )}
+                <p className="text-sm font-semibold text-primary">{course.matiere?.nom_matiere || 'Matière'}</p>
+                <CardTitle className="text-3xl font-headline">{course.titre}</CardTitle>
+                <CardDescription>Publié le {new Date(course.cree_a).toLocaleDateString('fr-FR')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                 <div className="prose dark:prose-invert max-w-none">
-                    <p>{course.content}</p>
+                    <p>{course.contenu}</p>
                 </div>
 
-                {course.resources && course.resources.length > 0 && (
+                {/* {course.resources && course.resources.length > 0 && (
                     <div className="mt-8">
                     <h3 className="text-xl font-semibold mb-4 font-headline">Ressources du cours</h3>
                     <div className="space-y-3">
                         {course.resources.map((resource, index) => (
                         <a
-                            key={resource.id || index}
+                            key={resource.id_resource || index}
                             href={resource.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center justify-between gap-3 p-4 border rounded-lg hover:bg-muted transition-colors"
                         >
                             <div className="flex items-center gap-4">
-                                <ResourceIcon type={resource.type} />
-                                <span className="font-medium">{resource.title}</span>
+                                <ResourceIcon type={resource.type_resource} />
+                                <span className="font-medium">{resource.titre}</span>
                             </div>
                             <ChevronRight className="h-5 w-5 text-muted-foreground" />
                         </a>
                         ))}
                     </div>
                     </div>
-                )}
+                )} */}
                 </CardContent>
             </Card>
         </div>
@@ -155,6 +164,11 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
 export default function CourseDetailPage() {
   const params = useParams();
   const courseId = params.courseId as string;
+  
+  if (!courseId) {
+      notFound();
+      return null;
+  }
   
   return <CourseDetailContent courseId={courseId} />;
 }
