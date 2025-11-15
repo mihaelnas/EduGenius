@@ -40,7 +40,6 @@ export function ManageStudentsDialog({ isOpen, setIsOpen, classData, allStudents
       if (isOpen && classData) {
         setIsLoading(true);
         try {
-          // Utilise la nouvelle route pour obtenir les étudiants actuels de la classe
           const studentsInClass: AppUser[] = await apiFetch(`/admin/etudiants_classe/${classData.id_classe}`);
           const studentIds = studentsInClass.map(student => student.id);
           setSelectedStudentIds(studentIds);
@@ -66,7 +65,6 @@ export function ManageStudentsDialog({ isOpen, setIsOpen, classData, allStudents
     onUpdate(classData.id_classe, selectedStudentIds);
   };
   
-  // Filtre les étudiants en fonction de la recherche et de leur niveau (s'il est disponible)
   const filteredStudents = allStudents.filter(student => {
     const searchTermLower = searchTerm.toLowerCase();
     const matchesSearch = getDisplayName(student).toLowerCase().includes(searchTermLower) || 

@@ -75,9 +75,8 @@ export default function StudentSchedulePage() {
     const fetchScheduleData = async () => {
       setIsLoading(true);
       try {
-        // La nouvelle route GET /etudiant/{id} ne fait plus partie du préfixe /planning
         const [scheduleData, teachersData, classData] = await Promise.all([
-           apiFetch(`/etudiant/${user.id}`).catch(() => []),
+           apiFetch(`/planning/etudiant/${user.id}`).catch(() => []),
            apiFetch('/admin/professeurs').catch(() => []),
            apiFetch(`/etudiant/${user.id}/classe`).catch(() => null),
         ]);
