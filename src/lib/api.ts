@@ -3,7 +3,7 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 if (!API_BASE_URL) {
-  throw new Error("La variable d'environnement NEXT_PUBLIC_API_BASE_URL n'est pas définie.");
+  console.error("La variable d'environnement NEXT_PUBLIC_API_BASE_URL n'est pas définie.");
 }
 
 /**
@@ -14,28 +14,46 @@ if (!API_BASE_URL) {
  * @returns La réponse JSON de l'API.
  */
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
   const defaultHeaders = {
-    // 'Content-Type': 'application/json', // Le content-type peut varier (ex: pour les formulaires)
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: defaultHeaders,
-    credentials: 'include', // Essentiel pour envoyer les cookies HttpOnly au backend
-  });
-
-  if (!response.ok) {
-    // Tente de lire l'erreur depuis le corps de la réponse
-    const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData.detail || `Erreur API: ${response.status} ${response.statusText}`;
-    throw new Error(errorMessage);
-  }
-  
-  // Si la réponse n'a pas de contenu (ex: statut 204), on renvoie null
-  if (response.status === 204) {
-    return null;
+  // Ne pas définir Content-Type si un FormData est utilisé, le navigateur le fera.
+  if (options.body instanceof FormData) {
+    // @ts-ignore
+    delete defaultHeaders['Content-Type'];
+  } else if (!defaultHeaders.hasOwnProperty('Content-Type') && !(options.body instanceof URLSearchParams)) {
+     // @ts-ignore
+    defaultHeaders['Content-Type'] = 'application/json';
   }
 
-  return response.json();
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: defaultHeaders,
+      credentials: 'include', // Essentiel pour envoyer les cookies HttpOnly au backend
+    });
+
+    if (!response.ok) {
+      // Tente de lire l'erreur depuis le corps de la réponse
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.detail || `Erreur API: ${response.status} ${response.statusText}`;
+      throw new Error(errorMessage);
+    }
+    
+    // Si la réponse n'a pas de contenu (ex: statut 204), on renvoie null
+    if (response.status === 204) {
+      return null;
+    }
+
+    return response.json();
+
+  } catch (error: any) {
+    console.error(`Erreur lors de l'appel à l'API (${endpoint}):`, error);
+    // Propage l'erreur pour que le composant appelant puisse la gérer
+    throw error;
+  }
 }

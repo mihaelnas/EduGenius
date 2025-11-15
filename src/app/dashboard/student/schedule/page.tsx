@@ -11,28 +11,25 @@ import { User, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/auth-context';
+import { apiFetch } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
-const DayColumn = ({ day, events, getTeacherName }: { day: Date; events: ScheduleEvent[]; getTeacherName: (id: string) => string; }) => {
+const DayColumn = ({ day, events, getTeacherName }: { day: Date; events: ScheduleEvent[]; getTeacherName: (id: number) => string; }) => {
   const dayEvents = events
-    .filter(event => {
-        // Compare just the date part, ignoring time.
-        const eventDate = new Date(event.date);
-        return eventDate.getFullYear() === day.getFullYear() &&
-               eventDate.getMonth() === day.getMonth() &&
-               eventDate.getDate() === day.getDate();
-    })
+    .filter(event => isSameDay(new Date(event.date), day))
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   return (
     <div className="flex-1 space-y-4">
       <div className="text-center pb-2 border-b">
-        <p className="font-semibold text-lg">{format(day, 'EEEE', { locale: fr })}</p>
+        <p className="font-semibold text-lg capitalize">{format(day, 'EEEE', { locale: fr })}</p>
         <p className="text-sm text-muted-foreground">{format(day, 'd MMMM', { locale: fr })}</p>
       </div>
       <div className="space-y-3 px-2 min-h-[100px]">
         {dayEvents.length > 0 ? (
           dayEvents.map(event => (
-            <Card key={event.id} className="w-full">
+            <Card key={event.id_evenement} className="w-full">
               <CardContent className="p-4 space-y-2">
                 <p className="font-semibold">{event.subject}</p>
                 <p className="text-xs text-muted-foreground">{event.startTime} - {event.endTime}</p>
@@ -41,7 +38,7 @@ const DayColumn = ({ day, events, getTeacherName }: { day: Date; events: Schedul
                 </Badge>
                 <div className="flex items-center gap-2 text-xs pt-2 text-muted-foreground">
                   <User className="h-3 w-3" />
-                  <span>{getTeacherName(event.teacherId)}</span>
+                  <span>{getTeacherName(event.id_enseignant)}</span>
                 </div>
                 {event.type === 'en-ligne' && event.conferenceLink && (
                     <Button asChild size="sm" className="w-full mt-2">
@@ -63,17 +60,48 @@ const DayColumn = ({ day, events, getTeacherName }: { day: Date; events: Schedul
 };
 
 export default function StudentSchedulePage() {
-  const [week, setWeek] = React.useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  
-  // Data fetching logic is removed. Replace with calls to your new backend.
-  const studentSchedule: ScheduleEvent[] = [];
-  const allUsers: AppUser[] = [];
-  const studentClass: Class | null = null;
-  const isLoading = true;
+  const { user } = useAuth();
+  const { toast } = useToast();
 
-  const getTeacherName = (id: string): string => {
-    if (!allUsers) return 'Chargement...';
-    const teacher = allUsers.find(u => u.id === id);
+  const [week, setWeek] = React.useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [studentSchedule, setStudentSchedule] = React.useState<ScheduleEvent[]>([]);
+  const [allTeachers, setAllTeachers] = React.useState<AppUser[]>([]);
+  const [studentClass, setStudentClass] = React.useState<Class | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!user) return;
+    
+    const fetchScheduleData = async () => {
+      setIsLoading(true);
+      try {
+        const [scheduleData, teachersData, classData] = await Promise.all([
+           apiFetch(`/planning/etudiant/${user.id}`).catch(() => []),
+           apiFetch('/admin/professeurs').catch(() => []),
+           apiFetch(`/etudiant/${user.id}/classe`).catch(() => null),
+        ]);
+
+        setStudentSchedule(scheduleData || []);
+        setAllTeachers(teachersData || []);
+        setStudentClass(classData);
+
+      } catch (error: any) {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur de chargement',
+          description: "Impossible de récupérer les données de l'emploi du temps.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchScheduleData();
+  }, [user, toast]);
+  
+
+  const getTeacherName = (id: number): string => {
+    if (!allTeachers) return 'Chargement...';
+    const teacher = allTeachers.find(u => u.id === id);
     return teacher ? getDisplayName(teacher) : 'N/A';
   };
 
@@ -104,7 +132,7 @@ export default function StudentSchedulePage() {
                     ))}
                 </div>
              ) : (
-              <div className="flex divide-x rounded-lg border">
+              <div className="flex divide-x rounded-lg border bg-muted/20">
                 {daysOfWeek.map(day => (
                     <DayColumn 
                         key={day.toISOString()} 
