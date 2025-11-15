@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { apiFetch } from '@/lib/api';
 
 const formSchema = z.object({
   firstName: z.string().min(1, { message: 'Le prénom est requis.' }),
@@ -63,17 +64,33 @@ export default function RegisterPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    toast({
-        title: 'Activation de compte en cours...',
-        description: "Envoi des données à votre backend.",
-    });
+    try {
+      await apiFetch('/auth/activation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nom: values.lastName,
+          prenom: values.firstName,
+          matricule: values.matricule,
+          email: values.email,
+          mot_de_passe: values.password,
+        }),
+      });
 
-    // TODO: Replace with your actual API call to FastAPI
-    console.log('Registration values:', values);
-    
-    // Handle standard user registration
-    toast({ title: "Compte activé (simulation)", description: "Vous pouvez maintenant vous connecter." });
-    router.push('/login');
+      toast({
+        title: 'Compte activé avec succès !',
+        description: 'Vous pouvez maintenant vous connecter avec vos nouveaux identifiants.',
+      });
+      
+      router.push('/login');
+
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Échec de l\'activation',
+        description: error.message || 'Une erreur est survenue. Veuillez vérifier vos informations.',
+      });
+    }
   }
 
 
