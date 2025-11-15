@@ -15,11 +15,9 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 const resourceSchema = z.object({
-  id: z.string().optional(),
-  id_resource: z.number().optional(), // Pour les ressources existantes
-  type_resource: z.enum(['pdf', 'video', 'link']),
   titre: z.string().min(1, 'Le titre est requis.'),
-  url: z.string().url("Veuillez fournir une URL valide.").optional().or(z.literal('')),
+  type_resource: z.enum(['pdf', 'video', 'link']),
+  url: z.string().url("Veuillez fournir une URL valide.").or(z.literal('')),
 });
 
 const formSchema = z.object({
@@ -28,17 +26,17 @@ const formSchema = z.object({
   resources: z.array(resourceSchema),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+export type EditCourseFormValues = z.infer<typeof formSchema>;
 
 type EditCourseDialogProps = {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     course: Course;
-    onCourseUpdated: (updatedCourse: FormValues) => void;
+    onCourseUpdated: (courseId: number, values: EditCourseFormValues) => void;
 }
 
 export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }: EditCourseDialogProps) {
-  const form = useForm<FormValues>({
+  const form = useForm<EditCourseFormValues>({
     resolver: zodResolver(formSchema),
   });
 
@@ -58,8 +56,8 @@ export function EditCourseDialog({ isOpen, setIsOpen, course, onCourseUpdated }:
   }, [course, form]);
 
 
-  function onSubmit(values: FormValues) {
-    onCourseUpdated(values);
+  function onSubmit(values: EditCourseFormValues) {
+    onCourseUpdated(course.id_cours, values);
     setIsOpen(false);
   }
 

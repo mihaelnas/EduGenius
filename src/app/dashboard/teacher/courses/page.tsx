@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Course, Resource, Subject } from '@/lib/placeholder-data';
 import { BookOpen, PlusCircle, Paperclip, Video, Link as LinkIcon, Edit, Trash2, Eye } from 'lucide-react';
 import { AddCourseDialog, AddCourseFormValues } from '@/components/teacher/add-course-dialog';
-import { EditCourseDialog } from '@/components/teacher/edit-course-dialog';
+import { EditCourseDialog, EditCourseFormValues } from '@/components/teacher/edit-course-dialog';
 import { DeleteConfirmationDialog } from '@/components/admin/delete-confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -50,10 +50,22 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     if (!user) return;
     setIsLoadingCourses(true);
     try {
-      // Cette route récupère tous les cours de l'enseignant.
       const allCourses: Course[] = await apiFetch(`/cours/${user.id}`);
-      // Nous filtrons côté client pour cette matière spécifique.
-      setCourses(allCourses.filter(c => c.id_matiere === subject.id_matiere));
+      const subjectCourses = allCourses.filter(c => c.id_matiere === subject.id_matiere);
+
+      // Fetch resources for each course
+      const coursesWithResources = await Promise.all(
+        subjectCourses.map(async course => {
+          try {
+            const resources = await apiFetch(`/cours/${course.id_cours}/ressources`);
+            return { ...course, resources: resources || [] };
+          } catch {
+            return { ...course, resources: [] };
+          }
+        })
+      );
+
+      setCourses(coursesWithResources);
     } catch (error: any) {
         if (error.message.includes('404')) {
             setCourses([]);
@@ -105,12 +117,21 @@ function SubjectCourses({ subject }: { subject: Subject }) {
   const handleAddCourse = async (values: AddCourseFormValues) => {
     if (!user) return;
     try {
-      const payload = { ...values, id_matiere: subject.id_matiere, id_enseignant: user.id };
-      await apiFetch('/cours/ajouter', {
+      const { resources, ...coursePayload } = values;
+      const newCourse: Course = await apiFetch('/cours/ajouter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...coursePayload, id_matiere: subject.id_matiere }),
       });
+
+      if (resources && resources.length > 0) {
+        await apiFetch(`/cours/${newCourse.id_cours}/ressources`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(resources),
+        });
+      }
+
       toast({
         title: 'Cours ajouté',
         description: `Le cours "${values.titre}" a été créé avec succès.`,
@@ -121,27 +142,36 @@ function SubjectCourses({ subject }: { subject: Subject }) {
     }
   };
 
-
-  const handleUpdateCourse = async (updatedCourseData: AddCourseFormValues) => {
+  const handleUpdateCourse = async (courseId: number, values: EditCourseFormValues) => {
     if (!selectedCourse) return;
+    const { resources, ...coursePayload } = values;
     try {
-      const payload = {
-        ...updatedCourseData,
-        id_matiere: selectedCourse.id_matiere,
-        id_enseignant: selectedCourse.id_enseignant,
-      };
-      await apiFetch(`/cours/${selectedCourse.id_cours}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      toast({
-        title: 'Cours modifié',
-        description: `Le cours "${updatedCourseData.titre}" a été mis à jour.`,
-      });
-      fetchCourses();
+        await apiFetch(`/cours/${courseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(coursePayload),
+        });
+        
+        // This is a simplified resource update: delete all and re-add.
+        // A more robust solution would track changes.
+        await Promise.all(
+            (selectedCourse.resources || []).map(res =>
+                apiFetch(`/cours/ressources/${res.id_ressource}`, { method: 'DELETE' })
+            )
+        );
+
+        if (resources && resources.length > 0) {
+            await apiFetch(`/cours/${courseId}/ressources`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(resources),
+            });
+        }
+
+        toast({ title: 'Cours modifié', description: `Le cours "${values.titre}" a été mis à jour.` });
+        fetchCourses();
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+        toast({ variant: 'destructive', title: 'Erreur', description: error.message });
     }
   };
 
@@ -169,7 +199,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
                 </div>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                        <Link href={`/dashboard/teacher/courses/${course.id_cours}`}>
+                        <Link href={`/dashboard/courses/${course.id_cours}`}>
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">Voir</span>
                         </Link>
@@ -185,12 +215,12 @@ function SubjectCourses({ subject }: { subject: Subject }) {
                 </div>
               </div>
 
-              {/* {course.resources && course.resources.length > 0 && (
+              {course.resources && course.resources.length > 0 && (
                 <div className="mt-3 space-y-2 border-t pt-3">
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ressources</h4>
-                  {course.resources.map((resource, index) => (
+                  {course.resources.map((resource) => (
                     <a
-                      key={resource.id_resource || index}
+                      key={resource.id_ressource}
                       href={resource.url}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -201,7 +231,7 @@ function SubjectCourses({ subject }: { subject: Subject }) {
                     </a>
                   ))}
                 </div>
-              )} */}
+              )}
             </div>
           ))}
           {!isLoadingCourses && courses.length === 0 && (

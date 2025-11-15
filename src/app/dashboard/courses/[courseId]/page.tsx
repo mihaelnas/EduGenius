@@ -38,7 +38,7 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
     const router = useRouter();
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || !courseId) return;
         
         setIsLoading(true);
         const fetchCourseData = async () => {
@@ -46,18 +46,19 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
                 let courseData: Course;
                 if (user.role === 'etudiant') {
                     courseData = await apiFetch(`/etudiant/${user.id}/cours/${courseId}`);
-                } else if (user.role === 'enseignant') {
-                    // Les enseignants utilisent une route différente
+                } else { // enseignant ou admin
                     courseData = await apiFetch(`/cours/${courseId}`);
                     // Validation côté client pour plus de sécurité
-                    if (courseData.id_enseignant !== user.id) {
+                    if (user.role === 'enseignant' && courseData.id_enseignant !== user.id) {
                         throw new Error("Vous n'êtes pas autorisé à voir ce cours.");
                     }
-                } else {
-                     // Les admins pourraient avoir leur propre route ou être gérés côté serveur
-                     throw new Error("Rôle non pris en charge pour l'affichage des cours.");
                 }
+
+                // Charger les ressources séparément
+                const resourcesData = await apiFetch(`/cours/${courseId}/ressources`);
+                courseData.resources = resourcesData || [];
                 setCourse(courseData);
+
             } catch (err: any) {
                 setError(err.message || `Le cours avec l'ID ${courseId} n'a pas été trouvé.`);
                 toast({ variant: 'destructive', title: 'Erreur', description: err.message });
@@ -132,13 +133,13 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
                     <p>{course.contenu}</p>
                 </div>
 
-                {/* {course.resources && course.resources.length > 0 && (
+                {course.resources && course.resources.length > 0 && (
                     <div className="mt-8">
                     <h3 className="text-xl font-semibold mb-4 font-headline">Ressources du cours</h3>
                     <div className="space-y-3">
-                        {course.resources.map((resource, index) => (
+                        {course.resources.map((resource) => (
                         <a
-                            key={resource.id_resource || index}
+                            key={resource.id_ressource}
                             href={resource.url}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -153,7 +154,7 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
                         ))}
                     </div>
                     </div>
-                )} */}
+                )}
                 </CardContent>
             </Card>
         </div>

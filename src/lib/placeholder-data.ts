@@ -65,12 +65,13 @@ export type Subject = {
   enseignant?: AppUser; // L'objet enseignant complet
 };
 
-// Correspond au schéma Resource de votre future API
+// Correspond au schéma RessourceResponse de FastAPI
 export type Resource = {
-  id_resource: number;
+  id_ressource: number;
   type_resource: 'pdf' | 'video' | 'link';
   titre: string;
   url: string;
+  id_cours: number;
 };
 
 // Correspond au schéma CoursResponse de FastAPI
@@ -83,7 +84,7 @@ export type Course = {
   cree_a: string;
   matiere?: Subject; // Peut être inclus dans certaines réponses
   enseignant?: AppUser; // Peut être inclus
-  resources?: Resource[]; // Liste des ressources associées
+  resources: Resource[]; // Liste des ressources associées
 };
 
 // Correspond au schéma EvenementResponse de FastAPI
