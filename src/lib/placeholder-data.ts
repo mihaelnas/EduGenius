@@ -86,18 +86,18 @@ export type Course = {
   resources?: Resource[]; // Liste des ressources associées
 };
 
-// Correspond au schéma ScheduleEvent de placeholder, à adapter à FastAPI
+// Correspond au schéma EvenementResponse de FastAPI
 export type ScheduleEvent = {
-  id: string;
+  id_evenement: number;
   date: string;
   startTime: string;
   endTime: string;
   subject: string;
-  class: string;
-  teacherId: string;
+  class_name: string;
   type: 'en-salle' | 'en-ligne';
   status: 'planifié' | 'reporté' | 'annulé' | 'effectué';
-  conferenceLink?: string;
+  conferenceLink?: string | null;
+  id_enseignant: number;
 };
 
 

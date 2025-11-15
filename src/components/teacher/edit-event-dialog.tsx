@@ -12,13 +12,14 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ScheduleEvent, Class, Subject } from '@/lib/placeholder-data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { format } from 'date-fns';
 
 const formSchema = z.object({
   date: z.string().min(1, 'La date est requise.'),
   startTime: z.string().min(1, 'L\'heure de début est requise.'),
   endTime: z.string().min(1, 'L\'heure de fin est requise.'),
   subject: z.string().min(1, 'La matière est requise.'),
-  class: z.string().min(1, 'La classe est requise.'),
+  class_name: z.string().min(1, 'La classe est requise.'),
   type: z.enum(['en-salle', 'en-ligne']),
   status: z.enum(['planifié', 'reporté', 'annulé', 'effectué']),
   conferenceLink: z.string().url({ message: "Veuillez entrer une URL valide." }).optional().or(z.literal('')),
@@ -36,17 +37,20 @@ type EditEventDialogProps = {
 }
 
 export function EditEventDialog({ isOpen, setIsOpen, onEventUpdated, eventData, teacherClasses, teacherSubjects }: EditEventDialogProps) {
-  const { toast } = useToast();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: eventData,
   });
   
   const eventType = form.watch('type');
 
   React.useEffect(() => {
-    form.reset(eventData);
+    if (eventData) {
+      form.reset({
+        ...eventData,
+        date: format(new Date(eventData.date), 'yyyy-MM-dd'),
+      });
+    }
   }, [eventData, form]);
 
   function onSubmit(values: FormValues) {
@@ -96,7 +100,7 @@ export function EditEventDialog({ isOpen, setIsOpen, onEventUpdated, eventData, 
 
             <FormField
               control={form.control}
-              name="class"
+              name="class_name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Classe</FormLabel>
@@ -129,7 +133,7 @@ export function EditEventDialog({ isOpen, setIsOpen, onEventUpdated, eventData, 
                   <FormItem>
                     <FormLabel>Lien de la visioconférence</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://meet.google.com/..." {...field} />
+                      <Input placeholder="https://meet.google.com/..." {...field} value={field.value || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -137,8 +141,8 @@ export function EditEventDialog({ isOpen, setIsOpen, onEventUpdated, eventData, 
               />
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
-              <Button type="submit">Sauvegarder</Button>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={form.formState.isSubmitting}>Annuler</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? 'Sauvegarde...' : 'Sauvegarder'}</Button>
             </DialogFooter>
           </form>
         </Form>

@@ -19,7 +19,7 @@ const formSchema = z.object({
   startTime: z.string().min(1, 'L\'heure de début est requise.'),
   endTime: z.string().min(1, 'L\'heure de fin est requise.'),
   subject: z.string().min(1, 'La matière est requise.'),
-  class: z.string().min(1, 'La classe est requise.'),
+  class_name: z.string().min(1, 'La classe est requise.'),
   type: z.enum(['en-salle', 'en-ligne']),
   status: z.enum(['planifié', 'reporté', 'annulé', 'effectué']),
   conferenceLink: z.string().url({ message: "Veuillez entrer une URL valide." }).optional().or(z.literal('')),
@@ -32,7 +32,7 @@ const defaultFormValues: FormValues = {
   startTime: '',
   endTime: '',
   subject: '',
-  class: '',
+  class_name: '',
   type: 'en-salle',
   status: 'planifié',
   conferenceLink: '',
@@ -126,7 +126,7 @@ export function AddEventDialog({ isOpen, setIsOpen, onEventAdded, teacherClasses
 
             <FormField
               control={form.control}
-              name="class"
+              name="class_name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Classe</FormLabel>

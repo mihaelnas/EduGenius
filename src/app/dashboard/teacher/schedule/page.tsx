@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, User, Video, ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { fr } from 'date-fns/locale';
-import { format, isSameDay, startOfWeek, addDays, subDays } from 'date-fns';
+import { format, isSameDay, startOfWeek, addDays, subDays, endOfWeek } from 'date-fns';
 import { ScheduleEvent, getDisplayName, AppUser, Class, Subject } from '@/lib/placeholder-data';
 import { AddEventDialog } from '@/components/teacher/add-event-dialog';
 import { EditEventDialog } from '@/components/teacher/edit-event-dialog';
@@ -16,6 +16,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/contexts/auth-context';
+import { apiFetch } from '@/lib/api';
 
 const statusVariant: { [key in ScheduleEvent['status']]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   'planifié': 'default',
@@ -24,7 +26,7 @@ const statusVariant: { [key in ScheduleEvent['status']]: 'default' | 'secondary'
   'annulé': 'destructive',
 };
 
-const DayColumn = ({ day, events, getTeacherName, onEdit, onDelete }: { day: Date; events: ScheduleEvent[]; getTeacherName: (id: string) => string; onEdit: (event: ScheduleEvent) => void; onDelete: (event: ScheduleEvent) => void; }) => {
+const DayColumn = ({ day, events, onEdit, onDelete }: { day: Date; events: ScheduleEvent[]; onEdit: (event: ScheduleEvent) => void; onDelete: (event: ScheduleEvent) => void; }) => {
   const dayEvents = events
     .filter(event => isSameDay(new Date(event.date), day))
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -38,7 +40,7 @@ const DayColumn = ({ day, events, getTeacherName, onEdit, onDelete }: { day: Dat
       <div className="space-y-3 px-2 min-h-[200px]">
         {dayEvents.length > 0 ? (
           dayEvents.map(event => (
-            <Card key={event.id} className="w-full shadow-sm hover:shadow-md transition-shadow">
+            <Card key={event.id_evenement} className="w-full shadow-sm hover:shadow-md transition-shadow">
                <CardContent className="p-3 space-y-2 relative">
                 <div className="absolute top-1 right-1">
                     <DropdownMenu>
@@ -60,7 +62,7 @@ const DayColumn = ({ day, events, getTeacherName, onEdit, onDelete }: { day: Dat
                     <Badge variant={statusVariant[event.status]} className="capitalize">{event.status}</Badge>
                 </div>
                 <div className="flex items-center gap-2 text-xs pt-1 text-muted-foreground">
-                    <span>{event.class}</span>
+                    <span>{event.class_name}</span>
                 </div>
                 {event.type === 'en-ligne' && event.conferenceLink && (
                     <Button asChild size="sm" className="w-full mt-2">
@@ -82,30 +84,77 @@ const DayColumn = ({ day, events, getTeacherName, onEdit, onDelete }: { day: Dat
 };
 
 export default function TeacherSchedulePage() {
+  const { user, isLoading: isUserLoading } = useAuth();
   const [week, setWeek] = React.useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  
+  const [schedule, setSchedule] = React.useState<ScheduleEvent[]>([]);
+  const [teacherClasses, setTeacherClasses] = React.useState<Class[]>([]);
+  const [teacherSubjects, setTeacherSubjects] = React.useState<Subject[]>([]);
+  
+  const [isLoading, setIsLoading] = React.useState(true);
+
   const [isAddEventDialogOpen, setIsAddEventDialogOpen] = React.useState(false);
   const [isEditEventDialogOpen, setIsEditEventDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedEvent, setSelectedEvent] = React.useState<ScheduleEvent | null>(null);
 
   const { toast } = useToast();
-  
-  // Data fetching logic is removed. Replace with calls to your new backend.
-  const schedule: ScheduleEvent[] = [];
-  const teacherClasses: Class[] = [];
-  const teacherSubjects: Subject[] = [];
-  const isLoading = true;
 
-  const handleEventAdded = async (newEventData: Omit<ScheduleEvent, 'id' | 'teacherId'>) => {
-    // API call to your backend
-    console.log("Adding event:", newEventData);
-    toast({ title: 'Événement ajouté avec succès (Simulation).' });
+  const fetchSchedule = React.useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const start = format(startOfWeek(week, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const end = format(endOfWeek(week, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+
+      const [scheduleData, classesData, subjectsData] = await Promise.all([
+        apiFetch(`/enseignant/planning?start_date=${start}&end_date=${end}`).catch(() => []),
+        apiFetch(`/enseignant/${user.id}/classes`).catch(() => []),
+        apiFetch(`/enseignant/${user.id}/matieres`).catch(() => [])
+      ]);
+      setSchedule(scheduleData || []);
+      setTeacherClasses(classesData || []);
+      setTeacherSubjects(subjectsData || []);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de charger le planning.' });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, week, toast]);
+
+  React.useEffect(() => {
+    if (!isUserLoading && user) {
+        fetchSchedule();
+    }
+  }, [isUserLoading, user, fetchSchedule]);
+
+
+  const handleEventAdded = async (newEventData: Omit<ScheduleEvent, 'id_evenement' | 'id_enseignant'>) => {
+    try {
+        await apiFetch('/enseignant/planning', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newEventData),
+        });
+        toast({ title: 'Événement ajouté avec succès.' });
+        fetchSchedule();
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    }
   };
   
   const handleEventUpdated = async (updatedEventData: ScheduleEvent) => {
-    // API call to your backend
-    console.log("Updating event:", updatedEventData);
-    toast({ title: 'Événement mis à jour avec succès (Simulation).' });
+    try {
+        await apiFetch(`/enseignant/planning/${updatedEventData.id_evenement}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedEventData),
+        });
+        toast({ title: 'Événement mis à jour avec succès.' });
+        fetchSchedule();
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    }
   };
 
   const handleOpenEdit = (event: ScheduleEvent) => {
@@ -120,16 +169,15 @@ export default function TeacherSchedulePage() {
 
   const confirmDelete = async () => {
     if (!selectedEvent) return;
-    // API call to your backend
-    console.log("Deleting event:", selectedEvent.id);
-    toast({ variant: 'destructive', title: 'Événement supprimé (Simulation).' });
+    try {
+        await apiFetch(`/enseignant/planning/${selectedEvent.id_evenement}`, { method: 'DELETE' });
+        toast({ variant: 'destructive', title: 'Événement supprimé.' });
+        fetchSchedule();
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    }
     setIsDeleteDialogOpen(false);
     setSelectedEvent(null);
-  };
-
-  const getTeacherName = (id: string): string => {
-    // Since this is the teacher's own schedule, we can just return their name.
-    return 'Moi';
   };
 
   const daysOfWeek = Array.from({ length: 5 }, (_, i) => addDays(week, i));
@@ -141,7 +189,7 @@ export default function TeacherSchedulePage() {
           <h1 className="text-3xl font-bold tracking-tight font-headline">Mon Emploi du Temps</h1>
           <p className="text-muted-foreground">Gérez votre planning hebdomadaire.</p>
         </div>
-        <Button onClick={() => setIsAddEventDialogOpen(true)}>
+        <Button onClick={() => setIsAddEventDialogOpen(true)} disabled={isUserLoading || isLoading}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Ajouter un événement
         </Button>
@@ -180,8 +228,7 @@ export default function TeacherSchedulePage() {
                   <DayColumn 
                       key={day.toISOString()} 
                       day={day} 
-                      events={schedule || []}
-                      getTeacherName={getTeacherName}
+                      events={schedule}
                       onEdit={handleOpenEdit}
                       onDelete={handleOpenDelete}
                   />
@@ -195,8 +242,8 @@ export default function TeacherSchedulePage() {
         isOpen={isAddEventDialogOpen}
         setIsOpen={setIsAddEventDialogOpen}
         onEventAdded={handleEventAdded}
-        teacherClasses={teacherClasses || []}
-        teacherSubjects={teacherSubjects || []}
+        teacherClasses={teacherClasses}
+        teacherSubjects={teacherSubjects}
       />
       {selectedEvent && (
         <EditEventDialog
@@ -204,8 +251,8 @@ export default function TeacherSchedulePage() {
           setIsOpen={setIsEditEventDialogOpen}
           onEventUpdated={handleEventUpdated}
           eventData={selectedEvent}
-          teacherClasses={teacherClasses || []}
-          teacherSubjects={teacherSubjects || []}
+          teacherClasses={teacherClasses}
+          teacherSubjects={teacherSubjects}
         />
       )}
       <DeleteConfirmationDialog
