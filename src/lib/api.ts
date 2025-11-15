@@ -1,3 +1,4 @@
+
 // Ce fichier servira de client centralisé pour toutes les requêtes vers votre API FastAPI.
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -16,16 +17,14 @@ if (!API_BASE_URL) {
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const defaultHeaders = {
+  const defaultHeaders: Record<string, string> = {
     ...options.headers,
   };
 
   // Ne pas définir Content-Type si un FormData est utilisé, le navigateur le fera.
   if (options.body instanceof FormData) {
-    // @ts-ignore
     delete defaultHeaders['Content-Type'];
-  } else if (!defaultHeaders.hasOwnProperty('Content-Type') && !(options.body instanceof URLSearchParams)) {
-     // @ts-ignore
+  } else if (!defaultHeaders['Content-Type'] && !(options.body instanceof URLSearchParams)) {
     defaultHeaders['Content-Type'] = 'application/json';
   }
 

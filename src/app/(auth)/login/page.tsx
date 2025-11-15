@@ -30,6 +30,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
+import { apiFetch } from '@/lib/api';
 
 
 const formSchema = z.object({
@@ -44,6 +45,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [resetEmail, setResetEmail] = React.useState("");
   const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
+  const [isResetLoading, setIsResetLoading] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -62,12 +64,26 @@ export default function LoginPage() {
       });
       return;
     }
-    // API call to your new backend would go here
-    toast({
-      title: 'Fonctionnalité non implémentée',
-      description: 'La réinitialisation du mot de passe sera bientôt disponible.',
-    });
-    setIsResetDialogOpen(false);
+    setIsResetLoading(true);
+    try {
+        await apiFetch('/auth/reset-password-request', { 
+            method: 'POST',
+            body: JSON.stringify({ email: resetEmail }), // Envoi de l'email dans le corps
+        });
+        toast({
+            title: 'Demande envoyée',
+            description: 'Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.',
+        });
+        setIsResetDialogOpen(false);
+    } catch(error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur',
+            description: error.message || 'Une erreur est survenue.',
+        });
+    } finally {
+        setIsResetLoading(false);
+    }
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -167,11 +183,14 @@ export default function LoginPage() {
                   placeholder="nom@exemple.com"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
+                  disabled={isResetLoading}
               />
           </div>
           <AlertDialogFooter>
-          <AlertDialogCancel>Annuler</AlertDialogCancel>
-          <AlertDialogAction onClick={handlePasswordReset}>Envoyer le lien</AlertDialogAction>
+          <AlertDialogCancel disabled={isResetLoading}>Annuler</AlertDialogCancel>
+          <AlertDialogAction onClick={handlePasswordReset} disabled={isResetLoading}>
+            {isResetLoading ? 'Envoi...' : 'Envoyer le lien'}
+          </AlertDialogAction>
           </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
