@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getDisplayName, AppUser, EtudiantDetail, EnseignantDetail } from '@/lib/placeholder-data';
 import { AtSign, Cake, GraduationCap, Home, Mail, MapPin, Phone, School, User as UserIcon, Briefcase, Building, Camera, KeyRound, MailPlus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useParams, notFound } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { UpdatePhotoDialog } from '@/components/update-photo-dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-type UserProfile = AppUser & (EtudiantDetail | EnseignantDetail | {});
+type UserProfile = AppUser & Partial<EtudiantDetail> & Partial<EnseignantDetail>;
 
 
 const InfoRow = ({ icon, label, value }: { icon: React.ReactNode, label: string, value?: string | null }) => {
@@ -53,29 +53,29 @@ export default function ProfileDetailPage() {
       setIsLoading(true);
 
       try {
-        // Cette première requête est juste pour connaître le rôle de l'utilisateur
-        // Une meilleure approche serait d'avoir une route unique `/admin/user/{id}` qui renvoie tout
-        const allUsers = [...(await apiFetch('/admin/professeurs')), ...(await apiFetch('/admin/etudiants'))];
-        const basicUserInfo = allUsers.find((u: AppUser) => u.id.toString() === userId);
-
-        if (!basicUserInfo) {
-          throw new Error("Utilisateur non trouvé.");
+        // Optimisation : on tente de fetch un étudiant, si ça échoue, on tente de fetch un prof.
+        let userData;
+        try {
+          // Essayer de récupérer comme un étudiant
+          userData = await apiFetch(`/admin/etudiant/${userId}`);
+          userData.role = 'etudiant';
+        } catch (error: any) {
+          if (error.message && error.message.includes('404')) {
+            // Si 404, ce n'est pas un étudiant, on essaie comme enseignant
+            userData = await apiFetch(`/admin/professeur/${userId}`);
+            userData.role = 'enseignant';
+          } else {
+            // Une autre erreur est survenue
+            throw error;
+          }
         }
-        
-        let detailedInfo: EtudiantDetail | EnseignantDetail | {} = {};
-        if (basicUserInfo.role === 'etudiant') {
-          detailedInfo = await apiFetch(`/admin/etudiant/${userId}`);
-        } else if (basicUserInfo.role === 'enseignant') {
-          detailedInfo = await apiFetch(`/admin/professeur/${userId}`);
-        }
-
-        setUser({ ...basicUserInfo, ...detailedInfo });
+        setUser(userData);
 
       } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Erreur de chargement",
-          description: error.message
+          description: error.message || "Impossible de récupérer les informations de l'utilisateur."
         });
         setUser(null); // Force l'affichage du message "non trouvé"
       } finally {

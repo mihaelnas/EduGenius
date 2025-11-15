@@ -68,7 +68,7 @@ export default function LoginPage() {
     try {
         await apiFetch('/auth/reset-password-request', { 
             method: 'POST',
-            body: JSON.stringify({ email: resetEmail }), // Envoi de l'email dans le corps
+            body: JSON.stringify({ email: resetEmail }),
         });
         toast({
             title: 'Demande envoyée',
