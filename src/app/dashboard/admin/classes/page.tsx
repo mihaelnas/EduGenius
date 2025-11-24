@@ -38,9 +38,9 @@ export default function AdminClassesPage() {
     setIsLoading(true);
     try {
       const [classesData, teachersData, studentsData] = await Promise.all([
-        apiFetch('/admin/classes'),
-        apiFetch('/admin/professeurs'),
-        apiFetch('/admin/etudiants'),
+        apiFetch('/dashboard/admin/classes'),
+        apiFetch('/dashboard/admin/professeurs'),
+        apiFetch('/dashboard/admin/etudiants'),
       ]);
       setClasses(classesData || []);
       setUsers([...(teachersData || []), ...(studentsData || [])]);
@@ -64,7 +64,7 @@ export default function AdminClassesPage() {
 
   const handleAdd = async (newClass: Omit<Class, 'id_classe' | 'enseignants' | 'effectif'> & {id_enseignant: number[]}) => {
     try {
-      await apiFetch('/admin/creer_classe', {
+      await apiFetch('/dashboard/admin/classes/creer_classe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newClass),
@@ -79,7 +79,7 @@ export default function AdminClassesPage() {
   const handleUpdate = async (updatedClass: Class) => {
     if (!selectedClass) return;
     try {
-      await apiFetch(`/admin/modifier_classe/${selectedClass.id_classe}`, {
+      await apiFetch(`/dashboard/admin/classes/modifier_classe/${selectedClass.id_classe}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -106,8 +106,8 @@ export default function AdminClassesPage() {
 
     try {
         await Promise.all([
-            ...teachersToAdd.map(id => apiFetch(`/admin/assigner_enseignant/${classId}/${id}`, { method: 'POST' })),
-            ...teachersToRemove.map(id => apiFetch(`/admin/retirer_enseignant/${classId}/${id}`, { method: 'DELETE' })),
+            ...teachersToAdd.map(id => apiFetch(`/dashboard/admin/classes/assigner_enseignant/${classId}/${id}`, { method: 'POST' })),
+            ...teachersToRemove.map(id => apiFetch(`/dashboard/admin/classes/retirer_enseignant/${classId}/${id}`, { method: 'DELETE' })),
         ]);
 
         toast({
@@ -124,7 +124,7 @@ export default function AdminClassesPage() {
   const handleUpdateStudents = async (classId: number, studentIds: number[]) => {
       if(!selectedClass) return;
       // Fetch current students of the class to be sure
-      const currentStudentsInClass: AppUser[] = await apiFetch(`/admin/etudiants_classe/${classId}`);
+      const currentStudentsInClass: AppUser[] = await apiFetch(`/dashboard/admin/classes/etudiants_classe/${classId}`);
       const currentStudentIds = currentStudentsInClass.map(s => s.id);
       
       const studentsToAdd = studentIds.filter(id => !currentStudentIds.includes(id));
@@ -132,8 +132,8 @@ export default function AdminClassesPage() {
 
       try {
         await Promise.all([
-          ...studentsToAdd.map(id => apiFetch(`/admin/ajouter_etudiant/${classId}/${id}`, { method: 'POST' })),
-          ...studentsToRemove.map(id => apiFetch(`/admin/retirer_etudiant/${classId}/${id}`, { method: 'DELETE' })),
+          ...studentsToAdd.map(id => apiFetch(`/dashboard/admin/classes/ajouter_etudiant/${classId}/${id}`, { method: 'POST' })),
+          ...studentsToRemove.map(id => apiFetch(`/dashboard/admin/classes/retirer_etudiant/${classId}/${id}`, { method: 'DELETE' })),
         ]);
          toast({
           title: 'Étudiants mis à jour',
@@ -169,7 +169,7 @@ export default function AdminClassesPage() {
   const confirmDelete = async () => {
     if (selectedClass) {
         try {
-            await apiFetch(`/admin/supprimer_classe/${selectedClass.id_classe}`, { method: 'DELETE' });
+            await apiFetch(`/dashboard/admin/classes/supprimer_classe/${selectedClass.id_classe}`, { method: 'DELETE' });
             toast({ variant: 'destructive', title: 'Classe supprimée', description: `La classe "${selectedClass.nom_classe}" a été supprimée.` });
             fetchData();
         } catch(error: any) {

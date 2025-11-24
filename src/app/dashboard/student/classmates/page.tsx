@@ -24,8 +24,8 @@ export default function StudentClassmatesPage() {
       setIsLoading(true);
       try {
         const [classData, classmatesData] = await Promise.all([
-            apiFetch(`/etudiant/${user.id}/classe`).catch(() => null),
-            apiFetch(`/etudiant/${user.id}/classe/etudiants`).catch(() => [])
+            apiFetch(`dashboard/etudiant/${user.id}/classe`).catch(() => null),
+            apiFetch(`dashboard/etudiant/${user.id}/classe/etudiants`).catch(() => [])
         ]);
         setStudentClass(classData);
         // Exclut l'utilisateur actuel de la liste des camarades

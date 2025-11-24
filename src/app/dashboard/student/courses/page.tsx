@@ -23,7 +23,7 @@ export default function StudentCoursesPage() {
     const fetchSubjects = async () => {
         setIsLoading(true);
         try {
-            const data = await apiFetch(`/etudiant/${user.id}/matieres`);
+            const data = await apiFetch(`dashboard/etudiant/${user.id}/matieres`);
             setSubjects(data || []);
         } catch (error: any) {
             if (!error.message.includes('404')) {

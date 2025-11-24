@@ -52,8 +52,8 @@ export default function AdminUsersPage() {
     try {
       // On récupère les deux listes en parallèle pour plus d'efficacité
       const [students, teachers] = await Promise.all([
-        apiFetch('/admin/etudiants'),
-        apiFetch('/admin/professeurs')
+        apiFetch('/dashboard/admin/etudiants'),
+        apiFetch('/dashboard/admin/professeurs')
       ]);
       setUsers([...(students || []), ...(teachers || [])]);
     } catch (error: any) {
@@ -85,7 +85,7 @@ export default function AdminUsersPage() {
       };
 
       if (values.role === 'etudiant') {
-        endpoint = '/admin/ajouter_etudiant';
+        endpoint = '/dashboard/admin/ajouter_etudiant';
         payload = {
           user: userData,
           etudiant: {
@@ -101,7 +101,7 @@ export default function AdminUsersPage() {
           }
         };
       } else { // 'enseignant'
-        endpoint = '/admin/ajouter_professeur';
+        endpoint = '/dashboard/admin/ajouter_professeur';
          payload = {
           user: userData,
           enseignant: {
@@ -110,7 +110,8 @@ export default function AdminUsersPage() {
             genre: values.genre,
             telephone: values.telephone,
             adresse: values.adresse,
-            photo_url: values.photo_url
+            photo_url: values.photo_url,
+            id_matiere: [] 
           }
         };
       }
@@ -138,30 +139,39 @@ export default function AdminUsersPage() {
   const handleUpdate = async (updatedUser: AppUser, updates: any) => {
     try {
       const isStudent = updatedUser.role === 'etudiant';
-      const endpoint = isStudent ? `/admin/modifier_etudiant/${updatedUser.id}` : `/admin/modifier_professeur/${updatedUser.id}`;
-      
-      const payload = isStudent ? 
-        { user_update: updates.user_update, etudiant_update: updates.specific_update } :
-        { user_update: updates.user_update, enseignant_update: updates.specific_update };
+      const endpoint = isStudent ? `/dashboard/admin/modifier_etudiant/${updatedUser.id}` : `/dashboard/admin/modifier_professeur/${updatedUser.id}`;
+
+      // Build payload: ensure we don't send keys whose value is undefined
+      const userPayload = updates.user_update || {};
+      const specificPayload = updates.specific_update || {};
+
+      const payload = isStudent
+        ? { user: userPayload, etudiant: specificPayload }
+        : { user: userPayload, enseignant: specificPayload };
+
+      console.log('Updating user at endpoint:', endpoint, 'with payload:', payload);
 
       await apiFetch(endpoint, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
+
       toast({
-          title: 'Utilisateur modifié',
-          description: `Le profil de ${getDisplayName(updatedUser)} a été mis à jour.`,
+        title: 'Utilisateur modifié',
+        description: `Le profil de ${getDisplayName(updatedUser)} a été mis à jour.`,
       });
       fetchUsers();
     } catch (error: any) {
+      console.error('Erreur API :', error);
       toast({
         variant: 'destructive',
         title: 'Erreur lors de la modification',
-        description: error.message,
+        description: error?.message || JSON.stringify(error),
       });
     }
   };
+
 
 
   const handleEdit = (user: AppUser) => {
@@ -178,8 +188,8 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
     
     const endpoint = selectedUser.role === 'etudiant' 
-      ? `/admin/supprimer_etudiant/${selectedUser.id}`
-      : `/admin/supprimer_professeur/${selectedUser.id}`;
+      ? `/dashboard/admin/supprimer_etudiant/${selectedUser.id}`
+      : `/dashboard/admin/supprimer_professeur/${selectedUser.id}`;
 
     try {
       await apiFetch(endpoint, { method: 'DELETE' });

@@ -24,7 +24,7 @@ export default function TeacherClassesPage() {
     const fetchClasses = async () => {
       setIsLoading(true);
       try {
-        const data = await apiFetch(`/enseignant/${user.id}/classes`);
+        const data = await apiFetch(`dashboard/enseignant/${user.id}/classes`);
         setTeacherClasses(data || []);
       } catch (error: any) {
         if (error.message.includes('404')) {

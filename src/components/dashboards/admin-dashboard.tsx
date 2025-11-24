@@ -18,8 +18,8 @@ type AdminDashboardProps = {
 }
 
 type ActivityItem = {
-    type: 'user' | 'class' | 'subject';
-    data: AppUser | Class | Subject;
+    type: 'user' 
+    data: AppUser 
     createdAt: Date;
 }
 
@@ -52,37 +52,36 @@ export function AdminDashboard({ userName, users, classes, subjects }: AdminDash
     ], [users, classes, subjects]);
 
     const recentActivity = React.useMemo(() => {
-        const allActivity: ActivityItem[] = [
-            ...users.map(u => ({ type: 'user' as const, data: u, createdAt: new Date(u.cree_a) })),
-            ...classes.map(c => ({ type: 'class' as const, data: c, createdAt: new Date() })), // Note: Class schema has no 'cree_a'
-            ...subjects.map(s => ({ type: 'subject' as const, data: s, createdAt: new Date() })) // Note: Subject schema has no 'cree_a'
-        ];
+        const userActivity: ActivityItem[] = users
+            .filter(u => u.cree_a) // On s'assure que la date de création existe
+            .map(u => ({ 
+                type: 'user' as const, 
+                data: u, 
+                // Le format YYYY-MM-DD est interprété comme UTC, on ajoute T00:00:00 pour éviter les problèmes de fuseau horaire
+                createdAt: new Date(`${u.cree_a}T00:00:00`) 
+            }))
+            .filter(item => !isNaN(item.createdAt.getTime())); // On vérifie que la date est valide
         
-        return allActivity
+        return userActivity
                 .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
                 .slice(0, 5);
-    }, [users, classes, subjects]);
+    }, [users]);
+
 
     const ActivityIcon = ({ type }: { type: ActivityItem['type']}) => {
         switch(type) {
             case 'user': return <UserPlus className="h-5 w-5 text-primary" />;
-            case 'class': return <FolderPlus className="h-5 w-5 text-primary" />;
-            case 'subject': return <BookPlus className="h-5 w-5 text-primary" />;
             default: return <Activity className="h-5 w-5 text-primary" />;
         }
     }
     
     const getActivityTitle = (item: ActivityItem) => {
         if(item.type === 'user') return `Nouvel utilisateur : ${getDisplayName(item.data as AppUser)}`;
-        if(item.type === 'class') return `Nouvelle classe : ${(item.data as Class).nom_classe}`;
-        if(item.type === 'subject') return `Nouvelle matière : ${(item.data as Subject).nom_matiere}`;
         return 'Activité inconnue';
     }
     
     const getActivityId = (item: ActivityItem) => {
         if(item.type === 'user') return (item.data as AppUser).id;
-        if(item.type === 'class') return (item.data as Class).id_classe;
-        if(item.type === 'subject') return (item.data as Subject).id_matiere;
         return Math.random();
     }
 

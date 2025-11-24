@@ -72,21 +72,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             body: formData.toString(),
         });
         
-        if (data.user_info && data.redirect_to) {
-            const userProfile: AppUser = data.user_info;
 
-            setUser(userProfile);
-            Cookies.set(USER_DATA_COOKIE, JSON.stringify(userProfile), { expires: 7, secure: process.env.NODE_ENV === 'production' });
+        if (data.user_info) {
+          const userProfile: AppUser = {
+          ...data.user_info,
+          role: data.role
+        };
 
-            toast({
-                title: 'Connexion réussie !',
-                description: 'Vous allez être redirigé...',
-            });
-            
-            router.push(data.redirect_to);
-        } else {
-            throw new Error(data.detail || 'La réponse de l\'API est invalide.');
-        }
+          setUser(userProfile);
+          Cookies.set(USER_DATA_COOKIE, JSON.stringify(userProfile), { expires: 7, secure: process.env.NODE_ENV === 'production' });
+
+          toast({
+              title: 'Connexion réussie !',
+              description: 'Vous allez être redirigé...',
+          });
+          
+          // Force redirection to /dashboard. This page will handle role-based views.
+          router.push('/dashboard');
+      } else {
+          throw new Error(data.detail || 'La réponse de l\'API est invalide.');
+      }
     } catch (error: any) {
         console.error("Login failed:", error);
         toast({

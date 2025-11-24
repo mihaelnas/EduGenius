@@ -42,50 +42,54 @@ export default function ProfileDetailPage() {
   const { toast } = useToast();
   
   const { user: currentUser } = useAuth();
-  const isOwnProfile = currentUser?.id.toString() === userId;
+  ///const isOwnProfile = currentUser?.id.toString() === userId;
+  const isOwnProfile = String(currentUser?.id) === userId;
 
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     async function fetchUserData() {
       if (!userId) return;
       setIsLoading(true);
-
+  
       try {
-        // Optimisation : on tente de fetch un étudiant, si ça échoue, on tente de fetch un prof.
-        let userData;
-        try {
-          // Essayer de récupérer comme un étudiant
-          userData = await apiFetch(`/admin/etudiant/${userId}`);
-          userData.role = 'etudiant';
-        } catch (error: any) {
-          if (error.message && error.message.includes('404')) {
-            // Si 404, ce n'est pas un étudiant, on essaie comme enseignant
-            userData = await apiFetch(`/admin/professeur/${userId}`);
-            userData.role = 'enseignant';
-          } else {
-            // Une autre erreur est survenue
-            throw error;
+        const endpoints = [
+          { url: `/dashboard/admin/etudiant/${userId}`, role: 'etudiant' },
+          { url: `/dashboard/admin/professeur/${userId}`, role: 'enseignant' }
+        ];
+  
+        let userData: any = null;
+  
+        for (const ep of endpoints) {
+          const data = await apiFetch(ep.url);
+          if (data.status === "error" && data.message.includes("introuvable")) {
+            continue; // passer au suivant
           }
+          userData = { ...data, role: ep.role };
+          break;
         }
+  
+        if (!userData) {
+          throw new Error("Utilisateur introuvable");
+        }
+  
         setUser(userData);
-
+  
       } catch (error: any) {
         toast({
           variant: "destructive",
           title: "Erreur de chargement",
           description: error.message || "Impossible de récupérer les informations de l'utilisateur."
         });
-        setUser(null); // Force l'affichage du message "non trouvé"
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
     }
-
+  
     fetchUserData();
   }, [userId, toast]);
-
+  
 
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = React.useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);

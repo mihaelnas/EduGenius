@@ -45,9 +45,9 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
             try {
                 let courseData: Course;
                 if (user.role === 'etudiant') {
-                    courseData = await apiFetch(`/etudiant/${user.id}/cours/${courseId}`);
+                    courseData = await apiFetch(`dashboard/etudiant/${user.id}/cours/${courseId}`);
                 } else { // enseignant ou admin
-                    courseData = await apiFetch(`/cours/${courseId}`);
+                    courseData = await apiFetch(`/dashboard/enseignant/cours/${courseId}`);
                     // Validation côté client pour plus de sécurité
                     if (user.role === 'enseignant' && courseData.id_enseignant !== user.id) {
                         throw new Error("Vous n'êtes pas autorisé à voir ce cours.");

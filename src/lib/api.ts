@@ -1,58 +1,88 @@
-
-// Ce fichier servira de client centralisé pour toutes les requêtes vers votre API FastAPI.
-
+// lib/api.ts
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 if (!API_BASE_URL) {
-  console.error("La variable d'environnement NEXT_PUBLIC_API_BASE_URL n'est pas définie.");
+  console.error(
+    "❌ Erreur: La variable d'environnement NEXT_PUBLIC_API_BASE_URL n'est pas définie."
+  );
 }
 
-/**
- * Une fonction fetch générique pour interagir avec votre API.
- * Elle inclut automatiquement les cookies pour gérer les sessions d'authentification HttpOnly.
- * @param endpoint - La route de l'API à appeler (ex: '/users', '/login').
- * @param options - Les options de la requête fetch (method, headers, body, etc.).
- * @returns La réponse JSON de l'API.
- */
-export async function apiFetch(endpoint: string, options: RequestInit = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
-  
-  const defaultHeaders: Record<string, string> = {
-    ...options.headers,
-  };
+// Normalize headers to a lowercase record (safer for checking content-type)
+function normalizeHeaders(input?: HeadersInit): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (!input) return result;
 
-  // Ne pas définir Content-Type si un FormData est utilisé, le navigateur le fera.
-  if (options.body instanceof FormData) {
-    delete defaultHeaders['Content-Type'];
-  } else if (!defaultHeaders['Content-Type'] && !(options.body instanceof URLSearchParams)) {
-    defaultHeaders['Content-Type'] = 'application/json';
+  if (input instanceof Headers) {
+    input.forEach((value, key) => {
+      result[key.toLowerCase()] = value;
+    });
+  } else if (Array.isArray(input)) {
+    input.forEach(([key, value]) => {
+      result[key.toLowerCase()] = value;
+    });
+  } else {
+    Object.entries(input).forEach(([k, v]) => {
+      result[k.toLowerCase()] = String(v);
+    });
   }
 
+  return result;
+}
+
+export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const headers = normalizeHeaders(options.headers);
+
+  const isFormData = options.body instanceof FormData;
+  const isUrlParams = options.body instanceof URLSearchParams;
+
+  // add content-type only when body is JSON and not explicitly set
+  if (!isFormData && !isUrlParams && !headers["content-type"]) {
+    headers["content-type"] = "application/json";
+  }
 
   try {
-    const response = await fetch(url, {
+    const res = await fetch(url, {
       ...options,
-      headers: defaultHeaders,
-      credentials: 'include', // Essentiel pour envoyer les cookies HttpOnly au backend
+      headers,
+      credentials: "include",
     });
 
-    if (!response.ok) {
-      // Tente de lire l'erreur depuis le corps de la réponse
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.detail || `Erreur API: ${response.status} ${response.statusText}`;
-      throw new Error(errorMessage);
+    if (res.status === 204) return null;
+
+    // try to parse json, fallback to text
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text || null;
     }
+
+    if (!res.ok) {
+      let message = `${res.status} ${res.statusText}`;
     
-    // Si la réponse n'a pas de contenu (ex: statut 204), on renvoie null
-    if (response.status === 204) {
-      return null;
+      if (data) {
+        if (typeof data.detail === "string") {
+          message = data.detail;
+        } 
+        else if (data.detail && typeof data.detail === "object") {
+          message = JSON.stringify(data.detail);
+        }
+        else if (data.message) {
+          message = data.message;
+        }
+      }
+    
+      const error: any = new Error(message);
+      error.status = res.status;
+      error.body = data;
+      throw error;
     }
 
-    return response.json();
-
-  } catch (error: any) {
-    console.error(`Erreur lors de l'appel à l'API (${endpoint}):`, error);
-    // Propage l'erreur pour que le composant appelant puisse la gérer
-    throw error;
+    return data;
+  } catch (err) {
+    // rethrow to be handled by caller
+    throw err;
   }
 }

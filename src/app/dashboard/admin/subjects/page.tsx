@@ -35,8 +35,8 @@ export default function AdminSubjectsPage() {
     setIsLoading(true);
     try {
       const [subjectsData, teachersData] = await Promise.all([
-        apiFetch('/admin/matieres'),
-        apiFetch('/admin/professeurs'),
+        apiFetch('/dashboard/admin/matieres'),
+        apiFetch('/dashboard/admin/professeurs'),
       ]);
       setSubjects(subjectsData || []);
       setAllTeachers(teachersData || []);
@@ -57,7 +57,7 @@ export default function AdminSubjectsPage() {
 
   const handleAdd = async (newSubject: Omit<Subject, 'id_matiere' | 'enseignant'>) => {
     try {
-      await apiFetch('/admin/matieres/ajouter', {
+      await apiFetch('/dashboard/admin/matieres/ajouter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSubject),
@@ -72,7 +72,7 @@ export default function AdminSubjectsPage() {
   const handleUpdate = async (updatedSubjectData: Omit<Subject, 'id_matiere' | 'enseignant'>) => {
     if (!selectedSubject) return;
     try {
-      await apiFetch(`/admin/matieres/${selectedSubject.id_matiere}`, {
+      await apiFetch(`/dashboard/admin/matieres/${selectedSubject.id_matiere}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedSubjectData),
@@ -105,9 +105,9 @@ export default function AdminSubjectsPage() {
 
     try {
         if (teacherId && teacherId !== currentTeacherId) {
-            await apiFetch(`/admin/matieres/assigner_enseignant/${subjectId}/${teacherId}`, { method: 'POST' });
+            await apiFetch(`/dashboard/admin/matieres/assigner_enseignant/${subjectId}/${teacherId}`, { method: 'POST' });
         } else if (!teacherId && currentTeacherId) {
-            await apiFetch(`/admin/matieres/retirer_enseignant/${subjectId}/${currentTeacherId}`, { method: 'DELETE' });
+            await apiFetch(`/dashboard/admin/matieres/retirer_enseignant/${subjectId}/${currentTeacherId}`, { method: 'DELETE' });
         }
         toast({ title: 'Assignation réussie', description: `L'enseignant pour la matière a été mis à jour.` });
         fetchData();
@@ -121,7 +121,7 @@ export default function AdminSubjectsPage() {
   const confirmDelete = async () => {
     if (selectedSubject) {
         try {
-            await apiFetch(`/admin/matieres/${selectedSubject.id_matiere}`, { method: 'DELETE' });
+            await apiFetch(`/dashboard/admin/matieres/${selectedSubject.id_matiere}`, { method: 'DELETE' });
             toast({ variant: 'destructive', title: 'Matière supprimée', description: `La matière "${selectedSubject.nom_matiere}" a été supprimée.` });
             fetchData();
         } catch(error: any) {

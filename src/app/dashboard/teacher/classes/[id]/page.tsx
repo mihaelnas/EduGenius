@@ -33,8 +33,8 @@ export default function TeacherClassDetailPage() {
         setIsLoading(true);
         try {
             const [classData, studentsData] = await Promise.all([
-                apiFetch(`/enseignant/${user.id}/classes/${classId}`),
-                apiFetch(`/enseignant/${user.id}/classes/${classId}/etudiants`)
+                apiFetch(`dashboard/enseignant/${user.id}/classes/${classId}`),
+                apiFetch(`dashboard/enseignant/${user.id}/classes/${classId}/etudiants`)
             ]);
             setCurrentClass(classData);
             setStudentsInClass(studentsData || []);

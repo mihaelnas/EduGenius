@@ -71,13 +71,32 @@ type AddUserDialogProps = {
     onUserAdded: (values: AddUserFormValues) => Promise<void>;
 }
 
+const studentDefaults = {
+  matricule: '',
+  niveau: undefined,
+  filiere: undefined,
+  date_naissance: '',
+  lieu_naissance: ''
+};
+
+const teacherDefaults = {
+  specialite: '',
+  email_professionnel: ''
+};
+
 const initialValues: Partial<AddUserFormValues> = {
   role: 'etudiant',
   prenom: '',
   nom: '',
   nom_utilisateur: '@',
   email: '',
-  mot_de_passe: ''
+  mot_de_passe: '',
+  photo_url: '',
+  genre: undefined,
+  telephone: '',
+  adresse: '',
+  ...studentDefaults,
+  ...teacherDefaults
 };
 
 export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogProps) {
@@ -159,19 +178,23 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
                         />
             
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="prenom" render={({ field }) => ( <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="Jean" {...field} onBlur={handlePrenomBlur} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={form.control} name="nom" render={({ field }) => ( <FormItem><FormLabel>Nom</FormLabel><FormControl><Input placeholder="DUPONT" {...field} onBlur={handleNomBlur} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name="prenom" render={({ field }) => ( <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="RAKOTO" {...field} onBlur={handlePrenomBlur} /></FormControl><FormMessage /></FormItem> )} />
+                            <FormField control={form.control} name="nom" render={({ field }) => ( <FormItem><FormLabel>Nom</FormLabel><FormControl><Input placeholder="RAJOHARISOA" {...field} onBlur={handleNomBlur} /></FormControl><FormMessage /></FormItem> )} />
                         </div>
                         
-                        <FormField control={form.control} name="nom_utilisateur" render={({ field }) => ( <FormItem><FormLabel>Nom d'utilisateur</FormLabel><FormControl><Input placeholder="@jeandupont" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="jean.dupont@exemple.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="nom_utilisateur" render={({ field }) => ( <FormItem><FormLabel>Nom d'utilisateur</FormLabel><FormControl><Input placeholder="@rakoto" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="rakoto@exemple.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="mot_de_passe" render={({ field }) => ( <FormItem><FormLabel>Mot de passe</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         
                         <hr className="my-4"/>
 
                         {role === 'etudiant' && (
                             <>
-                                <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="E123456" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="matricule" render={({ field }) => ( <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input placeholder="1814 H-F" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <div className="grid grid-cols-2 gap-4">
+                                  <FormField control={form.control} name="date_naissance" render={({ field }) => ( <FormItem><FormLabel>Date de naissance</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                  <FormField control={form.control} name="lieu_naissance" render={({ field }) => ( <FormItem><FormLabel>Lieu de naissance</FormLabel><FormControl><Input placeholder="Paris" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                </div>
                                 <div className="grid grid-cols-2 gap-4">
                                 <FormField control={form.control} name="niveau" render={({ field }) => ( <FormItem><FormLabel>Niveau</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['L1', 'L2', 'L3', 'M1', 'M2'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name="filiere" render={({ field }) => ( <FormItem><FormLabel>Filière</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{['IG', 'GB', 'ASR', 'GID', 'OCC'].map(v=><SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
@@ -182,7 +205,7 @@ export function AddUserDialog({ isOpen, setIsOpen, onUserAdded }: AddUserDialogP
                         {role === 'enseignant' && (
                             <>
                                 <FormField control={form.control} name="specialite" render={({ field }) => ( <FormItem><FormLabel>Spécialité</FormLabel><FormControl><Input placeholder="Mathématiques" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name="email_professionnel" render={({ field }) => ( <FormItem><FormLabel>Email Professionnel</FormLabel><FormControl><Input type="email" placeholder="jean.dupont@univ.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name="email_professionnel" render={({ field }) => ( <FormItem><FormLabel>Email Professionnel</FormLabel><FormControl><Input type="email" placeholder="rakoto@univ.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
                             </>
                         )}
 
